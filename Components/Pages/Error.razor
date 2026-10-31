@@ -1,0 +1,33 @@
+@page "/Error"
+@using System.Diagnostics
+
+@* 非開發環境發生未處理例外時，Program.cs 的 UseExceptionHandler("/Error") 會導向這裡 *@
+
+<PageTitle>QUANT STACK | 發生錯誤</PageTitle>
+
+<h1 class="text-danger">發生錯誤</h1>
+<h2 class="text-danger">處理您的請求時發生未預期的錯誤。</h2>
+
+@if (ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> <code>@RequestId</code>
+    </p>
+}
+
+<p>
+    若要查看詳細錯誤訊息，請以 <strong>Development</strong> 環境執行
+    (設定環境變數 <code>ASPNETCORE_ENVIRONMENT=Development</code> 後重新啟動)。
+</p>
+
+@code {
+    // 只有在伺服器端 (非互動) 轉譯時才有值
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

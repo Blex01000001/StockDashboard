@@ -28,16 +28,17 @@ dotnet run --launch-profile http   # 監聽 http://localhost:8888
 ```
 Program.cs                  DI 註冊、HTTP 管線、啟動後自動開瀏覽器
 Components/
-  App.razor                 HTML 外殼；載入 bootstrap、app.css、ECharts CDN
+  App.razor                 HTML 外殼；載入 bootstrap、app.css、scoped CSS 打包檔、ECharts CDN
   Routes.razor              路由；預設 Layout = MainLayout
   Layout/
-    MainLayout.razor        整體版面 + 全域 CSS 變數 (:root) + 側邊欄樣式（寫在 <style> 內）
+    MainLayout.razor        整體版面（側邊欄 + 主內容區）
     NavMenu.razor           可收合側邊欄（4 個頁面連結）
-  Pages/                    每頁 = .razor (標記+樣式) + .razor.cs (code-behind) + .razor.js (ECharts 繪圖，可選)
+  Pages/                    每頁 = .razor (標記) + .razor.cs (程式) + .razor.css (樣式) + .razor.js (ECharts 繪圖，可選)
     StockQuery              /stock-query   查詢單檔股票在 DB 中最新一筆日線
     StockChart              /stock-chart   K 線圖（最近 220 個交易日）
     StockUpdate             /stock-update  從 TWSE API 逐月同步 / 手動新增單筆
     StockCompare            /stock-compare 多檔股票 N 日滾動報酬率比較
+    Error                   /Error         非開發環境的未處理例外頁面
 Services/                   商業邏輯 / 外部 API
   StockPerformanceService   計算多檔滾動報酬率 → CompareChartResult
   TwseApiClient             呼叫 TWSE STOCK_DAY API 並清洗資料（民國轉西元、去千分號）
@@ -95,18 +96,28 @@ CREATE TABLE StockDailyPrice (
 );
 ```
 
-## 樣式（CSS）注意事項 —— 目前「不要更動」
+## 樣式（CSS）
 
-- 使用者要求：**版面樣式暫不更動**（顏色、字型、padding、margin、border 等）。
-- 各頁的 CSS 寫在 `.razor` 檔底部的 `<style>` 區塊內，這些是**全域樣式**（不是 scoped CSS），各頁重複定義了 `.dashboard-panel`、`.action-btn`、`.dark-input` 等。
-- 串接順序有隱性依賴：頁面 `<style>` 在 DOM 中位於 `MainLayout` 的 `<style>` **之前**，所以 MainLayout 的 `:root` 變數會覆蓋 StockCompare 頁定義的同名變數（例如 `--border-color`）。若把樣式搬到 `app.css` 或 `.razor.css`，**畫面會改變**，需一併處理。
-- `wwwroot/app.css`、`MainLayout.razor.css`、`NavMenu.razor.css` 大部分是專案範本殘留（`.page`、`.top-row`、`.navbar-toggler`…），但 NavMenu.razor.css 的部分規則仍會作用於側邊欄，刪除前要逐一確認。
+- 使用者要求：**版面樣式暫不更動**（顏色、字型、padding、margin、border 等）。重構 CSS 時必須確認畫面完全一致。
+- 樣式檔分工：
+  | 檔案 | 作用範圍 | 內容 |
+  |---|---|---|
+  | `wwwroot/app.css` | 全域 | `:root` 顏色變數、`body`、版面 (`.app-layout`、`.main-content`) 與側邊欄 (`.sidebar-*`、`.nav-link`…) |
+  | `Components/Layout/NavMenu.razor.css` | NavMenu (scoped) | 側邊欄連結的高度、圓角、hover / active 底色。權重高於 app.css 的 `.nav-link`，**實際生效的是這裡** |
+  | `Components/Pages/*.razor.css` | 各頁 (scoped) | 每頁自己的面板、輸入框、按鈕、表格樣式 |
+- Scoped CSS 會自動在選擇器後加上 `[b-xxxx]` 屬性，只作用於該元件自己的標記；要選到子元件（例如 `NavLink` 產生的 `<a>`）必須用 `::deep`。
+- Scoped CSS **不能用 `:root`**（會變成 `:root[b-xxxx]` 而失效）。頁面專屬的 CSS 變數請定義在該頁最外層元素上（參考 `StockCompare.razor.css` 的 `.dashboard-panel`）。
+- ⚠️ 各頁重複定義了 `.dashboard-panel`、`.action-btn`、`.dark-input` 等同名 class，但內容不完全相同（StockCompare 是另一套設計）。StockQuery 與 StockChart 的樣式幾乎一模一樣。
+- ⚠️ **StockUpdate 頁目前沒有 `.dashboard-panel`、`.dark-input`、`.action-btn`、`.search-box-container` 的樣式**（輸入框是白底、按鈕是瀏覽器預設樣式）。這是重構前就存在的狀況：當時它依賴其他頁面的 `<style>`，但同一時間只有目前頁面的 `<style>` 存在。
+- Scoped CSS 會打包成 `StockDashboard.styles.css`（`App.razor` 已引用）。`dotnet run` (Development) 與 `dotnet publish` 都會正確提供；直接以 Production 模式執行 `bin/` 底下的 dll 則不會。
+
+### 修改樣式後的驗證方式
+用 Playwright 擷取各頁各狀態（初始、查詢結果、錯誤訊息、focus、hover、側邊欄收合）所有元素的 `getComputedStyle` 與截圖，與修改前比對。
 
 ## 已知問題 / 未完成
 
 - `StockPriceService`（還原股價）`ApplyDividendAdjustment` 尚未實作，依賴的 `IStockDividendRepository` 也沒有實作類別。
 - `StockList` / `StockDividend` / `StockCorporateAction` 的 Entity 與 Repository 是空殼。
-- 非開發環境使用 `UseExceptionHandler("/Error")`，但專案中沒有 `/Error` 頁面。
 - 滾動報酬率以「所有股票聯集後的時間軸」位移 N 格計算，若比較的股票交易日不同（例如停牌），N 日的意義會略有偏差。
 - 沒有自動化測試專案。
 - ECharts 走 CDN，離線時圖表無法顯示。

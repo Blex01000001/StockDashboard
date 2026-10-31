@@ -1,0 +1,82 @@
+.update-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 20px;
+}
+
+.card-box {
+    background-color: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 20px;
+}
+
+.card-title {
+    margin-top: 0;
+    margin-bottom: 16px;
+    font-size: 1rem;
+    color: #ffffff;
+    border-left: 3px solid var(--accent-color);
+    padding-left: 8px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+    .form-group label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.w-100 {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.mt-10 {
+    margin-top: 10px;
+}
+
+.description {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.code-tag {
+    background-color: #232733;
+    color: #ff79c6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.status-box {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+    .status-box.success {
+        background-color: #1e2d24;
+        border: 1px solid #26a69a;
+        color: #26a69a;
+    }
+
+    .status-box.error {
+        background-color: #2d1e22;
+        border: 1px solid #ef5350;
+        color: #ef5350;
+    }

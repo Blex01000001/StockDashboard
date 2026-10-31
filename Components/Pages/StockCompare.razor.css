@@ -1,0 +1,181 @@
+/*
+ * 本頁專用的顏色變數，定義在頁面最外層 .dashboard-panel 上，只作用於本頁。
+ * (scoped CSS 無法使用 :root；--border-color 與 --accent-color 沿用 app.css 的全域值)
+ */
+
+/* 面板外殼 */
+.dashboard-panel {
+    --bg-surface: #1e222d;
+    --bg-input: #2a2e39;
+    --text-primary: #f0f3fa;
+    --text-secondary: #b2b5be;
+    --accent-hover: #1e4bd6;
+    --danger-color: #ff4a4a;
+    --danger-bg: rgba(255, 74, 74, 0.1);
+    background-color: #131722;
+    padding: 10px;
+    border-radius: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-primary);
+}
+
+/* 標題區：修改為靠左對齊的 Flex 佈局，並設定置中對齊與間距 */
+.panel-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px; /* 主副標題之間的間距 */
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.panel-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 副標題：確保文字靠左，並微調微升高度以視覺對齊主標題 */
+.panel-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    text-align: left;
+    margin-top: 4px;
+}
+
+/* 頂部搜尋欄 RWD 佈局 */
+.search-box-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: center;
+    background-color: var(--bg-surface);
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 24px;
+}
+
+/* 輸入群組 */
+.search-input-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 280px;
+}
+
+    .search-input-group:nth-child(2) {
+        flex: 0 1 240px;
+        min-width: 200px;
+    }
+
+.input-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* 輸入框本體 */
+.input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.dark-input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+    .dark-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.2);
+    }
+
+    .dark-input::placeholder {
+        color: #636670;
+    }
+
+.select-custom {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23b2b5be' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    padding-right: 32px;
+}
+
+/* 按鈕樣式優化 */
+.search-action-group {
+    min-width: 140px;
+}
+
+.action-btn {
+    width: 100%;
+    background-color: var(--accent-color);
+    color: #ffffff;
+    border: none;
+    padding: 7px 20px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background-color 0.2s;
+}
+
+    .action-btn:hover {
+        background-color: var(--accent-hover);
+    }
+
+/* 警告提示區 */
+.alert-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--danger-bg);
+    border: 1px solid var(--danger-color);
+    color: #ff6b6b;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+}
+
+/* 圖表外殼與容器 */
+.chart-wrapper {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.chart-container {
+    width: 100%;
+    height: 550px;
+    background-color: #1e222d;
+    border-radius: 6px;
+}
