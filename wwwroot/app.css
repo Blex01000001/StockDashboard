@@ -173,3 +173,99 @@ body {
     max-width: 1400px;
     margin: 0 auto;
 }
+
+/* ===== 標準儀表板面板 =====
+ * 套用方式：頁面最外層 <div class="dashboard-panel panel-standard">
+ * 目前用於：StockQuery、StockChart、StockUpdate
+ * (StockCompare 是另一套設計，不加 panel-standard，樣式寫在 StockCompare.razor.css)
+ */
+
+.panel-standard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 24px;
+}
+
+.panel-standard .panel-header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.panel-standard .panel-title {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.panel-standard .panel-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* 搜尋列 (輸入框左側有放大鏡圖示，所以 padding-left 較大) */
+.panel-standard .search-box-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.panel-standard .search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.panel-standard .search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.panel-standard .dark-input {
+    background-color: var(--bg-main);
+    border: 1px solid var(--border-color);
+    color: #ffffff;
+    padding: 10px 10px 10px 36px;
+    border-radius: 4px;
+    width: 220px;
+    font-size: 0.9rem;
+}
+
+    .panel-standard .dark-input:focus {
+        border-color: var(--accent-color);
+        outline: none;
+    }
+
+.panel-standard .action-btn {
+    background-color: var(--accent-color);
+    color: #ffffff;
+    border: none;
+    padding: 0 20px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+    .panel-standard .action-btn:hover {
+        background-color: #1a4cd6;
+    }
+
+    .panel-standard .action-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+/* 錯誤 / 警告訊息 */
+.panel-standard .alert-box {
+    background-color: #2d1e22;
+    border: 1px solid #ff4a5a;
+    color: #ff4a5a;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}

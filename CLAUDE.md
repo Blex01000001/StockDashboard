@@ -102,13 +102,14 @@ CREATE TABLE StockDailyPrice (
 - 樣式檔分工：
   | 檔案 | 作用範圍 | 內容 |
   |---|---|---|
-  | `wwwroot/app.css` | 全域 | `:root` 顏色變數、`body`、版面 (`.app-layout`、`.main-content`) 與側邊欄 (`.sidebar-*`、`.nav-link`…) |
+  | `wwwroot/app.css` | 全域 | `:root` 顏色變數、`body`、版面與側邊欄、共用面板 `.panel-standard` |
   | `Components/Layout/NavMenu.razor.css` | NavMenu (scoped) | 側邊欄連結的高度、圓角、hover / active 底色。權重高於 app.css 的 `.nav-link`，**實際生效的是這裡** |
   | `Components/Pages/*.razor.css` | 各頁 (scoped) | 每頁自己的面板、輸入框、按鈕、表格樣式 |
 - Scoped CSS 會自動在選擇器後加上 `[b-xxxx]` 屬性，只作用於該元件自己的標記；要選到子元件（例如 `NavLink` 產生的 `<a>`）必須用 `::deep`。
 - Scoped CSS **不能用 `:root`**（會變成 `:root[b-xxxx]` 而失效）。頁面專屬的 CSS 變數請定義在該頁最外層元素上（參考 `StockCompare.razor.css` 的 `.dashboard-panel`）。
-- ⚠️ 各頁重複定義了 `.dashboard-panel`、`.action-btn`、`.dark-input` 等同名 class，但內容不完全相同（StockCompare 是另一套設計）。StockQuery 與 StockChart 的樣式幾乎一模一樣。
-- ⚠️ **StockUpdate 頁目前沒有 `.dashboard-panel`、`.dark-input`、`.action-btn`、`.search-box-container` 的樣式**（輸入框是白底、按鈕是瀏覽器預設樣式）。這是重構前就存在的狀況：當時它依賴其他頁面的 `<style>`，但同一時間只有目前頁面的 `<style>` 存在。
+- **共用面板樣式**：StockQuery / StockChart / StockUpdate 最外層是 `<div class="dashboard-panel panel-standard">`，共用 `app.css` 中 `.panel-standard ...` 開頭的規則（面板、標題、搜尋列、`.dark-input`、`.action-btn`、`.alert-box`）。新頁面若要同樣外觀，加上 `panel-standard` 即可。
+- StockCompare **不使用** `panel-standard`，它的 `.dashboard-panel`、`.dark-input` 等是另一套設計，全部寫在 `StockCompare.razor.css`。
+- 頁面若需微調共用樣式，寫在該頁 `.razor.css`（scoped 權重較高會覆蓋），例如 StockUpdate 的輸入框不需要放大鏡的左側 padding。
 - Scoped CSS 會打包成 `StockDashboard.styles.css`（`App.razor` 已引用）。`dotnet run` (Development) 與 `dotnet publish` 都會正確提供；直接以 Production 模式執行 `bin/` 底下的 dll 則不會。
 
 ### 修改樣式後的驗證方式

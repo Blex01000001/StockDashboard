@@ -80,3 +80,28 @@
         border: 1px solid #ef5350;
         color: #ef5350;
     }
+
+/*
+ * 本頁的輸入框沒有放大鏡圖示，且需撐滿欄寬，因此覆寫 app.css 中 .panel-standard .dark-input 的 padding 與寬度
+ * (scoped CSS 會多一個 [b-xxx] 屬性，權重較高，所以這裡的規則會生效)
+ */
+.card-box .dark-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    color-scheme: dark; /* 讓下拉選單、數字輸入框的微調按鈕也使用深色外觀 */
+}
+
+.card-box .search-box-container {
+    margin-bottom: 0;
+}
+
+    .card-box .search-box-container .action-btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+/* 「儲存至 SQLite」按鈕不在 flex 容器內，需要自己的上下 padding */
+.card-box .action-btn.w-100 {
+    padding: 10px 20px;
+}
