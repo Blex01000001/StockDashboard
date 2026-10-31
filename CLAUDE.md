@@ -1,0 +1,112 @@
+# CLAUDE.md
+
+這份文件給 Claude Code（以及未來的自己）快速了解本專案用。**回答與註解一律使用繁體中文。**
+
+## 專案簡介
+
+台灣股票報酬可視化工具（個人專案）。從證交所 (TWSE) 公開 API 抓取個股日線資料存入本機 SQLite，再以 ECharts 繪製 K 線圖與多檔股票滾動報酬率比較圖。
+
+- 技術棧：.NET 8 / Blazor Web App（**Interactive Server** 模式，所有 C# 都跑在伺服器端，透過 SignalR 更新畫面）
+- 資料庫：SQLite + Dapper（無 EF Core）
+- 圖表：ECharts 5.4.3（CDN 全域載入，於 `Components/App.razor`）
+
+## 啟動方式
+
+```bash
+# 1. 準備設定檔（appsettings.json 被 .gitignore 排除，不會進版控）
+cp appsettings.Example.json appsettings.json
+# 2. 修改 DefaultConnection 指向你的 stock.db
+dotnet run --launch-profile http   # 監聽 http://localhost:8888
+```
+
+- 啟動後會自動以預設瀏覽器開啟 `http://localhost:8888/stock-query`（可用 `StartupUrl` 設定覆寫；無桌面環境時只記錄警告不會崩潰）。
+- `*.db` 也被 `.gitignore` 排除。資料庫結構需自行建立（見下方 Schema）。
+- 驗證修改：`dotnet build` 必須 0 error（目前也是 0 warning，請維持）。
+
+## 目錄結構與職責
+
+```
+Program.cs                  DI 註冊、HTTP 管線、啟動後自動開瀏覽器
+Components/
+  App.razor                 HTML 外殼；載入 bootstrap、app.css、ECharts CDN
+  Routes.razor              路由；預設 Layout = MainLayout
+  Layout/
+    MainLayout.razor        整體版面 + 全域 CSS 變數 (:root) + 側邊欄樣式（寫在 <style> 內）
+    NavMenu.razor           可收合側邊欄（4 個頁面連結）
+  Pages/                    每頁 = .razor (標記+樣式) + .razor.cs (code-behind) + .razor.js (ECharts 繪圖，可選)
+    StockQuery              /stock-query   查詢單檔股票在 DB 中最新一筆日線
+    StockChart              /stock-chart   K 線圖（最近 220 個交易日）
+    StockUpdate             /stock-update  從 TWSE API 逐月同步 / 手動新增單筆
+    StockCompare            /stock-compare 多檔股票 N 日滾動報酬率比較
+Services/                   商業邏輯 / 外部 API
+  StockPerformanceService   計算多檔滾動報酬率 → CompareChartResult
+  TwseApiClient             呼叫 TWSE STOCK_DAY API 並清洗資料（民國轉西元、去千分號）
+  StockPriceService         ⚠️ 未完成：還原股價（除權息調整），尚未註冊到 DI
+Repositories/
+  Interfaces/ + Implements/ StockPriceRepository 是唯一可用的 Repository；
+                            StockList / StockDividend / StockCorporateAction 只有介面與空類別（規劃中）
+Models/
+  Entities/                 對應資料表的實體（StockDailyPriceEntity 完整；其餘為空殼）
+  StockDataPoint            K 線圖資料點
+  StockSeries / CompareChartResult  比較圖的輸出 DTO
+  TwseStockDayResponse      TWSE API 回應格式
+  StockCombinationDto       ⚠️ 目前沒有被使用（規劃中的「股票組合」功能）
+```
+
+## 分層原則（重要）
+
+```
+Razor 頁面 (.razor.cs)  →  Service  →  Repository  →  SQLite
+                         ↘  TwseApiClient → 證交所 API
+```
+
+- **頁面不可以直接寫 SQL 或 new SqliteConnection**，一律透過 `IStockPriceRepository`。
+- **連線字串只有一個來源**：`appsettings.json` 的 `ConnectionStrings:DefaultConnection`（由 Repository 讀取）。不要再把路徑寫死在程式裡。
+- 新增 Service / Repository 時記得到 `Program.cs` 註冊（目前都是 `AddScoped`；HttpClient 用 `AddHttpClient<介面, 實作>()`）。
+- 頁面用 `[Inject]` 屬性注入（寫在 .razor.cs），不在 .razor 用 `@inject`。
+
+## 資料流
+
+1. **資料同步（StockUpdate）**
+   使用者選擇月份數 → 由本月往回逐月呼叫 `TwseApiClient.GetMonthlyPricesAsync`（每次間隔 2.5 秒防封鎖；連續 3 個月無資料即中斷）→ 全部收集完 → `StockPriceRepository.UpsertPricesAsync`（`INSERT OR REPLACE`，包在單一交易中）。
+2. **K 線圖（StockChart）**
+   `GetLatestCandlesAsync(stockId, 220)` → `List<StockDataPoint>` → JS interop 呼叫 `StockChart.razor.js` 的 `renderStockChart`（C# 屬性會自動轉成 camelCase）。
+3. **多檔比較（StockCompare）**
+   `StockPerformanceService.GetCompareChartDataAsync` → Repository 撈 660 天內所有指定股票 → 建立所有股票「聯集」的日期時間軸 → 每檔計算 `(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，缺資料的點為 `null` → `CompareChartResult` → `StockCompare.razor.js` 畫多線圖。
+4. **股價查詢（StockQuery）**
+   `GetLatestPriceAsync(stockId)` → 顯示最新收盤價、成交股數、最新交易日。
+
+## 資料庫 Schema（由程式碼推斷）
+
+```sql
+CREATE TABLE StockDailyPrice (
+    StockId     TEXT NOT NULL,
+    TradeDate   TEXT NOT NULL,      -- 'yyyy-MM-dd'，以字串比較大小，格式必須一致
+    Volume      INTEGER,            -- 成交股數
+    Amount      INTEGER,            -- 成交金額
+    OpenPrice   REAL,
+    HighPrice   REAL,
+    LowPrice    REAL,
+    ClosePrice  REAL,
+    PriceChange REAL,               -- 漲跌價差
+    TradeCount  INTEGER,            -- 成交筆數
+    Note        TEXT,
+    PRIMARY KEY (StockId, TradeDate)
+);
+```
+
+## 樣式（CSS）注意事項 —— 目前「不要更動」
+
+- 使用者要求：**版面樣式暫不更動**（顏色、字型、padding、margin、border 等）。
+- 各頁的 CSS 寫在 `.razor` 檔底部的 `<style>` 區塊內，這些是**全域樣式**（不是 scoped CSS），各頁重複定義了 `.dashboard-panel`、`.action-btn`、`.dark-input` 等。
+- 串接順序有隱性依賴：頁面 `<style>` 在 DOM 中位於 `MainLayout` 的 `<style>` **之前**，所以 MainLayout 的 `:root` 變數會覆蓋 StockCompare 頁定義的同名變數（例如 `--border-color`）。若把樣式搬到 `app.css` 或 `.razor.css`，**畫面會改變**，需一併處理。
+- `wwwroot/app.css`、`MainLayout.razor.css`、`NavMenu.razor.css` 大部分是專案範本殘留（`.page`、`.top-row`、`.navbar-toggler`…），但 NavMenu.razor.css 的部分規則仍會作用於側邊欄，刪除前要逐一確認。
+
+## 已知問題 / 未完成
+
+- `StockPriceService`（還原股價）`ApplyDividendAdjustment` 尚未實作，依賴的 `IStockDividendRepository` 也沒有實作類別。
+- `StockList` / `StockDividend` / `StockCorporateAction` 的 Entity 與 Repository 是空殼。
+- 非開發環境使用 `UseExceptionHandler("/Error")`，但專案中沒有 `/Error` 頁面。
+- 滾動報酬率以「所有股票聯集後的時間軸」位移 N 格計算，若比較的股票交易日不同（例如停牌），N 日的意義會略有偏差。
+- 沒有自動化測試專案。
+- ECharts 走 CDN，離線時圖表無法顯示。

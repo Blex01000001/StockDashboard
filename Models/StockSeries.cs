@@ -4,7 +4,7 @@
     {
         public string Name { get; set; } = string.Empty; // 股票代號
 
-        // ✨ 修正此處：改為 object，這樣 C# 的 null 轉成 JSON 時才會變成 JS 的 null
-        public List<object> Data { get; set; } = new();
+        // 每個時間點的報酬率 (%)；該日無資料時為 null，序列化成 JSON 後即為 JS 的 null，ECharts 會在該點斷線
+        public List<double?> Data { get; set; } = new();
     }
 }

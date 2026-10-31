@@ -4,7 +4,8 @@ export function renderCompareChart(containerId, chartData) {
     const chartDom = document.getElementById(containerId);
     if (!chartDom) return;
 
-    const myChart = echarts.init(chartDom);
+    // 重複點擊「開始比較」時沿用同一個圖表實例，避免重複 init 造成 ECharts 警告與記憶體浪費
+    const myChart = echarts.getInstanceByDom(chartDom) || echarts.init(chartDom);
 
     // 準備 ECharts 的 series 陣列
     // C# 傳來的結構：chartData.timeline (X軸), chartData.seriesData (各股數組)

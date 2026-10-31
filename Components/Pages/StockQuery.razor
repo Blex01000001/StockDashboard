@@ -33,9 +33,10 @@
                 </thead>
                 <tbody>
                     <tr><td>股票代號</td><td class="highlight-text">@StockResult.StockId</td></tr>
-                    <tr><td>商品名稱</td><td>@StockResult.StockName</td></tr>
-                    <tr><td>最新收盤價</td><td class="price-up">$ @StockResult.ClosePrice.ToString("N2")</td></tr>
-                    <tr><td>本機最後同步時間</td><td class="time-text">@StockResult.LastUpdated.ToString("yyyy-MM-dd HH:mm:ss")</td></tr>
+                    @* TODO: 待 StockList 資料表完成後，在此補上「商品名稱」 *@
+                    <tr><td>最新收盤價</td><td class="price-up">$ @(StockResult.ClosePrice?.ToString("N2") ?? "-")</td></tr>
+                    <tr><td>成交股數</td><td>@(StockResult.Volume?.ToString("N0") ?? "-")</td></tr>
+                    <tr><td>本機最新交易日</td><td class="time-text">@StockResult.TradeDate</td></tr>
                 </tbody>
             </table>
         </div>

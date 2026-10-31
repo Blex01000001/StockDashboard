@@ -13,11 +13,14 @@ namespace StockDashboard.Services
             _priceRepository = priceRepository;
         }
 
-        public async Task<CompareChartResult> GetCompareChartDataAsync(List<string> stockIds, int days, int rangeDay)
+        /// <param name="stockIds">要比較的股票代號</param>
+        /// <param name="days">報酬區間：往前比較幾個「交易日」(以所有股票聯集後的時間軸計算)</param>
+        /// <param name="rangeDay">從資料庫撈取的日曆天數範圍</param>
+        public async Task<CompareChartResult> GetCompareChartDataAsync(List<string> stockIds, int days, int rangeDay = 660)
         {
             var result = new CompareChartResult();
 
-            // 設定撈取區間：安全起見撈取過去一年 (365天) 的資料作為基準
+            // 設定撈取區間：從今天往回 rangeDay 個日曆天
             string startDate = DateTime.Today.AddDays(-rangeDay).ToString("yyyy-MM-dd");
             string endDate = DateTime.Today.ToString("yyyy-MM-dd");
 
@@ -33,18 +36,18 @@ namespace StockDashboard.Services
 
             var grouped = rawRowsList.GroupBy(r => r.StockId);
 
-            // 2. 核心運算：計算滾動報酬率 (與原本邏輯完全一致，只是變數改為強型別 Entity)
+            // 2. 核心運算：計算滾動報酬率 = (今日收盤 - N 個交易日前收盤) / N 個交易日前收盤 × 100
             foreach (var group in grouped)
             {
                 string currentStockId = group.Key;
                 var priceDict = group.ToDictionary(r => r.TradeDate, r => r.ClosePrice);
-                var returnRatesSeries = new List<object>();
+                var returnRatesSeries = new List<double?>();
 
                 for (int i = 0; i < allTimelineDates.Count; i++)
                 {
                     string currentDate = allTimelineDates[i];
 
-                    if (!priceDict.TryGetValue(currentDate, out double? currentPrice)) // 引數 2: 無法從 'out double' 轉換成 'out double?'
+                    if (!priceDict.TryGetValue(currentDate, out double? currentPrice) || currentPrice == null)
                     {
                         returnRatesSeries.Add(null);
                         continue;
@@ -60,7 +63,7 @@ namespace StockDashboard.Services
 
                     string compareDate = allTimelineDates[targetIndex];
 
-                    if (priceDict.TryGetValue(compareDate, out double? comparePrice) && comparePrice > 0) // 引數 2: 無法從 'out double' 轉換成 'out double?'
+                    if (priceDict.TryGetValue(compareDate, out double? comparePrice) && comparePrice > 0)
                     {
                         double rate = ((currentPrice.Value - comparePrice.Value) / comparePrice.Value) * 100;
                         returnRatesSeries.Add(Math.Round(rate, 2));

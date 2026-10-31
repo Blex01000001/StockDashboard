@@ -4,15 +4,13 @@ export function renderStockChart(containerId, stockId, data) {
     const chartDom = document.getElementById(containerId);
     if (!chartDom) return;
 
-    // 初始化 ECharts (確保你的專案有載入 ECharts 庫)
-    const myChart = echarts.init(chartDom);
+    // ECharts 由 App.razor 的 <script> 全域載入；重複繪製時沿用同一個圖表實例
+    const myChart = echarts.getInstanceByDom(chartDom) || echarts.init(chartDom);
 
     const dates = data.map(item => item.date);
 
     // 注意：C# 傳過來的屬性開頭通常會變成小寫 (camelCase)
     const kValues = data.map(item => [item.open, item.close, item.low, item.high]);
-
-    // StockChart.razor.js 的完整配置優化
 
     const option = {
         title: {

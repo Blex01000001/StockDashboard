@@ -1,11 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
-using Microsoft.Data.Sqlite;
 using Microsoft.JSInterop;
-using Dapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using StockDashboard.Services;
 
 namespace StockDashboard.Components.Pages
@@ -64,11 +58,8 @@ namespace StockDashboard.Components.Pages
                 Message = string.Empty;
 
                 // 3. 呼叫專屬 JavaScript 渲染多線圖
-                if (_jsModule == null)
-                {
-                    _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
-                        "import", "./Components/Pages/StockCompare.razor.js");
-                }
+                _jsModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>(
+                    "import", "./Components/Pages/StockCompare.razor.js");
 
                 await _jsModule.InvokeVoidAsync("renderCompareChart", "compare-chart-container", chartData);
             }
@@ -86,7 +77,14 @@ namespace StockDashboard.Components.Pages
         {
             if (_jsModule != null)
             {
-                await _jsModule.DisposeAsync();
+                try
+                {
+                    await _jsModule.DisposeAsync();
+                }
+                catch (JSDisconnectedException)
+                {
+                    // 使用者直接關閉分頁時，SignalR 連線已中斷，JS 端物件已不存在，忽略即可
+                }
             }
         }
     }

@@ -1,40 +1,43 @@
 ﻿using Microsoft.AspNetCore.Components;
+using StockDashboard.Models.Entities;
+using StockDashboard.Repositories.Interfaces;
 
 namespace StockDashboard.Components.Pages
 {
     public partial class StockQuery : ComponentBase
     {
+        [Inject] private IStockPriceRepository PriceRepository { get; set; } = default!;
+
         protected string TargetStockId { get; set; } = "";
         protected string Message { get; set; } = "";
-        protected StockInfo StockResult { get; set; }
 
-        protected void SearchStock()
+        // 查詢結果：資料庫中該股票「最新一筆」日線資料；null 代表尚未查詢或查無資料
+        protected StockDailyPriceEntity? StockResult { get; set; }
+
+        protected async Task SearchStock()
         {
             Message = "";
             StockResult = null;
 
-            if (TargetStockId == "2330")
+            if (string.IsNullOrWhiteSpace(TargetStockId))
             {
-                StockResult = new StockInfo
-                {
-                    StockId = "2330",
-                    StockName = "台積電",
-                    ClosePrice = 950.00,
-                    LastUpdated = DateTime.Now
-                };
+                Message = "請輸入股票代號";
+                return;
             }
-            else
+
+            try
             {
-                Message = "找不到資料";
+                StockResult = await PriceRepository.GetLatestPriceAsync(TargetStockId.Trim());
+
+                if (StockResult == null)
+                {
+                    Message = "找不到資料，請先至「API 資料更新」頁面同步該股票。";
+                }
+            }
+            catch (Exception ex)
+            {
+                Message = $"資料庫讀取失敗: {ex.Message}";
             }
         }
-    }
-
-    public class StockInfo
-    {
-        public string StockId { get; set; }
-        public string StockName { get; set; }
-        public double ClosePrice { get; set; }
-        public DateTime LastUpdated { get; set; }
     }
 }
