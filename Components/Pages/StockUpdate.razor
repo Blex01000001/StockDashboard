@@ -28,7 +28,7 @@
             <div class="form-group">
                 <label>指定股票代號</label>
                 <div class="search-box-container">
-                    <input type="text" @bind="BatchStockId" placeholder="例如: 2330" class="dark-input" />
+                    <input type="text" @bind="BatchStockId" placeholder="例如: 2330" class="dark-input" list="stock-id-options" />
                     <button @onclick="SyncFromApi" class="action-btn" disabled="@IsProcessing">⚡ 執行 API 同步</button>
                 </div>
             </div>
@@ -44,7 +44,7 @@
             <h3 class="card-title">📝 單筆數據維護 (INSERT / UPDATE)</h3>
             <div class="form-group">
                 <label>股票代號</label>
-                <input type="text" @bind="InputPrice.StockId" placeholder="例如: 2330" class="dark-input w-100" />
+                <input type="text" @bind="InputPrice.StockId" placeholder="例如: 2330" class="dark-input w-100" list="stock-id-options" />
             </div>
             <div class="form-group">
                 <label>交易日期</label>
@@ -85,5 +85,33 @@
             </button>
         </div>
 
+        <div class="card-box card-wide">
+            <h3 class="card-title">📋 股票清單同步</h3>
+            <p class="description">
+                從證交所 OpenAPI 下載所有上市股票與 ETF 的代號、名稱，存入 <code class="code-tag">StockList</code>。
+                同步後，查詢頁會顯示股票名稱、圖表會顯示「代號 名稱」，輸入股票代號時也會出現自動完成選單。
+            </p>
+
+            <div class="list-sync-row">
+                <span class="description list-summary">
+                    目前清單：<b>@StockListCount</b> 檔
+                    @if (StockListUpdatedAt != null)
+                    {
+                        <span>（最後更新：@StockListUpdatedAt）</span>
+                    }
+                </span>
+                <button @onclick="SyncStockList" class="action-btn" disabled="@IsSyncingList">🔄 更新股票清單</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ListStatusMessage))
+            {
+                <div class="status-box @(ListIsError ? "error" : "success")">
+                    @ListStatusMessage
+                </div>
+            }
+        </div>
+
     </div>
+
+    <StockIdDataList Id="stock-id-options" @ref="_stockIdDataList" />
 </div>

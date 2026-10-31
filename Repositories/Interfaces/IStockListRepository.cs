@@ -4,10 +4,19 @@ namespace StockDashboard.Repositories.Interfaces
 {
     public interface IStockListRepository
     {
-        // 取得所有上市上櫃公司清單 (通常用於下拉選單或全域快取)
+        // 取得所有股票清單 (依代號排序，用於輸入框的自動完成選單)
         Task<IEnumerable<StockListEntity>> GetAllStocksAsync();
 
-        // 依據代號取得單一公司詳細資料
-        Task<StockListEntity> GetStockByIdAsync(string stockId);
+        // 依據代號取得單一股票；查無資料回傳 null
+        Task<StockListEntity?> GetStockByIdAsync(string stockId);
+
+        // 一次查詢多檔股票的名稱：回傳 代號 → 名稱，查無的代號不會出現在結果中
+        Task<Dictionary<string, string>> GetStockNamesAsync(IEnumerable<string> stockIds);
+
+        // 取得清單筆數與最後更新時間 (清單為空時 LastUpdatedAt 為 null)
+        Task<(int Count, string? LastUpdatedAt)> GetSummaryAsync();
+
+        // 新增或更新股票清單 (以 StockId 為主鍵)，回傳寫入筆數
+        Task<int> UpsertStocksAsync(IEnumerable<StockListEntity> stocks);
     }
 }

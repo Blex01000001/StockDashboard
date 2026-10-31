@@ -6,11 +6,13 @@ namespace StockDashboard.Services
     public class StockPerformanceService : IStockPerformanceService
     {
         private readonly IStockPriceRepository _priceRepository;
+        private readonly IStockListRepository _stockListRepository;
 
         // 建構子注入 Repository
-        public StockPerformanceService(IStockPriceRepository priceRepository)
+        public StockPerformanceService(IStockPriceRepository priceRepository, IStockListRepository stockListRepository)
         {
             _priceRepository = priceRepository;
+            _stockListRepository = stockListRepository;
         }
 
         /// <param name="stockIds">要比較的股票代號</param>
@@ -35,6 +37,9 @@ namespace StockDashboard.Services
             result.Timeline = allTimelineDates;
 
             var grouped = rawRowsList.GroupBy(r => r.StockId);
+
+            // 圖例顯示「代號 名稱」(例如 "0050 元大台灣50")；股票清單中沒有的只顯示代號
+            var stockNames = await _stockListRepository.GetStockNamesAsync(stockIds);
 
             // 2. 核心運算：計算滾動報酬率 = (今日收盤 - N 個交易日前收盤) / N 個交易日前收盤 × 100
             foreach (var group in grouped)
@@ -76,7 +81,9 @@ namespace StockDashboard.Services
 
                 result.SeriesData.Add(new StockSeries
                 {
-                    Name = currentStockId,
+                    Name = stockNames.TryGetValue(currentStockId, out var stockName)
+                        ? $"{currentStockId} {stockName}"
+                        : currentStockId,
                     Data = returnRatesSeries
                 });
             }

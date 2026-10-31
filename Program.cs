@@ -1,4 +1,5 @@
 using StockDashboard.Components;
+using StockDashboard.Repositories;
 using StockDashboard.Repositories.Implements;
 using StockDashboard.Repositories.Interfaces;
 using StockDashboard.Services;
@@ -15,11 +16,15 @@ builder.Services.AddHttpClient<ITwseApiClient, TwseApiClient>();
 
 // ── 資料存取層 (Repository) ──
 builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
+builder.Services.AddScoped<IStockListRepository, StockListRepository>();
 
 // ── 商業邏輯層 (Service) ──
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
 
 var app = builder.Build();
+
+// 確保 SQLite 資料表存在 (只會建立缺少的表，不會動到既有資料)
+await DatabaseInitializer.InitializeAsync(app.Configuration, app.Logger);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

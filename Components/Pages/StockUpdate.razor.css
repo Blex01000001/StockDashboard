@@ -105,3 +105,24 @@
 .card-box .action-btn.w-100 {
     padding: 10px 20px;
 }
+
+/* 股票清單卡片：橫跨整列 */
+.card-wide {
+    grid-column: 1 / -1;
+}
+
+.list-sync-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+    .list-sync-row .list-summary {
+        margin: 0;
+    }
+
+    .list-sync-row .action-btn {
+        padding: 10px 20px;
+        flex-shrink: 0;
+    }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using StockDashboard.Components.Shared;
 using StockDashboard.Models.Entities;
 using StockDashboard.Repositories.Interfaces;
 using StockDashboard.Services;
@@ -15,6 +16,7 @@ namespace StockDashboard.Components.Pages
 
         [Inject] private ITwseApiClient TwseApi { get; set; } = default!;
         [Inject] private IStockPriceRepository PriceRepository { get; set; } = default!;
+        [Inject] private IStockListRepository StockListRepository { get; set; } = default!;
 
         public StockDailyPriceEntity InputPrice { get; set; } = new();
         public string BatchStockId { get; set; } = "2330";
@@ -23,9 +25,74 @@ namespace StockDashboard.Components.Pages
         public bool IsProcessing { get; set; } = false;
         public string SelectedRange { get; set; } = "1";
 
-        protected override void OnInitialized()
+        // ── 股票清單同步 ──
+        public int StockListCount { get; set; }
+        public string? StockListUpdatedAt { get; set; }
+        public bool IsSyncingList { get; set; } = false;
+        public string ListStatusMessage { get; set; } = string.Empty;
+        public bool ListIsError { get; set; } = false;
+        private StockIdDataList? _stockIdDataList;
+
+        protected override async Task OnInitializedAsync()
         {
             InputPrice.TradeDate = DateTime.Today.ToString("yyyy-MM-dd");
+            await LoadStockListSummaryAsync();
+        }
+
+        private async Task LoadStockListSummaryAsync()
+        {
+            try
+            {
+                (StockListCount, StockListUpdatedAt) = await StockListRepository.GetSummaryAsync();
+            }
+            catch (Exception ex)
+            {
+                ListStatusMessage = $"讀取股票清單失敗: {ex.Message}";
+                ListIsError = true;
+            }
+        }
+
+        /// <summary>
+        /// 從證交所下載上市股票清單並寫入 StockList 資料表
+        /// </summary>
+        public async Task SyncStockList()
+        {
+            if (IsSyncingList) return;
+
+            IsSyncingList = true;
+            ListIsError = false;
+            ListStatusMessage = "正在從證交所下載股票清單...";
+
+            try
+            {
+                var stocks = await TwseApi.GetListedStocksAsync();
+                if (stocks.Count == 0)
+                {
+                    ListStatusMessage = "證交所沒有回傳任何股票資料，請稍後再試。";
+                    ListIsError = true;
+                    return;
+                }
+
+                await StockListRepository.UpsertStocksAsync(stocks);
+                await LoadStockListSummaryAsync();
+
+                // 讓股票代號輸入框的自動完成選單立即包含新清單
+                if (_stockIdDataList != null)
+                {
+                    await _stockIdDataList.ReloadAsync();
+                }
+
+                ListStatusMessage = $"股票清單更新完成，共 {stocks.Count} 檔。";
+            }
+            catch (Exception ex)
+            {
+                ListStatusMessage = $"股票清單更新失敗: {ex.Message}";
+                ListIsError = true;
+            }
+            finally
+            {
+                IsSyncingList = false;
+            }
         }
 
         /// <summary>

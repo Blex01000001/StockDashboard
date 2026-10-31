@@ -1,0 +1,40 @@
+@using StockDashboard.Models.Entities
+@using StockDashboard.Repositories.Interfaces
+@inject IStockListRepository StockListRepository
+
+@*
+    股票代號自動完成清單 (HTML 原生 <datalist>)。
+    用法：<input list="stock-id-options" ... />  搭配  <StockIdDataList Id="stock-id-options" />
+    清單資料來自 StockList 資料表，可在「API 資料更新」頁同步。
+*@
+<datalist id="@Id">
+    @foreach (var stock in _stocks)
+    {
+        <option value="@stock.StockId">@stock.StockName</option>
+    }
+</datalist>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+
+    private List<StockListEntity> _stocks = new();
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    /// <summary>
+    /// 重新從資料庫載入清單 (例如股票清單剛同步完成後)
+    /// </summary>
+    public async Task ReloadAsync()
+    {
+        try
+        {
+            _stocks = (await StockListRepository.GetAllStocksAsync()).ToList();
+        }
+        catch (Exception)
+        {
+            // 清單載入失敗 (例如資料庫尚未設定) 時，只是沒有自動完成，不影響頁面其他功能
+            _stocks = new();
+        }
+        StateHasChanged();
+    }
+}

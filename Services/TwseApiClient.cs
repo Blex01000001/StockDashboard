@@ -12,6 +12,9 @@ namespace StockDashboard.Services
     {
         private const string StockDayUrl = "https://www.twse.com.tw/exchangeReport/STOCK_DAY";
 
+        // 證交所 OpenAPI：上市個股日成交資訊 (一次回傳最近一個交易日的所有上市證券)
+        private const string StockDayAllUrl = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
+
         private readonly HttpClient _http;
 
         // HttpClient 由 Program.cs 的 AddHttpClient<ITwseApiClient, TwseApiClient>() 注入
@@ -34,6 +37,26 @@ namespace StockDashboard.Services
             }
 
             return ParseRows(stockId, response.Data);
+        }
+
+        public async Task<List<StockListEntity>> GetListedStocksAsync(CancellationToken cancellationToken = default)
+        {
+            var items = await _http.GetFromJsonAsync<List<TwseStockDayAllItem>>(StockDayAllUrl, cancellationToken)
+                ?? new List<TwseStockDayAllItem>();
+
+            string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            return items
+                .Where(i => !string.IsNullOrWhiteSpace(i.Code) && !string.IsNullOrWhiteSpace(i.Name))
+                .GroupBy(i => i.Code.Trim())          // 防止重複代號造成主鍵衝突
+                .Select(g => new StockListEntity
+                {
+                    StockId = g.Key,
+                    StockName = g.First().Name.Trim(),
+                    Market = "TWSE",
+                    UpdatedAt = now
+                })
+                .ToList();
         }
 
         /// <summary>

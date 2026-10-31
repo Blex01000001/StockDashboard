@@ -11,7 +11,8 @@
     <div class="search-box-container">
         <div class="search-input-wrapper">
             <span class="search-icon">🔍</span>
-            <input type="text" @bind="TargetStockId" placeholder="輸入股票代號 (如: 2330)" class="dark-input" />
+            <input type="text" @bind="TargetStockId" placeholder="輸入股票代號 (如: 2330)" class="dark-input" list="stock-id-options" />
+            <StockIdDataList Id="stock-id-options" />
         </div>
         <button @onclick="LoadChartData" class="action-btn">繪製圖表</button>
     </div>

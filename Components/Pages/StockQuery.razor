@@ -11,7 +11,8 @@
     <div class="search-box-container">
         <div class="search-input-wrapper">
             <span class="search-icon">🔍</span>
-            <input type="text" @bind="TargetStockId" placeholder="輸入股票代號 (如: 2330)" class="dark-input" />
+            <input type="text" @bind="TargetStockId" placeholder="輸入股票代號 (如: 2330)" class="dark-input" list="stock-id-options" />
+            <StockIdDataList Id="stock-id-options" />
         </div>
         <button @onclick="SearchStock" class="action-btn">執行檢索</button>
     </div>
@@ -33,7 +34,7 @@
                 </thead>
                 <tbody>
                     <tr><td>股票代號</td><td class="highlight-text">@StockResult.StockId</td></tr>
-                    @* TODO: 待 StockList 資料表完成後，在此補上「商品名稱」 *@
+                    <tr><td>商品名稱</td><td>@(StockName ?? "-（請先至「API 資料更新」同步股票清單）")</td></tr>
                     <tr><td>最新收盤價</td><td class="price-up">$ @(StockResult.ClosePrice?.ToString("N2") ?? "-")</td></tr>
                     <tr><td>成交股數</td><td>@(StockResult.Volume?.ToString("N0") ?? "-")</td></tr>
                     <tr><td>本機最新交易日</td><td class="time-text">@StockResult.TradeDate</td></tr>

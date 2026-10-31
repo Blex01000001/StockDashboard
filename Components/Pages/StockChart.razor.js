@@ -1,6 +1,6 @@
 ﻿// StockChart.razor.js
 
-export function renderStockChart(containerId, stockId, data) {
+export function renderStockChart(containerId, stockLabel, data) {
     const chartDom = document.getElementById(containerId);
     if (!chartDom) return;
 
@@ -14,7 +14,7 @@ export function renderStockChart(containerId, stockId, data) {
 
     const option = {
         title: {
-            text: `${stockId} 技術分析圖`,
+            text: `${stockLabel} 技術分析圖`,
             textStyle: { color: '#fff' }
         },
         // 調整圖表內邊距，留位置給下方的縮放滑桿與標籤

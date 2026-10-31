@@ -260,6 +260,11 @@ body {
         cursor: not-allowed;
     }
 
+/* 有自動完成清單 (list 屬性) 的輸入框：隱藏 Chrome 預設的下拉箭頭，避免它佔位擠掉文字；輸入時仍會跳出建議 */
+.panel-standard .dark-input::-webkit-calendar-picker-indicator {
+    display: none !important;
+}
+
 /* 錯誤 / 警告訊息 */
 .panel-standard .alert-box {
     background-color: #2d1e22;

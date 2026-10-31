@@ -20,7 +20,7 @@ dotnet run --launch-profile http   # 監聽 http://localhost:8888
 ```
 
 - 啟動後會自動以預設瀏覽器開啟 `http://localhost:8888/stock-query`（可用 `StartupUrl` 設定覆寫；無桌面環境時只記錄警告不會崩潰）。
-- `*.db` 也被 `.gitignore` 排除。資料庫結構需自行建立（見下方 Schema）。
+- `*.db` 也被 `.gitignore` 排除。啟動時 `DatabaseInitializer` 會以 `CREATE TABLE IF NOT EXISTS` 自動建立缺少的資料表（不會動到既有資料），並在 log 印出實際連到的資料庫檔案路徑。
 - 驗證修改：`dotnet build` 必須 0 error（目前也是 0 warning，請維持）。
 
 ## 目錄結構與職責
@@ -34,23 +34,26 @@ Components/
     MainLayout.razor        整體版面（側邊欄 + 主內容區）
     NavMenu.razor           可收合側邊欄（4 個頁面連結）
   Pages/                    每頁 = .razor (標記) + .razor.cs (程式) + .razor.css (樣式) + .razor.js (ECharts 繪圖，可選)
-    StockQuery              /stock-query   查詢單檔股票在 DB 中最新一筆日線
+    StockQuery              /stock-query   查詢單檔股票在 DB 中最新一筆日線 + 股票名稱
     StockChart              /stock-chart   K 線圖（最近 220 個交易日）
-    StockUpdate             /stock-update  從 TWSE API 逐月同步 / 手動新增單筆
+    StockUpdate             /stock-update  從 TWSE API 逐月同步日線 / 手動新增單筆 / 同步股票清單
     StockCompare            /stock-compare 多檔股票 N 日滾動報酬率比較
     Error                   /Error         非開發環境的未處理例外頁面
+  Shared/
+    StockIdDataList         股票代號自動完成清單 (<datalist>)，搭配 <input list="..."> 使用
 Services/                   商業邏輯 / 外部 API
   StockPerformanceService   計算多檔滾動報酬率 → CompareChartResult
-  TwseApiClient             呼叫 TWSE STOCK_DAY API 並清洗資料（民國轉西元、去千分號）
+  TwseApiClient             TWSE API：STOCK_DAY (個股月日線，清洗民國年/千分號) 與 OpenAPI STOCK_DAY_ALL (上市股票清單)
   StockPriceService         ⚠️ 未完成：還原股價（除權息調整），尚未註冊到 DI
 Repositories/
-  Interfaces/ + Implements/ StockPriceRepository 是唯一可用的 Repository；
-                            StockList / StockDividend / StockCorporateAction 只有介面與空類別（規劃中）
+  Interfaces/ + Implements/ StockPriceRepository (日線)、StockListRepository (股票清單) 可用；
+                            StockDividend / StockCorporateAction 只有介面與空類別（規劃中）
+  DatabaseInitializer       啟動時建立缺少的資料表
 Models/
-  Entities/                 對應資料表的實體（StockDailyPriceEntity 完整；其餘為空殼）
+  Entities/                 對應資料表的實體（StockDailyPrice、StockList 完整；其餘為空殼）
   StockDataPoint            K 線圖資料點
   StockSeries / CompareChartResult  比較圖的輸出 DTO
-  TwseStockDayResponse      TWSE API 回應格式
+  TwseStockDayResponse / TwseStockDayAllItem  TWSE API 回應格式
   StockCombinationDto       ⚠️ 目前沒有被使用（規劃中的「股票組合」功能）
 ```
 
@@ -75,9 +78,12 @@ Razor 頁面 (.razor.cs)  →  Service  →  Repository  →  SQLite
 3. **多檔比較（StockCompare）**
    `StockPerformanceService.GetCompareChartDataAsync` → Repository 撈 660 天內所有指定股票 → 建立所有股票「聯集」的日期時間軸 → 每檔計算 `(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，缺資料的點為 `null` → `CompareChartResult` → `StockCompare.razor.js` 畫多線圖。
 4. **股價查詢（StockQuery）**
-   `GetLatestPriceAsync(stockId)` → 顯示最新收盤價、成交股數、最新交易日。
+   `GetLatestPriceAsync(stockId)` → 顯示最新收盤價、成交股數、最新交易日；名稱來自 `StockListRepository`。
+5. **股票清單（StockUpdate 第三張卡片）**
+   `TwseApiClient.GetListedStocksAsync`（證交所 OpenAPI STOCK_DAY_ALL，含 ETF）→ `StockListRepository.UpsertStocksAsync`（`ON CONFLICT DO UPDATE`）。
+   使用處：查詢頁的商品名稱、K 線圖標題「代號 名稱」、多檔比較的圖例、`StockIdDataList` 自動完成。清單中沒有的股票一律退回只顯示代號。
 
-## 資料庫 Schema（由程式碼推斷）
+## 資料庫 Schema（定義於 `Repositories/DatabaseInitializer.cs`）
 
 ```sql
 CREATE TABLE StockDailyPrice (
@@ -94,7 +100,16 @@ CREATE TABLE StockDailyPrice (
     Note        TEXT,
     PRIMARY KEY (StockId, TradeDate)
 );
+
+CREATE TABLE StockList (
+    StockId   TEXT NOT NULL PRIMARY KEY,
+    StockName TEXT NOT NULL,
+    Market    TEXT NOT NULL DEFAULT 'TWSE',  -- TWSE = 上市；預留 TPEx = 上櫃
+    UpdatedAt TEXT NOT NULL                  -- yyyy-MM-dd HH:mm:ss
+);
 ```
+
+新增資料表時，請同步加到 `DatabaseInitializer` 的 `CREATE TABLE IF NOT EXISTS`。
 
 ## 樣式（CSS）
 
@@ -118,7 +133,8 @@ CREATE TABLE StockDailyPrice (
 ## 已知問題 / 未完成
 
 - `StockPriceService`（還原股價）`ApplyDividendAdjustment` 尚未實作，依賴的 `IStockDividendRepository` 也沒有實作類別。
-- `StockList` / `StockDividend` / `StockCorporateAction` 的 Entity 與 Repository 是空殼。
+- `StockDividend` / `StockCorporateAction` 的 Entity 與 Repository 是空殼。
+- 股票清單只有上市 (TWSE)，尚未包含上櫃 (TPEx)；已下市的股票不會自動從清單移除。
 - 滾動報酬率以「所有股票聯集後的時間軸」位移 N 格計算，若比較的股票交易日不同（例如停牌），N 日的意義會略有偏差。
 - 沒有自動化測試專案。
 - ECharts 走 CDN，離線時圖表無法顯示。

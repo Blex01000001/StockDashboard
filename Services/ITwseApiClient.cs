@@ -12,5 +12,10 @@ namespace StockDashboard.Services
         /// 證交所回應無資料時回傳空清單；網路或解析錯誤則拋出例外，由呼叫端決定如何處理。
         /// </summary>
         Task<List<StockDailyPriceEntity>> GetMonthlyPricesAsync(string stockId, DateTime month, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 下載所有上市股票 (含 ETF) 的代號與名稱。
+        /// </summary>
+        Task<List<StockListEntity>> GetListedStocksAsync(CancellationToken cancellationToken = default);
     }
 }
