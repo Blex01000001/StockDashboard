@@ -1,0 +1,175 @@
+﻿@page "/stock-update"
+
+<PageTitle>QUANT STACK | 資料更新</PageTitle>
+
+<div class="dashboard-panel">
+    <div class="panel-header">
+        <h2 class="panel-title">⚙️ API / 手動資料更新面板</h2>
+        <span class="panel-subtitle">維護本機 SQLite 資料庫結構 (`StockDailyPrice`)</span>
+    </div>
+
+    <div class="update-grid">
+        <div class="card-box">
+            <h3 class="card-title">🌐 外部 API 批次同步</h3>
+            <p class="description">從遠端證券 API 抓取歷史 K 線資料，並使用 <code class="code-tag">INSERT OR REPLACE</code> 覆寫或更新本機 SQLite 資料。</p>
+
+            <div class="form-group">
+                <label>更新時間範圍</label>
+                <select @bind="SelectedRange" class="dark-input w-100" style="padding-right: 10px;">
+                    <option value="1">本月</option>
+                    <option value="3">近三個月</option>
+                    <option value="12">近一年</option>
+                    <option value="36">近三年 (36個月)</option>
+                    <option value="60">近五年 (60個月)</option>
+                    <option value="120">近十年 (120個月)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>指定股票代號</label>
+                <div class="search-box-container">
+                    <input type="text" @bind="BatchStockId" placeholder="例如: 2330" class="dark-input" />
+                    <button @onclick="SyncFromApi" class="action-btn" disabled="@IsProcessing">⚡ 執行 API 同步</button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(StatusMessage))
+            {
+                <div class="status-box @(IsError ? "error" : "success")">
+                    @StatusMessage
+                </div>
+            }
+        </div>
+        <div class="card-box">
+            <h3 class="card-title">📝 單筆數據維護 (INSERT / UPDATE)</h3>
+            <div class="form-group">
+                <label>股票代號</label>
+                <input type="text" @bind="InputPrice.StockId" placeholder="例如: 2330" class="dark-input w-100" />
+            </div>
+            <div class="form-group">
+                <label>交易日期</label>
+                <input type="text" @bind="InputPrice.TradeDate" placeholder="YYYY-MM-DD" class="dark-input w-100" />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>開盤價</label>
+                    <input type="number" step="0.01" @bind="InputPrice.OpenPrice" class="dark-input" />
+                </div>
+                <div class="form-group">
+                    <label>最高價</label>
+                    <input type="number" step="0.01" @bind="InputPrice.HighPrice" class="dark-input" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>最低價</label>
+                    <input type="number" step="0.01" @bind="InputPrice.LowPrice" class="dark-input" />
+                </div>
+                <div class="form-group">
+                    <label>收盤價</label>
+                    <input type="number" step="0.01" @bind="InputPrice.ClosePrice" class="dark-input" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>成交股數 (Volume)</label>
+                    <input type="number" @bind="InputPrice.Volume" class="dark-input" />
+                </div>
+                <div class="form-group">
+                    <label>成交金額 (Amount)</label>
+                    <input type="number" @bind="InputPrice.Amount" class="dark-input" />
+                </div>
+            </div>
+            <button @onclick="SaveSinglePrice" class="action-btn mt-10 w-100" disabled="@IsProcessing">
+                💾 儲存至 SQLite
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    /* 這裡維持您原本漂亮的 CSS 樣式，不做變動 */
+    .update-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 20px;
+    }
+
+    .card-box {
+        background-color: var(--bg-main);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 20px;
+    }
+
+    .card-title {
+        margin-top: 0;
+        margin-bottom: 16px;
+        font-size: 1rem;
+        color: #ffffff;
+        border-left: 3px solid var(--accent-color);
+        padding-left: 8px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+        .form-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .w-100 {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .mt-10 {
+        margin-top: 10px;
+    }
+
+    .description {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+    }
+
+    .code-tag {
+        background-color: #232733;
+        color: #ff79c6;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+    }
+
+    .status-box {
+        margin-top: 15px;
+        padding: 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+        .status-box.success {
+            background-color: #1e2d24;
+            border: 1px solid #26a69a;
+            color: #26a69a;
+        }
+
+        .status-box.error {
+            background-color: #2d1e22;
+            border: 1px solid #ef5350;
+            color: #ef5350;
+        }
+</style>

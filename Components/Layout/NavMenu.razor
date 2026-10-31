@@ -1,0 +1,51 @@
+﻿<div class="sidebar-container @(IsCollapsed ? "collapsed" : "")">
+    <div class="sidebar-header">
+        <span class="brand-logo">📊</span>
+        <span class="brand-name">QUANT STACK</span>
+        <button class="toggle-btn" @onclick="ToggleSidebar">
+            @(IsCollapsed ? "❯" : "❮")
+        </button>
+    </div>
+
+    <nav class="nav-list">
+        <div class="nav-item">
+            <NavLink href="stock-query" class="nav-link" Match="NavLinkMatch.All">
+                <span class="nav-icon">🔍</span>
+                <span class="nav-text">本機股價查詢</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item">
+            <NavLink href="stock-chart" class="nav-link">
+                <span class="nav-icon">📈</span>
+                <span class="nav-text">K線技術圖表</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item">
+            <NavLink href="stock-update" class="nav-link">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">API 資料更新</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item">
+            <NavLink href="stock-compare" class="nav-link">
+                <span class="nav-icon">📊</span>
+                <span class="nav-text">多檔績效比較</span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    // 控制側邊欄收折狀態的 C# 變數
+    [Parameter] public bool IsCollapsed { get; set; }
+    [Parameter] public EventCallback<bool> IsCollapsedChanged { get; set; }
+
+    private async Task ToggleSidebar()
+    {
+        IsCollapsed = !IsCollapsed;
+        await IsCollapsedChanged.InvokeAsync(IsCollapsed);
+    }
+}

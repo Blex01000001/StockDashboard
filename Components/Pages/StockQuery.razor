@@ -1,0 +1,177 @@
+﻿@page "/stock-query"
+
+<PageTitle>QUANT STACK | 數據查詢</PageTitle>
+
+<div class="dashboard-panel">
+    <div class="panel-header">
+        <h2 class="panel-title">📊 單機股市歷史資料查詢</h2>
+        <span class="panel-subtitle">本機 SQLite 資料庫連線中</span>
+    </div>
+
+    <div class="search-box-container">
+        <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" @bind="TargetStockId" placeholder="輸入股票代號 (如: 2330)" class="dark-input" />
+        </div>
+        <button @onclick="SearchStock" class="action-btn">執行檢索</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <div class="alert-box">⚠️ @Message</div>
+    }
+
+    @if (StockResult != null)
+    {
+        <div class="table-container">
+            <table class="financial-table">
+                <thead>
+                    <tr>
+                        <th>評估指標</th>
+                        <th>資料庫存取數值</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>股票代號</td><td class="highlight-text">@StockResult.StockId</td></tr>
+                    <tr><td>商品名稱</td><td>@StockResult.StockName</td></tr>
+                    <tr><td>最新收盤價</td><td class="price-up">$ @StockResult.ClosePrice.ToString("N2")</td></tr>
+                    <tr><td>本機最後同步時間</td><td class="time-text">@StockResult.LastUpdated.ToString("yyyy-MM-dd HH:mm:ss")</td></tr>
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<style>
+    .dashboard-panel {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 24px;
+    }
+
+    .panel-header {
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 12px;
+    }
+
+    .panel-title {
+        margin: 0;
+        font-size: 1.3rem;
+        color: #ffffff;
+        font-weight: 600;
+    }
+
+    .panel-subtitle {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    /* 搜尋框 */
+    .search-box-container {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+
+    .dark-input {
+        background-color: var(--bg-main);
+        border: 1px solid var(--border-color);
+        color: #ffffff;
+        padding: 10px 10px 10px 36px;
+        border-radius: 4px;
+        width: 220px;
+        font-size: 0.9rem;
+    }
+
+        .dark-input:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+
+    .action-btn {
+        background-color: var(--accent-color);
+        color: #ffffff;
+        border: none;
+        padding: 0 20px;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+        .action-btn:hover {
+            background-color: #1a4cd6;
+        }
+
+    /* 表格 */
+    .table-container {
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        overflow: hidden;
+        margin-top: 20px;
+    }
+
+    .financial-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.9rem;
+    }
+
+        .financial-table th {
+            background-color: #242835;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            font-weight: 500;
+        }
+
+        .financial-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .financial-table tr:last-child td {
+            border-bottom: none;
+        }
+
+    .highlight-text {
+        font-weight: bold;
+        color: #ffffff;
+    }
+
+    .price-up {
+        color: #f23645;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    /* 紅字漲（台股風格） */
+    .time-text {
+        color: var(--text-muted);
+        font-family: monospace;
+    }
+
+    .alert-box {
+        background-color: #2d1e22;
+        border: 1px solid #ff4a5a;
+        color: #ff4a5a;
+        padding: 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+</style>
