@@ -7,10 +7,10 @@ namespace StockDashboard.Services
     public class StockPerformanceService : IStockPerformanceService
     {
         private readonly IStockPriceRepository _priceRepository;
-        private readonly IStockListRepository _stockListRepository;
+        private readonly IStockNameRepository _stockListRepository;
 
         // 建構子注入 Repository
-        public StockPerformanceService(IStockPriceRepository priceRepository, IStockListRepository stockListRepository)
+        public StockPerformanceService(IStockPriceRepository priceRepository, IStockNameRepository stockListRepository)
         {
             _priceRepository = priceRepository;
             _stockListRepository = stockListRepository;

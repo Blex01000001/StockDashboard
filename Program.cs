@@ -20,7 +20,7 @@ builder.Services.AddHttpClient<ITwseApiClient, TwseApiClient>();
 
 // ── 資料存取層 (Repository) ──
 builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
-builder.Services.AddScoped<IStockListRepository, StockListRepository>();
+builder.Services.AddScoped<IStockNameRepository, StockNameRepository>();
 
 // ── 商業邏輯層 (Service) ──
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();

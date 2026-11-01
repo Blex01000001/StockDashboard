@@ -11,7 +11,7 @@ namespace StockDashboard.Components.Pages
         private const int CandleCount = 220;
 
         [Inject] private IStockPriceRepository PriceRepository { get; set; } = default!;
-        [Inject] private IStockListRepository StockListRepository { get; set; } = default!;
+        [Inject] private IStockNameRepository StockNameRepository { get; set; } = default!;
         [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
         public string TargetStockId { get; set; } = "2330";
@@ -48,7 +48,7 @@ namespace StockDashboard.Components.Pages
                     "import", "./Components/Pages/StockChart.razor.js");
 
                 // 圖表標題顯示「代號 名稱」，例如 "2330 台積電"；清單中沒有該股時只顯示代號
-                string? stockName = await StockListRepository.GetStockNameOrNullAsync(stockId);
+                string? stockName = await StockNameRepository.GetStockNameOrNullAsync(stockId);
                 string chartLabel = stockName == null ? stockId : $"{stockId} {stockName}";
 
                 await _jsModule.InvokeVoidAsync("renderStockChart", "chart-container", chartLabel, candles);

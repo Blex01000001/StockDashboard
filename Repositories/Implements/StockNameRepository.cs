@@ -1,0 +1,153 @@
+﻿using Dapper;
+using Microsoft.Data.Sqlite;
+using StockDashboard.Models;
+using StockDashboard.Models.Entities;
+using StockDashboard.Repositories.Interfaces;
+
+namespace StockDashboard.Repositories.Implements
+{
+    /// <summary>
+    /// 股票名稱的存取入口，合併兩個來源 (說明見 IStockNameRepository)。
+    /// </summary>
+    public class StockNameRepository : IStockNameRepository
+    {
+        // 使用者既有的「上市公司基本資料」表：只讀取，絕不寫入
+        private const string CompanyTable = "StockList";
+
+        // 「更新股票清單」寫入的表 (含 ETF)
+        private const string SyncedTable = "StockNameList";
+
+        // StockList 中要讀取的中文欄位名稱 (比對時忽略空白)
+        private const string CompanyCodeColumn = "公司代號";
+        private const string CompanyNameColumn = "公司簡稱";
+
+        private readonly string _connectionString;
+
+        public StockNameRepository(IConfiguration configuration)
+        {
+            _connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new ArgumentNullException(nameof(configuration), "系統設定中遺失 DefaultConnection 連線字串。");
+        }
+
+        public async Task<IEnumerable<StockNameEntity>> GetAllStocksAsync()
+        {
+            using var connection = new SqliteConnection(_connectionString);
+
+            var synced = await connection.QueryAsync<StockNameEntity>(
+                $"SELECT StockId, StockName, Market, UpdatedAt FROM {SyncedTable}");
+
+            var companySql = await BuildCompanySelectAsync(connection);
+            var companies = companySql == null
+                ? Enumerable.Empty<StockNameEntity>()
+                : await connection.QueryAsync<StockNameEntity>(companySql);
+
+            return Merge(synced, companies).Values.OrderBy(s => s.StockId, StringComparer.Ordinal);
+        }
+
+        public async Task<string?> GetStockNameAsync(string stockId)
+        {
+            var names = await GetStockNamesAsync(new[] { stockId });
+            return names.TryGetValue(stockId, out var name) ? name : null;
+        }
+
+        public async Task<Dictionary<string, string>> GetStockNamesAsync(IEnumerable<string> stockIds)
+        {
+            var ids = stockIds.ToList();
+            using var connection = new SqliteConnection(_connectionString);
+
+            var synced = await connection.QueryAsync<StockNameEntity>(
+                $"SELECT StockId, StockName FROM {SyncedTable} WHERE StockId IN @Ids",
+                new { Ids = ids });
+
+            var companySql = await BuildCompanySelectAsync(connection);
+            var companies = companySql == null
+                ? Enumerable.Empty<StockNameEntity>()
+                : await connection.QueryAsync<StockNameEntity>(
+                    $"SELECT * FROM ({companySql}) WHERE StockId IN @Ids",
+                    new { Ids = ids });
+
+            return Merge(synced, companies).ToDictionary(kv => kv.Key, kv => kv.Value.StockName);
+        }
+
+        public async Task<StockNameSummary> GetSummaryAsync()
+        {
+            using var connection = new SqliteConnection(_connectionString);
+
+            var summary = await connection.QuerySingleAsync<StockNameSummary>(
+                $"SELECT COUNT(*) AS SyncedCount, MAX(UpdatedAt) AS LastSyncedAt FROM {SyncedTable}");
+
+            var companySql = await BuildCompanySelectAsync(connection);
+            if (companySql != null)
+            {
+                summary.CompanyCount = await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM ({companySql})");
+            }
+
+            return summary;
+        }
+
+        public async Task<int> UpsertStocksAsync(IEnumerable<StockNameEntity> stocks)
+        {
+            // ON CONFLICT ... DO UPDATE：代號已存在就更新名稱 (公司改名時)，不存在就新增
+            string sql = $@"
+                INSERT INTO {SyncedTable} (StockId, StockName, Market, UpdatedAt)
+                VALUES (@StockId, @StockName, @Market, @UpdatedAt)
+                ON CONFLICT(StockId) DO UPDATE SET
+                    StockName = excluded.StockName,
+                    Market    = excluded.Market,
+                    UpdatedAt = excluded.UpdatedAt;";
+
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync();
+
+            // 上千筆一起寫入，包在同一個交易中速度才快
+            using var transaction = connection.BeginTransaction();
+            int affectedRows = await connection.ExecuteAsync(sql, stocks, transaction);
+            transaction.Commit();
+
+            return affectedRows;
+        }
+
+        /// <summary>
+        /// 產生「從 StockList 讀出 StockId / StockName」的 SELECT 語法。
+        /// StockList 不存在、或找不到「公司代號 / 公司簡稱」欄位時回傳 null (只使用 StockNameList)。
+        /// </summary>
+        private static async Task<string?> BuildCompanySelectAsync(SqliteConnection connection)
+        {
+            var columns = (await connection.QueryAsync<string>(
+                $"SELECT name FROM pragma_table_info('{CompanyTable}')")).ToList();
+
+            // 欄位名稱比對時忽略空白 (例如 "公司 簡稱" 也視為 "公司簡稱")
+            string? Find(string target) => columns.FirstOrDefault(c => RemoveWhitespace(c) == target);
+
+            string? codeColumn = Find(CompanyCodeColumn);
+            string? nameColumn = Find(CompanyNameColumn);
+            if (codeColumn == null || nameColumn == null) return null;
+
+            // 公司代號可能被匯入成數字型別，一律轉成文字並去除前後空白
+            return $@"SELECT TRIM(CAST({Quote(codeColumn)} AS TEXT)) AS StockId,
+                             TRIM({Quote(nameColumn)}) AS StockName,
+                             'TWSE' AS Market
+                      FROM {CompanyTable}
+                      WHERE TRIM(IFNULL({Quote(nameColumn)}, '')) <> ''";
+        }
+
+        /// <summary>
+        /// 合併兩個來源：先放同步清單，再以公司基本資料的簡稱覆蓋
+        /// </summary>
+        private static Dictionary<string, StockNameEntity> Merge(IEnumerable<StockNameEntity> synced, IEnumerable<StockNameEntity> companies)
+        {
+            var result = new Dictionary<string, StockNameEntity>();
+            foreach (var s in synced.Concat(companies))
+            {
+                if (string.IsNullOrWhiteSpace(s.StockId) || string.IsNullOrWhiteSpace(s.StockName)) continue;
+                result[s.StockId] = s;
+            }
+            return result;
+        }
+
+        private static string RemoveWhitespace(string text) => string.Concat(text.Where(c => !char.IsWhiteSpace(c)));
+
+        // SQLite 識別字 (欄位名) 以雙引號包住，內含的雙引號要重複一次
+        private static string Quote(string identifier) => "\"" + identifier.Replace("\"", "\"\"") + "\"";
+    }
+}

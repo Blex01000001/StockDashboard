@@ -16,6 +16,6 @@ namespace StockDashboard.Services
         /// <summary>
         /// 下載所有上市股票 (含 ETF) 的代號與名稱。
         /// </summary>
-        Task<List<StockListEntity>> GetListedStocksAsync(CancellationToken cancellationToken = default);
+        Task<List<StockNameEntity>> GetListedStocksAsync(CancellationToken cancellationToken = default);
     }
 }

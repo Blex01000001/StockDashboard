@@ -1,9 +1,9 @@
 ﻿namespace StockDashboard.Models.Entities
 {
     /// <summary>
-    /// 股票清單實體 (對應 SQLite StockList 表格)
+    /// 股票代號 ↔ 名稱 (對應 SQLite StockNameList 表格，由「更新股票清單」從證交所同步，含 ETF)
     /// </summary>
-    public class StockListEntity
+    public class StockNameEntity
     {
         /// <summary>
         /// 股票代號 (主鍵)，例如 "2330"、"0050"、"00981A"

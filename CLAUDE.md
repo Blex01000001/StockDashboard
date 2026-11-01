@@ -46,14 +46,16 @@ Services/                   商業邏輯 / 外部 API
   TwseApiClient             TWSE API：STOCK_DAY (個股月日線，清洗民國年/千分號) 與 OpenAPI STOCK_DAY_ALL (上市股票清單)
   StockPriceService         ⚠️ 未完成：還原股價（除權息調整），尚未註冊到 DI
 Repositories/
-  Interfaces/ + Implements/ StockPriceRepository (日線)、StockListRepository (股票清單) 可用；
+  Interfaces/ + Implements/ StockPriceRepository (日線)、StockNameRepository (股票名稱) 可用；
                             StockDividend / StockCorporateAction 只有介面與空類別（規劃中）
   DatabaseInitializer       啟動時建立缺少的資料表
+  StockNameRepositoryExtensions  顯示用名稱查詢 (失敗時回傳 null / 空字典)
 Models/
-  Entities/                 對應資料表的實體（StockDailyPrice、StockList 完整；其餘為空殼）
+  Entities/                 對應資料表的實體（StockDailyPrice、StockName 完整；其餘為空殼）
   StockDataPoint            K 線圖資料點
   StockSeries / CompareChartResult  比較圖的輸出 DTO
   TwseStockDayResponse / TwseStockDayAllItem  TWSE API 回應格式
+  StockNameSummary          股票名稱來源統計 (資料更新頁顯示)
   StockCombinationDto       ⚠️ 目前沒有被使用（規劃中的「股票組合」功能）
 ```
 
@@ -78,10 +80,12 @@ Razor 頁面 (.razor.cs)  →  Service  →  Repository  →  SQLite
 3. **多檔比較（StockCompare）**
    `StockPerformanceService.GetCompareChartDataAsync` → Repository 撈 660 天內所有指定股票 → 建立所有股票「聯集」的日期時間軸 → 每檔計算 `(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，缺資料的點為 `null` → `CompareChartResult` → `StockCompare.razor.js` 畫多線圖。
 4. **股價查詢（StockQuery）**
-   `GetLatestPriceAsync(stockId)` → 顯示最新收盤價、成交股數、最新交易日；名稱來自 `StockListRepository`。
-5. **股票清單（StockUpdate 第三張卡片）**
-   `TwseApiClient.GetListedStocksAsync`（證交所 OpenAPI STOCK_DAY_ALL，含 ETF）→ `StockListRepository.UpsertStocksAsync`（`ON CONFLICT DO UPDATE`）。
-   使用處：查詢頁的商品名稱、K 線圖標題「代號 名稱」、多檔比較的圖例、`StockIdDataList` 自動完成。清單中沒有的股票一律退回只顯示代號。
+   `GetLatestPriceAsync(stockId)` → 顯示最新收盤價、成交股數、最新交易日；名稱來自 `StockNameRepository`。
+5. **股票名稱（兩個來源，由 `StockNameRepository` 合併）**
+   - `StockList`：**使用者既有的「上市公司基本資料」表**（中文欄位，資料有在用），只讀取「公司代號 → 公司簡稱」，**絕不寫入、不建立、不修改**。欄位名稱比對時忽略空白。
+   - `StockNameList`：資料更新頁「更新股票清單」從證交所 OpenAPI STOCK_DAY_ALL 同步（含 ETF）→ `UpsertStocksAsync`（`ON CONFLICT DO UPDATE`）。
+   - 同一代號兩邊都有時，以 `StockList` 的公司簡稱為準；ETF 只會出現在 `StockNameList`。
+   使用處：查詢頁的商品名稱、K 線圖標題「代號 名稱」、多檔比較的圖例、`StockIdDataList` 自動完成。查無名稱一律退回只顯示代號。
 
 ## 資料庫 Schema（定義於 `Repositories/DatabaseInitializer.cs`）
 
@@ -101,7 +105,8 @@ CREATE TABLE StockDailyPrice (
     PRIMARY KEY (StockId, TradeDate)
 );
 
-CREATE TABLE StockList (
+-- 證交所同步的代號清單 (含 ETF)
+CREATE TABLE StockNameList (
     StockId   TEXT NOT NULL PRIMARY KEY,
     StockName TEXT NOT NULL,
     Market    TEXT NOT NULL DEFAULT 'TWSE',  -- TWSE = 上市；預留 TPEx = 上櫃
@@ -109,9 +114,11 @@ CREATE TABLE StockList (
 );
 ```
 
+另有使用者自行建立的 `StockList`（上市公司基本資料，欄位為中文：出表日期、公司代號、公司名稱、公司簡稱、產業別…共 33 欄），不在 `DatabaseInitializer` 中，程式只讀不寫。
+
 新增資料表時，請同步加到 `DatabaseInitializer` 的 `CREATE TABLE IF NOT EXISTS`。
-- ⚠️ `CREATE TABLE IF NOT EXISTS` 遇到「同名但結構不同」的既有資料表會直接略過。`DatabaseInitializer.GetStockListSchemaProblemAsync` 會檢查 StockList 欄位，不符時在 log 與資料更新頁顯示現有欄位，並停用股票清單同步。
-- 股票名稱是附加資訊：頁面與 Service 一律透過 `StockListRepositoryExtensions` 的 `GetStockNameOrNullAsync` / `GetStockNamesOrEmptyAsync` 查詢，失敗時退回只顯示代號，**不可讓主要功能因名稱查詢而失敗**。
+- ⚠️ `CREATE TABLE IF NOT EXISTS` 遇到「同名但結構不同」的既有資料表會直接略過。新增資料表前，先確認使用者的 stock.db 沒有同名的表（曾因此與使用者的 `StockList` 衝突）。
+- 股票名稱是附加資訊：頁面與 Service 一律透過 `StockNameRepositoryExtensions` 的 `GetStockNameOrNullAsync` / `GetStockNamesOrEmptyAsync` 查詢，失敗時退回只顯示代號，**不可讓主要功能因名稱查詢而失敗**。
 
 ## 樣式（CSS）
 
@@ -137,7 +144,7 @@ CREATE TABLE StockList (
 
 - `StockPriceService`（還原股價）`ApplyDividendAdjustment` 尚未實作，依賴的 `IStockDividendRepository` 也沒有實作類別。
 - `StockDividend` / `StockCorporateAction` 的 Entity 與 Repository 是空殼。
-- 股票清單只有上市 (TWSE)，尚未包含上櫃 (TPEx)；已下市的股票不會自動從清單移除。
+- 股票名稱只有上市 (TWSE)，尚未包含上櫃 (TPEx)；已下市的股票不會自動從 StockNameList 移除。
 - 滾動報酬率以「所有股票聯集後的時間軸」位移 N 格計算，若比較的股票交易日不同（例如停牌），N 日的意義會略有偏差。
 - 沒有自動化測試專案。
 - ECharts 走 CDN，離線時圖表無法顯示。

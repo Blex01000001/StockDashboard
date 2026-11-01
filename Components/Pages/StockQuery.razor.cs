@@ -8,7 +8,7 @@ namespace StockDashboard.Components.Pages
     public partial class StockQuery : ComponentBase
     {
         [Inject] private IStockPriceRepository PriceRepository { get; set; } = default!;
-        [Inject] private IStockListRepository StockListRepository { get; set; } = default!;
+        [Inject] private IStockNameRepository StockNameRepository { get; set; } = default!;
 
         protected string TargetStockId { get; set; } = "";
         protected string Message { get; set; } = "";
@@ -16,7 +16,7 @@ namespace StockDashboard.Components.Pages
         // 查詢結果：資料庫中該股票「最新一筆」日線資料；null 代表尚未查詢或查無資料
         protected StockDailyPriceEntity? StockResult { get; set; }
 
-        // 股票名稱 (來自 StockList 資料表)；清單中沒有時為 null
+        // 股票名稱 (來自 StockList 公司基本資料或 StockNameList)；查無時為 null
         protected string? StockName { get; set; }
 
         protected async Task SearchStock()
@@ -42,7 +42,7 @@ namespace StockDashboard.Components.Pages
                     return;
                 }
 
-                StockName = await StockListRepository.GetStockNameOrNullAsync(stockId);
+                StockName = await StockNameRepository.GetStockNameOrNullAsync(stockId);
             }
             catch (Exception ex)
             {

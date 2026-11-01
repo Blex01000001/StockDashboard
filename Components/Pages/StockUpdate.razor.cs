@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using StockDashboard.Components.Shared;
+using StockDashboard.Models;
 using StockDashboard.Models.Entities;
 using StockDashboard.Repositories.Interfaces;
 using StockDashboard.Services;
@@ -16,7 +17,7 @@ namespace StockDashboard.Components.Pages
 
         [Inject] private ITwseApiClient TwseApi { get; set; } = default!;
         [Inject] private IStockPriceRepository PriceRepository { get; set; } = default!;
-        [Inject] private IStockListRepository StockListRepository { get; set; } = default!;
+        [Inject] private IStockNameRepository StockNameRepository { get; set; } = default!;
 
         public StockDailyPriceEntity InputPrice { get; set; } = new();
         public string BatchStockId { get; set; } = "2330";
@@ -26,34 +27,23 @@ namespace StockDashboard.Components.Pages
         public string SelectedRange { get; set; } = "1";
 
         // ── 股票清單同步 ──
-        public int StockListCount { get; set; }
-        public string? StockListUpdatedAt { get; set; }
+        public StockNameSummary? NameSummary { get; set; }
         public bool IsSyncingList { get; set; } = false;
         public string ListStatusMessage { get; set; } = string.Empty;
         public bool ListIsError { get; set; } = false;
-        // StockList 資料表結構不符時的說明；不為 null 時停用「更新股票清單」按鈕
-        public string? StockListSchemaProblem { get; set; }
         private StockIdDataList? _stockIdDataList;
 
         protected override async Task OnInitializedAsync()
         {
             InputPrice.TradeDate = DateTime.Today.ToString("yyyy-MM-dd");
-            await LoadStockListSummaryAsync();
+            await LoadNameSummaryAsync();
         }
 
-        private async Task LoadStockListSummaryAsync()
+        private async Task LoadNameSummaryAsync()
         {
             try
             {
-                StockListSchemaProblem = await StockListRepository.GetSchemaProblemAsync();
-                if (StockListSchemaProblem != null)
-                {
-                    ListStatusMessage = StockListSchemaProblem;
-                    ListIsError = true;
-                    return;
-                }
-
-                (StockListCount, StockListUpdatedAt) = await StockListRepository.GetSummaryAsync();
+                NameSummary = await StockNameRepository.GetSummaryAsync();
             }
             catch (Exception ex)
             {
@@ -63,11 +53,11 @@ namespace StockDashboard.Components.Pages
         }
 
         /// <summary>
-        /// 從證交所下載上市股票清單並寫入 StockList 資料表
+        /// 從證交所下載上市股票清單 (含 ETF) 並寫入 StockNameList 資料表 (不會修改 StockList)
         /// </summary>
         public async Task SyncStockList()
         {
-            if (IsSyncingList || StockListSchemaProblem != null) return;
+            if (IsSyncingList) return;
 
             IsSyncingList = true;
             ListIsError = false;
@@ -83,8 +73,8 @@ namespace StockDashboard.Components.Pages
                     return;
                 }
 
-                await StockListRepository.UpsertStocksAsync(stocks);
-                await LoadStockListSummaryAsync();
+                await StockNameRepository.UpsertStocksAsync(stocks);
+                await LoadNameSummaryAsync();
 
                 // 讓股票代號輸入框的自動完成選單立即包含新清單
                 if (_stockIdDataList != null)

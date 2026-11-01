@@ -39,7 +39,7 @@ namespace StockDashboard.Services
             return ParseRows(stockId, response.Data);
         }
 
-        public async Task<List<StockListEntity>> GetListedStocksAsync(CancellationToken cancellationToken = default)
+        public async Task<List<StockNameEntity>> GetListedStocksAsync(CancellationToken cancellationToken = default)
         {
             var items = await _http.GetFromJsonAsync<List<TwseStockDayAllItem>>(StockDayAllUrl, cancellationToken)
                 ?? new List<TwseStockDayAllItem>();
@@ -49,7 +49,7 @@ namespace StockDashboard.Services
             return items
                 .Where(i => !string.IsNullOrWhiteSpace(i.Code) && !string.IsNullOrWhiteSpace(i.Name))
                 .GroupBy(i => i.Code.Trim())          // 防止重複代號造成主鍵衝突
-                .Select(g => new StockListEntity
+                .Select(g => new StockNameEntity
                 {
                     StockId = g.Key,
                     StockName = g.First().Name.Trim(),
