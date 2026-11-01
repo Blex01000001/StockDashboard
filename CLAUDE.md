@@ -125,7 +125,8 @@ CREATE TABLE StockList (
 - **共用面板樣式**：StockQuery / StockChart / StockUpdate 最外層是 `<div class="dashboard-panel panel-standard">`，共用 `app.css` 中 `.panel-standard ...` 開頭的規則（面板、標題、搜尋列、`.dark-input`、`.action-btn`、`.alert-box`）。新頁面若要同樣外觀，加上 `panel-standard` 即可。
 - StockCompare **不使用** `panel-standard`，它的 `.dashboard-panel`、`.dark-input` 等是另一套設計，全部寫在 `StockCompare.razor.css`。
 - 頁面若需微調共用樣式，寫在該頁 `.razor.css`（scoped 權重較高會覆蓋），例如 StockUpdate 的輸入框不需要放大鏡的左側 padding。
-- Scoped CSS 會打包成 `StockDashboard.styles.css`（`App.razor` 已引用）。`dotnet run` (Development) 與 `dotnet publish` 都會正確提供；直接以 Production 模式執行 `bin/` 底下的 dll 則不會。
+- Scoped CSS 會打包成 `StockDashboard.styles.css`（`App.razor` 已引用）。`Program.cs` 有呼叫 `UseStaticWebAssets()`，所以 `dotnet run`、Visual Studio、直接執行 `bin/` 下的 exe、`dotnet publish` 都能正確載入。
+- `App.razor` 引用 `app.css` 與 `StockDashboard.styles.css` 時會加上 `?v=<組件版本>`，每次編譯都會變，避免瀏覽器沿用快取中的舊 CSS（.NET 8 沒有內建靜態檔指紋）。新增全域 CSS 檔時請比照辦理。
 
 ### 修改樣式後的驗證方式
 用 Playwright 擷取各頁各狀態（初始、查詢結果、錯誤訊息、focus、hover、側邊欄收合）所有元素的 `getComputedStyle` 與截圖，與修改前比對。

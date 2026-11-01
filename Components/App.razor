@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="StockDashboard.styles.css" />
+    @* ?v= 版本參數：每次重新編譯都會改變，強迫瀏覽器重新下載 CSS，避免沿用快取中的舊樣式 *@
+    <link rel="stylesheet" href="app.css?v=@AssetVersion" />
+    <link rel="stylesheet" href="StockDashboard.styles.css?v=@AssetVersion" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
@@ -19,3 +20,9 @@
 </body>
 
 </html>
+
+@code {
+    // 每次編譯產生的組件識別碼 (MVID)，取前 8 碼作為靜態檔案的版本號
+    private static readonly string AssetVersion =
+        typeof(App).Assembly.ManifestModule.ModuleVersionId.ToString("N")[..8];
+}

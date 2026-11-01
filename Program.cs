@@ -6,6 +6,10 @@ using StockDashboard.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 讓「直接執行 bin 資料夾中的 StockDashboard.exe」(非 Development 環境) 時，
+// 也能找到專案的 wwwroot 與 scoped CSS 打包檔；dotnet publish 後的正式部署不受影響
+builder.WebHost.UseStaticWebAssets();
+
 // ── Blazor (Interactive Server) ──
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
