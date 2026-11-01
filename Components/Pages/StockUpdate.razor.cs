@@ -150,6 +150,8 @@ namespace StockDashboard.Components.Pages
                 var allCleanedData = new List<StockDailyPriceEntity>();
                 int successCount = 0;
                 int consecutiveEmptyCount = 0;
+                int errorCount = 0;
+                string? lastError = null;   // 最後一次下載失敗的原因 (顯示在畫面上，方便判斷問題)
                 bool isBreaked = false;
 
                 // 由本月開始往回推 (i = 0 是本月，i = 1 是上個月 ...)
@@ -171,14 +173,16 @@ namespace StockDashboard.Components.Pages
                             successCount++;
                             consecutiveEmptyCount = 0; // 只要成功一次，連續無資料計數器立刻歸零
                         }
-                        else
+                        else if (i > 0)
                         {
+                            // 本月 (i = 0) 沒資料很正常 (例如月初還沒有交易日)，不計入熔斷
                             consecutiveEmptyCount++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"{monthDate:yyyyMM} 下載失敗: {ex.Message}");
+                        errorCount++;
+                        lastError = $"{monthDate:yyyy年MM月}：{ex.Message}";
                         consecutiveEmptyCount++; // 網路異常或 API 報錯也計入失敗
                     }
 
@@ -198,9 +202,19 @@ namespace StockDashboard.Components.Pages
 
                 if (allCleanedData.Count == 0)
                 {
-                    string alertMsg = isBreaked
-                        ? $"同步中斷！由於連續 {consecutiveEmptyCount} 次未能從 API 取得資料（可能已達該股上市極限或遭頻率限制）。"
-                        : "資料同步失敗，未撈取到任何有效數據。";
+                    string alertMsg;
+                    if (lastError != null)
+                    {
+                        alertMsg = $"同步失敗，無法從證交所取得資料。最後一次錯誤 → {lastError}";
+                    }
+                    else if (totalMonthsToSync == 1)
+                    {
+                        alertMsg = $"證交所目前沒有 {stockId} 在 {thisMonth:yyyy年MM月} 的交易資料（月初尚無交易日時屬正常），請改選「近三個月」以上的範圍。";
+                    }
+                    else
+                    {
+                        alertMsg = $"證交所沒有 {stockId} 在這段期間的交易資料。請確認代號正確，且為上市股票 / ETF（上櫃股票目前查不到）。";
+                    }
                     SetStatus(alertMsg, true);
                     return;
                 }
@@ -211,6 +225,10 @@ namespace StockDashboard.Components.Pages
                 if (isBreaked)
                 {
                     finalStatus += $" (註: 因連續 {MaxConsecutiveEmpty} 次無資料，已提前終止歷史追溯)";
+                }
+                if (lastError != null)
+                {
+                    finalStatus += $" (另有 {errorCount} 個月份下載失敗，最後一次錯誤 → {lastError})";
                 }
 
                 SetStatus(finalStatus, false);

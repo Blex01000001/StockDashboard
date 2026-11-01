@@ -74,7 +74,10 @@ Razor 頁面 (.razor.cs)  →  Service  →  Repository  →  SQLite
 ## 資料流
 
 1. **資料同步（StockUpdate）**
-   使用者選擇月份數 → 由本月往回逐月呼叫 `TwseApiClient.GetMonthlyPricesAsync`（每次間隔 2.5 秒防封鎖；連續 3 個月無資料即中斷）→ 全部收集完 → `StockPriceRepository.UpsertPricesAsync`（`INSERT OR REPLACE`，包在單一交易中）。
+   使用者選擇月份數 → 由本月往回逐月呼叫 `TwseApiClient.GetMonthlyPricesAsync`（每次間隔 2.5 秒防封鎖；連續 3 個月無資料即中斷，「本月」沒資料不計入）→ 全部收集完 → `StockPriceRepository.UpsertPricesAsync`（`INSERT OR REPLACE`，包在單一交易中）。
+   - 下載失敗的原因 (HTTP 狀態碼、回傳非 JSON 等) 會顯示在畫面上；`TwseApiClient.GetJsonAsync` 負責產生易懂的錯誤訊息。
+   - 證交所網址可在 `appsettings.json` 的 `Twse:StockDayUrl` / `Twse:StockDayAllUrl` 覆寫（證交所改版時不必改程式；測試時也可指向本機假伺服器）。
+   - HttpClient 在 `Program.cs` 設定瀏覽器 User-Agent、`Accept: application/json`、30 秒逾時。
 2. **K 線圖（StockChart）**
    `GetLatestCandlesAsync(stockId, 220)` → `List<StockDataPoint>` → JS interop 呼叫 `StockChart.razor.js` 的 `renderStockChart`（C# 屬性會自動轉成 camelCase）。
 3. **多檔比較（StockCompare）**

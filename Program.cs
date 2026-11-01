@@ -16,7 +16,13 @@ builder.Services.AddRazorComponents()
 
 // ── 外部 API：證交所 (TWSE) ──
 // 型別化 HttpClient：由框架管理 HttpClient 生命週期，TwseApiClient 透過建構子取得
-builder.Services.AddHttpClient<ITwseApiClient, TwseApiClient>();
+builder.Services.AddHttpClient<ITwseApiClient, TwseApiClient>(client =>
+{
+    // 部分網站會拒絕沒有 User-Agent 的程式請求，這裡模擬一般瀏覽器
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // ── 資料存取層 (Repository) ──
 builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
