@@ -100,7 +100,7 @@
                         <span>（最後更新：@StockListUpdatedAt）</span>
                     }
                 </span>
-                <button @onclick="SyncStockList" class="action-btn" disabled="@IsSyncingList">🔄 更新股票清單</button>
+                <button @onclick="SyncStockList" class="action-btn" disabled="@(IsSyncingList || StockListSchemaProblem != null)">🔄 更新股票清單</button>
             </div>
 
             @if (!string.IsNullOrEmpty(ListStatusMessage))

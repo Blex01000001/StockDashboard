@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using StockDashboard.Repositories;
 using StockDashboard.Repositories.Interfaces;
 
 namespace StockDashboard.Components.Pages
@@ -47,7 +48,7 @@ namespace StockDashboard.Components.Pages
                     "import", "./Components/Pages/StockChart.razor.js");
 
                 // 圖表標題顯示「代號 名稱」，例如 "2330 台積電"；清單中沒有該股時只顯示代號
-                string? stockName = (await StockListRepository.GetStockByIdAsync(stockId))?.StockName;
+                string? stockName = await StockListRepository.GetStockNameOrNullAsync(stockId);
                 string chartLabel = stockName == null ? stockId : $"{stockId} {stockName}";
 
                 await _jsModule.InvokeVoidAsync("renderStockChart", "chart-container", chartLabel, candles);

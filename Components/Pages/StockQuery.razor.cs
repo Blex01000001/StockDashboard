@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using StockDashboard.Models.Entities;
+using StockDashboard.Repositories;
 using StockDashboard.Repositories.Interfaces;
 
 namespace StockDashboard.Components.Pages
@@ -41,7 +42,7 @@ namespace StockDashboard.Components.Pages
                     return;
                 }
 
-                StockName = (await StockListRepository.GetStockByIdAsync(stockId))?.StockName;
+                StockName = await StockListRepository.GetStockNameOrNullAsync(stockId);
             }
             catch (Exception ex)
             {

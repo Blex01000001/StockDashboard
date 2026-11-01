@@ -110,6 +110,8 @@ CREATE TABLE StockList (
 ```
 
 新增資料表時，請同步加到 `DatabaseInitializer` 的 `CREATE TABLE IF NOT EXISTS`。
+- ⚠️ `CREATE TABLE IF NOT EXISTS` 遇到「同名但結構不同」的既有資料表會直接略過。`DatabaseInitializer.GetStockListSchemaProblemAsync` 會檢查 StockList 欄位，不符時在 log 與資料更新頁顯示現有欄位，並停用股票清單同步。
+- 股票名稱是附加資訊：頁面與 Service 一律透過 `StockListRepositoryExtensions` 的 `GetStockNameOrNullAsync` / `GetStockNamesOrEmptyAsync` 查詢，失敗時退回只顯示代號，**不可讓主要功能因名稱查詢而失敗**。
 
 ## 樣式（CSS）
 

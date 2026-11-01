@@ -31,6 +31,8 @@ namespace StockDashboard.Components.Pages
         public bool IsSyncingList { get; set; } = false;
         public string ListStatusMessage { get; set; } = string.Empty;
         public bool ListIsError { get; set; } = false;
+        // StockList 資料表結構不符時的說明；不為 null 時停用「更新股票清單」按鈕
+        public string? StockListSchemaProblem { get; set; }
         private StockIdDataList? _stockIdDataList;
 
         protected override async Task OnInitializedAsync()
@@ -43,6 +45,14 @@ namespace StockDashboard.Components.Pages
         {
             try
             {
+                StockListSchemaProblem = await StockListRepository.GetSchemaProblemAsync();
+                if (StockListSchemaProblem != null)
+                {
+                    ListStatusMessage = StockListSchemaProblem;
+                    ListIsError = true;
+                    return;
+                }
+
                 (StockListCount, StockListUpdatedAt) = await StockListRepository.GetSummaryAsync();
             }
             catch (Exception ex)
@@ -57,7 +67,7 @@ namespace StockDashboard.Components.Pages
         /// </summary>
         public async Task SyncStockList()
         {
-            if (IsSyncingList) return;
+            if (IsSyncingList || StockListSchemaProblem != null) return;
 
             IsSyncingList = true;
             ListIsError = false;

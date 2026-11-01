@@ -16,6 +16,9 @@ namespace StockDashboard.Repositories.Interfaces
         // 取得清單筆數與最後更新時間 (清單為空時 LastUpdatedAt 為 null)
         Task<(int Count, string? LastUpdatedAt)> GetSummaryAsync();
 
+        // 檢查 StockList 資料表結構；正常回傳 null，結構不符時回傳說明文字
+        Task<string?> GetSchemaProblemAsync();
+
         // 新增或更新股票清單 (以 StockId 為主鍵)，回傳寫入筆數
         Task<int> UpsertStocksAsync(IEnumerable<StockListEntity> stocks);
     }

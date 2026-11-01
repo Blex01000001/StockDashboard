@@ -1,4 +1,5 @@
 ﻿using StockDashboard.Models;
+using StockDashboard.Repositories;
 using StockDashboard.Repositories.Interfaces;
 
 namespace StockDashboard.Services
@@ -39,7 +40,7 @@ namespace StockDashboard.Services
             var grouped = rawRowsList.GroupBy(r => r.StockId);
 
             // 圖例顯示「代號 名稱」(例如 "0050 元大台灣50")；股票清單中沒有的只顯示代號
-            var stockNames = await _stockListRepository.GetStockNamesAsync(stockIds);
+            var stockNames = await _stockListRepository.GetStockNamesOrEmptyAsync(stockIds);
 
             // 2. 核心運算：計算滾動報酬率 = (今日收盤 - N 個交易日前收盤) / N 個交易日前收盤 × 100
             foreach (var group in grouped)

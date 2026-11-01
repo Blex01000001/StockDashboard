@@ -52,6 +52,13 @@ namespace StockDashboard.Repositories.Implements
             return ((int)row.Count, row.LastUpdatedAt);
         }
 
+        public async Task<string?> GetSchemaProblemAsync()
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync();
+            return await DatabaseInitializer.GetStockListSchemaProblemAsync(connection);
+        }
+
         public async Task<int> UpsertStocksAsync(IEnumerable<StockListEntity> stocks)
         {
             // ON CONFLICT ... DO UPDATE：代號已存在就更新名稱 (公司改名時)，不存在就新增
