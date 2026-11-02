@@ -1,3 +1,11 @@
+/* 標題與說明同一行，節省版面 */
+.pattern-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
 /* ── 上方控制列：掃描設定｜型態參數｜型態範例，壓縮高度把版面留給結果小卡 ── */
 .control-row {
     display: grid;
@@ -50,9 +58,15 @@
     color-scheme: dark;
 }
 
+.title-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .ctl-box .scan-btn {
-    padding: 7px 12px;
-    margin-top: 2px;
+    padding: 4px 14px;
+    font-size: 0.8rem;
 }
 
 /* 參數：兩欄，每列「標籤 + 窄輸入框」 */
@@ -125,6 +139,32 @@
     margin: 14px 0 10px;
     color: var(--text-main);
     font-size: 0.9rem;
+}
+
+.result-summary {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+}
+
+.win-rates {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.win-rate {
+    margin-left: 12px;
+    color: var(--text-main);
+}
+
+    .win-rate b {
+        color: #ffffff;
+    }
+
+.win-count {
+    color: var(--text-muted);
+    font-size: 0.75rem;
 }
 
 .result-count {

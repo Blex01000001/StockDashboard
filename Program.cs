@@ -36,6 +36,8 @@ builder.Services.AddScoped<IPatternScanService, PatternScanService>();
 // ── K 線型態：新增型態時在這裡註冊，型態掃描頁會自動列出 (顯示順序 = 註冊順序) ──
 builder.Services.AddSingleton<ICandlePattern, BullishEngulfingPattern>();
 builder.Services.AddSingleton<ICandlePattern, MorningStarPattern>();
+builder.Services.AddSingleton<ICandlePattern, ThreeWhiteSoldiersPattern>();
+builder.Services.AddSingleton<ICandlePattern, ThreeBlackCrowsPattern>();
 
 // 型態掃描頁的畫面狀態 (每個瀏覽器分頁一份，切換頁面後保留)
 builder.Services.AddScoped<PatternScanState>();

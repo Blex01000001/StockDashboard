@@ -148,13 +148,137 @@ public class MorningStarPatternTests
     }
 }
 
+public class ThreeCandlesPatternTests
+{
+    private static readonly ThreeWhiteSoldiersPattern Soldiers = new();
+    private static readonly ThreeBlackCrowsPattern Crows = new();
+    private static PatternParameterValues V(ICandlePattern p) => PatternParameterValues.FromDefaults(p.Parameters);
+
+    // 三根紅 K：100→102、101→103.5、102.5→105 (實體約 2%、開在前一根實體內、無上影線)
+    private static List<StockDataPoint> Up() => new() { K.Bar(100, 102), K.Bar(101, 103.5), K.Bar(102.5, 105) };
+
+    // 鏡像：三根黑 K
+    private static List<StockDataPoint> Down() => new() { K.Bar(105, 103), K.Bar(104, 101.5), K.Bar(102.5, 100) };
+
+    [Fact] public void 標準紅三兵成立() => Assert.True(Soldiers.IsMatch(Up(), 2, V(Soldiers)));
+    [Fact] public void 標準黑三兵成立() => Assert.True(Crows.IsMatch(Down(), 2, V(Crows)));
+    [Fact] public void 紅三兵不會被判成黑三兵() => Assert.False(Crows.IsMatch(Up(), 2, V(Crows)));
+
+    [Fact]
+    public void 其中一根顏色不同不成立()
+    {
+        var candles = Up();
+        candles[1] = K.Bar(103.5, 101);
+        Assert.False(Soldiers.IsMatch(candles, 2, V(Soldiers)));
+    }
+
+    [Fact]
+    public void 收盤沒有逐日墊高不成立()
+    {
+        var candles = new List<StockDataPoint> { K.Bar(100, 102), K.Bar(100.5, 101.8), K.Bar(101, 103) };   // 第二根收盤低於第一根
+        Assert.False(Soldiers.IsMatch(candles, 2, V(Soldiers)));
+    }
+
+    [Fact]
+    public void 實體太小不成立()
+    {
+        var candles = new List<StockDataPoint> { K.Bar(100, 100.5), K.Bar(100.2, 100.8), K.Bar(100.5, 101.2) };   // 實體約 0.5%
+        Assert.False(Soldiers.IsMatch(candles, 2, V(Soldiers)));
+        Assert.True(Soldiers.IsMatch(candles, 2, V(Soldiers).Set(ThreeCandlesPattern.MinBodyPct, 0.4)));
+    }
+
+    [Fact]
+    public void 開盤不在前一根實體內_預設不成立_取消此條件後成立()
+    {
+        var candles = new List<StockDataPoint> { K.Bar(100, 102), K.Bar(102.5, 104.5), K.Bar(105, 107) };   // 跳空開高
+        Assert.False(Soldiers.IsMatch(candles, 2, V(Soldiers)));
+        Assert.True(Soldiers.IsMatch(candles, 2, V(Soldiers).Set(ThreeCandlesPattern.RequireOpenInBody, false)));
+    }
+
+    [Fact]
+    public void 上影線太長不成立()
+    {
+        var candles = Up();
+        candles[2] = K.Bar(102.5, 105, high: 107);   // 上影線 2 > 實體 2.5 × 0.5
+        Assert.False(Soldiers.IsMatch(candles, 2, V(Soldiers)));
+        Assert.True(Soldiers.IsMatch(candles, 2, V(Soldiers).Set(ThreeCandlesPattern.MaxShadowRatio, 1)));
+    }
+
+    [Fact]
+    public void 黑三兵看下影線()
+    {
+        var candles = Down();
+        candles[2] = K.Bar(102.5, 100, low: 98);     // 下影線 2 > 實體 2.5 × 0.5
+        Assert.False(Crows.IsMatch(candles, 2, V(Crows)));
+        candles[2] = K.Bar(102.5, 100, high: 104);   // 上影線不影響黑三兵
+        Assert.True(Crows.IsMatch(candles, 2, V(Crows)));
+    }
+
+    [Fact]
+    public void 黑三兵要求先上漲_量到型態前一根()
+    {
+        // 型態前一根收盤 106 相對 5 天前 100 漲 6%
+        var candles = new List<StockDataPoint> { K.Bar(100, 100), K.Bar(100, 101), K.Bar(101, 102), K.Bar(102, 104), K.Bar(104, 105), K.Bar(105, 106) };
+        candles.AddRange(new[] { K.Bar(106, 104), K.Bar(105, 102.5), K.Bar(103.5, 101) });
+        var values = V(Crows).Set(PatternFilters.RequireUptrend, true);
+        Assert.True(Crows.IsMatch(candles, 8, values));
+        Assert.False(Crows.IsMatch(candles, 8, values.Set(PatternFilters.UptrendPct, 7)));
+    }
+
+    [Fact]
+    public void 方向()
+    {
+        Assert.Equal(PatternDirection.Bullish, Soldiers.Direction);
+        Assert.Equal(PatternDirection.Bearish, Crows.Direction);
+        Assert.Equal(PatternDirection.Bullish, new BullishEngulfingPattern().Direction);
+        Assert.Equal(PatternDirection.Bullish, new MorningStarPattern().Direction);
+    }
+}
+
+public class WinRateTests
+{
+    private static PatternMatch M(double? r5, double? r10, double? r20) => new() { Return5 = r5, Return10 = r10, Return20 = r20 };
+
+    [Fact]
+    public void 看多型態_上漲算勝_資料不足不計入()
+    {
+        var matches = new[] { M(1, 2, 3), M(-1, 2, null), M(0, -2, null), M(null, null, null) };
+
+        var rates = PatternScanService.ComputeWinRates(matches, PatternDirection.Bullish);
+
+        Assert.Equal(new[] { 5, 10, 20 }, rates.Select(r => r.Days));
+        Assert.Equal((1, 3), (rates[0].Wins, rates[0].Total));   // 報酬 0 算輸
+        Assert.Equal(33.3, rates[0].Rate);
+        Assert.Equal((2, 3), (rates[1].Wins, rates[1].Total));
+        Assert.Equal((1, 1), (rates[2].Wins, rates[2].Total));
+        Assert.Equal(100, rates[2].Rate);
+    }
+
+    [Fact]
+    public void 看空型態_下跌算勝()
+    {
+        var rates = PatternScanService.ComputeWinRates(new[] { M(-1, 1, -3), M(-2, -1, 2) }, PatternDirection.Bearish);
+        Assert.Equal(new[] { 2, 1, 1 }, rates.Select(r => r.Wins));
+    }
+
+    [Fact]
+    public void 沒有樣本時勝率為Null()
+    {
+        var rates = PatternScanService.ComputeWinRates(Array.Empty<PatternMatch>(), PatternDirection.Bullish);
+        Assert.All(rates, r => Assert.Null(r.Rate));
+    }
+}
+
 /// <summary>
 /// 所有已註冊型態共用的檢查：範例 K 線 (預覽圖) 必須符合型態本身，各種參數組合都一樣。
 /// 新增型態時加到 AllPatterns 即可。
 /// </summary>
 public class PatternExampleTests
 {
-    public static readonly ICandlePattern[] AllPatterns = { new BullishEngulfingPattern(), new MorningStarPattern() };
+    public static readonly ICandlePattern[] AllPatterns =
+    {
+        new BullishEngulfingPattern(), new MorningStarPattern(), new ThreeWhiteSoldiersPattern(), new ThreeBlackCrowsPattern()
+    };
 
     public static IEnumerable<object[]> Patterns() => AllPatterns.Select(p => new object[] { p });
 

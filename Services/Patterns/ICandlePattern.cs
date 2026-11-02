@@ -4,6 +4,15 @@ using StockDashboard.Models.Patterns;
 namespace StockDashboard.Services.Patterns
 {
     /// <summary>
+    /// 型態的多空方向：決定「勝率」的定義 (看多型態：之後上漲算勝；看空型態：之後下跌算勝)
+    /// </summary>
+    public enum PatternDirection
+    {
+        Bullish,
+        Bearish
+    }
+
+    /// <summary>
     /// 一種 K 線型態。新增型態：實作此介面 → 在 Program.cs 註冊為 ICandlePattern → 補測試，頁面會自動出現。
     /// </summary>
     public interface ICandlePattern
@@ -16,6 +25,9 @@ namespace StockDashboard.Services.Patterns
 
         // 一句話說明型態 (顯示在預覽圖下方)
         string Description { get; }
+
+        // 看多或看空 (影響勝率計算)
+        PatternDirection Direction { get; }
 
         // 型態由幾根 K 棒組成；最後一根是「型態成立日」
         int BarCount { get; }

@@ -24,7 +24,11 @@ namespace StockDashboard.Services
             IEnumerable<string> stockIds, ICandlePattern pattern, PatternParameterValues values, int daysBefore = 10, int daysAfter = 20)
         {
             var ids = stockIds.Distinct().ToList();
-            var result = new PatternScanResult { PatternName = pattern.Name };
+            var result = new PatternScanResult
+            {
+                PatternName = pattern.Name,
+                IsBullish = pattern.Direction == PatternDirection.Bullish
+            };
             var names = await _stockNameRepository.GetStockNamesOrEmptyAsync(ids);
 
             foreach (var stockId in ids)
@@ -47,6 +51,7 @@ namespace StockDashboard.Services
                 .OrderByDescending(m => m.SignalDate, StringComparer.Ordinal)
                 .ThenBy(m => m.StockId, StringComparer.Ordinal)
                 .ToList();
+            result.WinRates = ComputeWinRates(result.Matches, pattern.Direction);
             return result;
         }
 
@@ -95,6 +100,20 @@ namespace StockDashboard.Services
             }
 
             return matches;
+        }
+
+        /// <summary>
+        /// 5 / 10 / 20 日勝率：看多型態之後報酬 &gt; 0 算勝，看空型態之後報酬 &lt; 0 算勝；報酬剛好 0 算輸。
+        /// </summary>
+        public static List<PatternWinRate> ComputeWinRates(IReadOnlyList<PatternMatch> matches, PatternDirection direction)
+        {
+            int sign = direction == PatternDirection.Bullish ? 1 : -1;
+            PatternWinRate Rate(int days, Func<PatternMatch, double?> pick)
+            {
+                var returns = matches.Select(pick).Where(r => r.HasValue).Select(r => r!.Value).ToList();
+                return new PatternWinRate { Days = days, Total = returns.Count, Wins = returns.Count(r => sign * r > 0) };
+            }
+            return new List<PatternWinRate> { Rate(5, m => m.Return5), Rate(10, m => m.Return10), Rate(20, m => m.Return20) };
         }
 
         // 第 index 天收盤到第 index + days 天收盤的報酬 %，四捨五入到小數兩位；資料不足為 null

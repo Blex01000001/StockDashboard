@@ -17,6 +17,7 @@ namespace StockDashboard.Services.Patterns
         public string Key => "bullish-engulfing";
         public string Name => "看漲吞沒";
         public string Description => "前一天黑K，當天紅K實體完全包住前一天實體";
+        public PatternDirection Direction => PatternDirection.Bullish;
         public int BarCount => 2;
 
         public IReadOnlyList<PatternParameter> Parameters { get; } = new[]
@@ -65,11 +66,11 @@ namespace StockDashboard.Services.Patterns
 
         public PatternExample BuildExample(PatternParameterValues values)
         {
-            var list = PatternFilters.LeadingDecline(values, PatternFilters.SuggestedDailyDropPct(values));
+            var list = PatternFilters.LeadingDecline(values);
             double tol = values.Get(TolerancePct) / 100;
 
             // 前一天黑 K：實體略大於門檻 (門檻為 0 時仍畫出看得見的實體)
-            double prevOpen = PatternFilters.PatternStartOpen(list, values);
+            double prevOpen = PatternFilters.PatternStartOpen(list, values, PatternFilters.Down);
             double prevClose = prevOpen * (1 - Math.Max(values.Get(MinPrevBodyPct) * 1.1, 0.3) / 100);
             var prev = PatternFilters.Add(list, prevOpen, prevClose, high: prevOpen * 1.004, low: prevClose * 0.996);
 

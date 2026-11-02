@@ -18,6 +18,7 @@ namespace StockDashboard.Services.Patterns
         public string Key => "morning-star";
         public string Name => "晨星";
         public string Description => "長黑K → 小實體星線 → 紅K收復長黑K實體一定比例";
+        public PatternDirection Direction => PatternDirection.Bullish;
         public int BarCount => 3;
 
         public IReadOnlyList<PatternParameter> Parameters { get; } = new[]
@@ -59,10 +60,10 @@ namespace StockDashboard.Services.Patterns
 
         public PatternExample BuildExample(PatternParameterValues values)
         {
-            var list = PatternFilters.LeadingDecline(values, PatternFilters.SuggestedDailyDropPct(values));
+            var list = PatternFilters.LeadingDecline(values);
 
             // 第一天長黑 K
-            double d1Open = PatternFilters.PatternStartOpen(list, values);
+            double d1Open = PatternFilters.PatternStartOpen(list, values, PatternFilters.Down);
             double d1Close = d1Open * (1 - Math.Max(values.Get(Day1MinBodyPct) * 1.1, 0.8) / 100);
             double body1 = d1Open - d1Close;
             PatternFilters.Add(list, d1Open, d1Close);

@@ -3,7 +3,7 @@
 <PageTitle>QUANT STACK | K線型態掃描</PageTitle>
 
 <div class="dashboard-panel panel-standard">
-    <div class="panel-header">
+    <div class="panel-header pattern-header">
         <h2 class="panel-title">🕯️ K線型態掃描</h2>
         <span class="panel-subtitle">從本機資料庫找出符合型態的日子，顯示前 @DaysBefore 天與後 @DaysAfter 天的走勢</span>
     </div>
@@ -34,14 +34,16 @@
                     }
                 </select>
             </label>
-            <button @onclick="ScanAsync" class="action-btn scan-btn" disabled="@IsScanning">@(IsScanning ? "掃描中..." : "開始掃描")</button>
         </div>
 
         @* ── 型態參數 (依型態的參數定義自動產生) ── *@
         <div class="ctl-box">
             <div class="ctl-title">
                 @Pattern.Name 參數
-                <button class="link-btn" @onclick="ResetValues">恢復預設</button>
+                <div class="title-actions">
+                    <button class="link-btn" @onclick="ResetValues">恢復預設</button>
+                    <button @onclick="ScanAsync" class="action-btn scan-btn" disabled="@IsScanning">@(IsScanning ? "掃描中..." : "開始掃描")</button>
+                </div>
             </div>
             <div class="param-grid">
                 @foreach (var p in Pattern.Parameters)
@@ -82,7 +84,30 @@
     @if (State.Result != null)
     {
         <div class="result-bar">
-            <span>@State.Result.PatternName：共 <b class="result-count">@State.Result.Matches.Count</b> 筆符合</span>
+            <div class="result-summary">
+                <span>@State.Result.PatternName：共 <b class="result-count">@State.Result.Matches.Count</b> 筆符合</span>
+                @if (State.Result.Matches.Count > 0)
+                {
+                    <span class="win-rates" title="之後第 N 日的報酬方向符合型態即算勝；之後天數不足的不計入">
+                        勝率（@(State.Result.IsBullish ? "上漲" : "下跌")算勝）
+                        @foreach (var w in State.Result.WinRates)
+                        {
+                            <span class="win-rate">
+                                @(w.Days)日
+                                @if (w.Rate == null)
+                                {
+                                    <span class="ret-na">-</span>
+                                }
+                                else
+                                {
+                                    <b>@w.Rate.Value.ToString("0.0")%</b>
+                                    <span class="win-count">(@w.Wins/@w.Total)</span>
+                                }
+                            </span>
+                        }
+                    </span>
+                }
+            </div>
             @if (TotalPages > 1)
             {
                 <div class="pager">

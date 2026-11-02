@@ -53,10 +53,30 @@ namespace StockDashboard.Models.Patterns
         // 掃描的型態名稱 (顯示用)
         public string PatternName { get; set; } = string.Empty;
 
+        // true：看多型態 (之後上漲算勝)；false：看空型態 (之後下跌算勝)
+        public bool IsBullish { get; set; } = true;
+
+        // 5 / 10 / 20 日勝率
+        public List<PatternWinRate> WinRates { get; set; } = new();
+
         // 依型態日期由新到舊排序
         public List<PatternMatch> Matches { get; set; } = new();
 
         // 資料庫中查無日線資料的股票代號 (頁面提示使用者先同步)
         public List<string> StocksWithoutData { get; set; } = new();
+    }
+
+    /// <summary>
+    /// N 日勝率：之後第 N 日報酬方向符合型態 (看多為正、看空為負) 的比例。
+    /// 之後天數不足 (報酬為 null) 的結果不計入分母。
+    /// </summary>
+    public class PatternWinRate
+    {
+        public int Days { get; set; }
+        public int Wins { get; set; }
+        public int Total { get; set; }
+
+        // 百分比 (0~100)；沒有可計算的樣本時為 null
+        public double? Rate => Total == 0 ? null : Math.Round(Wins * 100.0 / Total, 1);
     }
 }
