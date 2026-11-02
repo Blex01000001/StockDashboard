@@ -7,13 +7,13 @@ namespace StockDashboard.Services
     public class StockPerformanceService : IStockPerformanceService
     {
         private readonly IStockPriceRepository _priceRepository;
-        private readonly IStockNameRepository _stockListRepository;
+        private readonly IStockNameRepository _stockNameRepository;
 
         // 建構子注入 Repository
-        public StockPerformanceService(IStockPriceRepository priceRepository, IStockNameRepository stockListRepository)
+        public StockPerformanceService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository)
         {
             _priceRepository = priceRepository;
-            _stockListRepository = stockListRepository;
+            _stockNameRepository = stockNameRepository;
         }
 
         /// <param name="stockIds">要比較的股票代號</param>
@@ -40,7 +40,7 @@ namespace StockDashboard.Services
             var grouped = rawRowsList.GroupBy(r => r.StockId);
 
             // 圖例顯示「代號 名稱」(例如 "0050 元大台灣50")；股票清單中沒有的只顯示代號
-            var stockNames = await _stockListRepository.GetStockNamesOrEmptyAsync(stockIds);
+            var stockNames = await _stockNameRepository.GetStockNamesOrEmptyAsync(stockIds);
 
             // 2. 核心運算：計算滾動報酬率 = (今日收盤 - N 個交易日前收盤) / N 個交易日前收盤 × 100
             foreach (var group in grouped)
