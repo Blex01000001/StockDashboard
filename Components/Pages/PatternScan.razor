@@ -1,0 +1,90 @@
+@page "/pattern-scan"
+
+<PageTitle>QUANT STACK | K線型態掃描</PageTitle>
+
+<div class="dashboard-panel panel-standard">
+    <div class="panel-header">
+        <h2 class="panel-title">🕯️ K線型態掃描：看漲吞沒</h2>
+        <span class="panel-subtitle">從本機資料庫找出符合型態的日子，顯示前 @DaysBefore 天與後 @DaysAfter 天的走勢</span>
+    </div>
+
+    <div class="search-box-container">
+        <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" @bind="StockIdsInput" placeholder="股票代號清單，以逗號分隔 (如: 2330, 0050)" class="dark-input stock-list-input" />
+        </div>
+        <button @onclick="ScanAsync" class="action-btn" disabled="@IsScanning">開始掃描</button>
+    </div>
+
+    <div class="option-panel">
+        <div class="option-title">
+            型態參數
+            <button class="link-btn" @onclick="ResetOptions">恢復預設</button>
+        </div>
+        <div class="option-grid">
+            <label>前一天黑K實體至少 (%)<input type="number" step="0.1" min="0" @bind="Options.MinPrevBodyPct" class="dark-input" /></label>
+            <label>當天實體至少為前一天的 (倍)<input type="number" step="0.1" min="0" @bind="Options.MinBodyRatio" class="dark-input" /></label>
+            <label>吞沒容許誤差 (%)<input type="number" step="0.1" min="0" @bind="Options.TolerancePct" class="dark-input" /></label>
+            <label class="check"><input type="checkbox" @bind="Options.IncludeShadows" /> 影線也要吞沒</label>
+
+            <label class="check"><input type="checkbox" @bind="Options.RequireDowntrend" /> 要求先下跌</label>
+            <label>下跌判斷天數<input type="number" min="1" @bind="Options.DowntrendDays" class="dark-input" disabled="@(!Options.RequireDowntrend)" /></label>
+            <label>累計跌幅至少 (%)<input type="number" step="0.5" min="0" @bind="Options.DowntrendPct" class="dark-input" disabled="@(!Options.RequireDowntrend)" /></label>
+            <span></span>
+
+            <label class="check"><input type="checkbox" @bind="Options.RequireVolume" /> 要求成交量放大</label>
+            <label>均量天數<input type="number" min="1" @bind="Options.VolumeAvgDays" class="dark-input" disabled="@(!Options.RequireVolume)" /></label>
+            <label>當天量至少為均量的 (倍)<input type="number" step="0.1" min="0" @bind="Options.VolumeMultiplier" class="dark-input" disabled="@(!Options.RequireVolume)" /></label>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <div class="alert-box">⚠️ @Message</div>
+    }
+
+    @if (Result != null)
+    {
+        <div class="result-bar">
+            <span>共 <b class="result-count">@Result.Matches.Count</b> 筆符合</span>
+            @if (TotalPages > 1)
+            {
+                <div class="pager">
+                    <button class="link-btn" @onclick="() => GoToPage(PageIndex - 1)" disabled="@(PageIndex == 0)">‹ 上一頁</button>
+                    <span>第 @(PageIndex + 1) / @TotalPages 頁</span>
+                    <button class="link-btn" @onclick="() => GoToPage(PageIndex + 1)" disabled="@(PageIndex >= TotalPages - 1)">下一頁 ›</button>
+                </div>
+            }
+        </div>
+
+        <div class="card-grid">
+            @for (int i = 0; i < PagedMatches.Count; i++)
+            {
+                var match = PagedMatches[i];
+                <div class="pattern-card">
+                    <div class="card-head">
+                        <span class="card-stock">@match.StockId @match.StockName</span>
+                        <span class="card-date">@match.SignalDate</span>
+                    </div>
+                    <div id="@($"pattern-chart-{i}")" class="card-chart"></div>
+                    <div class="card-returns">
+                        @foreach (var (label, value) in new[] { ("5日", match.Return5), ("10日", match.Return10), ("20日", match.Return20) })
+                        {
+                            <span>
+                                @label
+                                @if (value == null)
+                                {
+                                    <span class="ret-na">資料不足</span>
+                                }
+                                else
+                                {
+                                    <span class="@(value > 0 ? "ret-up" : value < 0 ? "ret-down" : "")">@(value > 0 ? "+" : "")@value.Value.ToString("0.00")%</span>
+                                }
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

@@ -1,0 +1,166 @@
+/* 股票清單輸入框加寬 (共用的 .dark-input 預設 220px) */
+.stock-list-input {
+    width: 360px;
+}
+
+/* ── 參數面板 ── */
+.option-panel {
+    background-color: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+}
+
+.option-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #ffffff;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    border-left: 3px solid var(--accent-color);
+    padding-left: 8px;
+}
+
+.option-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px 20px;
+    align-items: end;
+}
+
+    .option-grid label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+        .option-grid label.check {
+            flex-direction: row;
+            align-items: center;
+            color: var(--text-main);
+            padding-bottom: 8px;
+        }
+
+    /* 參數輸入框沒有放大鏡圖示，覆寫共用 .dark-input 的寬度與左側 padding */
+    .option-grid .dark-input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        color-scheme: dark;
+    }
+
+        .option-grid .dark-input:disabled {
+            opacity: 0.4;
+        }
+
+.link-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+    .link-btn:hover:not(:disabled) {
+        border-color: var(--accent-color);
+        color: #ffffff;
+    }
+
+    .link-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+/* ── 結果 ── */
+.result-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 20px 0 12px;
+    color: var(--text-main);
+    font-size: 0.9rem;
+}
+
+.result-count {
+    color: #ffffff;
+    font-size: 1.1rem;
+}
+
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+@media (max-width: 1000px) {
+    .card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .option-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.pattern-card {
+    background-color: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+
+.card-stock {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.card-date {
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.card-chart {
+    width: 100%;
+    height: 260px;
+}
+
+.card-returns {
+    display: flex;
+    gap: 18px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+.ret-up {
+    color: #ef5350;
+    font-weight: 600;
+}
+
+.ret-down {
+    color: #26a69a;
+    font-weight: 600;
+}
+
+.ret-na {
+    color: var(--text-muted);
+}
