@@ -20,11 +20,11 @@ namespace StockDashboard.Services
             _stockNameRepository = stockNameRepository;
         }
 
-        public async Task<PatternScanResult> ScanBullishEngulfingAsync(
-            IEnumerable<string> stockIds, BullishEngulfingOptions options, int daysBefore = 10, int daysAfter = 20)
+        public async Task<PatternScanResult> ScanAsync(
+            IEnumerable<string> stockIds, ICandlePattern pattern, PatternParameterValues values, int daysBefore = 10, int daysAfter = 20)
         {
             var ids = stockIds.Distinct().ToList();
-            var result = new PatternScanResult();
+            var result = new PatternScanResult { PatternName = pattern.Name };
             var names = await _stockNameRepository.GetStockNamesOrEmptyAsync(ids);
 
             foreach (var stockId in ids)
@@ -36,7 +36,7 @@ namespace StockDashboard.Services
                     continue;
                 }
 
-                var matches = FindMatches(stockId, candles, options, daysBefore, daysAfter);
+                var matches = FindMatches(stockId, candles, pattern, values, daysBefore, daysAfter);
                 names.TryGetValue(stockId, out var name);
                 matches.ForEach(m => m.StockName = name);
                 result.Matches.AddRange(matches);
@@ -54,18 +54,18 @@ namespace StockDashboard.Services
         /// 在單檔股票的完整日線 (由舊到新) 中找出所有符合的日子，並組成小卡資料。
         /// </summary>
         public static List<PatternMatch> FindMatches(
-            string stockId, IReadOnlyList<StockDataPoint> candles, BullishEngulfingOptions options, int daysBefore, int daysAfter)
+            string stockId, IReadOnlyList<StockDataPoint> candles, ICandlePattern pattern, PatternParameterValues values, int daysBefore, int daysAfter)
         {
             var matches = new List<PatternMatch>();
-            if (candles.Count < 2) return matches;
+            if (candles.Count < pattern.BarCount) return matches;
 
             // 均線以完整歷史計算，小卡最左邊的均線才會是正確值
             double?[] ma5 = MovingAverage(candles, 5);
             double?[] ma20 = MovingAverage(candles, 20);
 
-            for (int i = 1; i < candles.Count; i++)
+            for (int i = pattern.BarCount - 1; i < candles.Count; i++)
             {
-                if (!BullishEngulfingDetector.IsMatch(candles, i, options)) continue;
+                if (!pattern.IsMatch(candles, i, values)) continue;
 
                 int start = Math.Max(0, i - daysBefore);
                 int end = Math.Min(candles.Count - 1, i + daysAfter);
@@ -86,6 +86,7 @@ namespace StockDashboard.Services
                     StockId = stockId,
                     SignalDate = candles[i].Date,
                     SignalIndex = i - start,
+                    PatternBarCount = pattern.BarCount,
                     Candles = window,
                     Return5 = ReturnAfter(candles, i, 5),
                     Return10 = ReturnAfter(candles, i, 10),

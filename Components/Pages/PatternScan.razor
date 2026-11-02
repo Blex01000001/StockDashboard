@@ -4,58 +4,99 @@
 
 <div class="dashboard-panel panel-standard">
     <div class="panel-header">
-        <h2 class="panel-title">🕯️ K線型態掃描：看漲吞沒</h2>
+        <h2 class="panel-title">🕯️ K線型態掃描</h2>
         <span class="panel-subtitle">從本機資料庫找出符合型態的日子，顯示前 @DaysBefore 天與後 @DaysAfter 天的走勢</span>
     </div>
 
-    <div class="search-box-container">
-        <div class="search-input-wrapper">
-            <span class="search-icon">🔍</span>
-            <input type="text" @bind="StockIdsInput" placeholder="股票代號清單，以逗號分隔 (如: 2330, 0050)" class="dark-input stock-list-input" />
+    <div class="control-row">
+        @* ── 掃描設定 ── *@
+        <div class="ctl-box">
+            <div class="ctl-title">掃描設定</div>
+            <label class="ctl-field">
+                <span>型態</span>
+                <select class="dark-input pattern-select" value="@Pattern.Key" @onchange="OnPatternChanged">
+                    @foreach (var p in Patterns)
+                    {
+                        <option value="@p.Key">@p.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="ctl-field">
+                <span>股票清單</span>
+                <input type="text" @bind="State.StockIdsInput" placeholder="以逗號分隔，如: 2330, 0050" class="dark-input stock-list-input" />
+            </label>
+            <label class="ctl-field">
+                <span>每頁筆數</span>
+                <select class="dark-input page-size-select" value="@State.PageSize" @onchange="OnPageSizeChanged">
+                    @foreach (var size in PageSizeOptions)
+                    {
+                        <option value="@size">@size</option>
+                    }
+                </select>
+            </label>
+            <button @onclick="ScanAsync" class="action-btn scan-btn" disabled="@IsScanning">@(IsScanning ? "掃描中..." : "開始掃描")</button>
         </div>
-        <button @onclick="ScanAsync" class="action-btn" disabled="@IsScanning">開始掃描</button>
+
+        @* ── 型態參數 (依型態的參數定義自動產生) ── *@
+        <div class="ctl-box">
+            <div class="ctl-title">
+                @Pattern.Name 參數
+                <button class="link-btn" @onclick="ResetValues">恢復預設</button>
+            </div>
+            <div class="param-grid">
+                @foreach (var p in Pattern.Parameters)
+                {
+                    bool enabled = p.EnabledBy == null || Values.GetBool(p.EnabledBy);
+                    if (p.Kind == Models.Patterns.PatternParameterKind.Toggle)
+                    {
+                        <label class="param toggle">
+                            <input type="checkbox" checked="@Values.GetBool(p.Key)" @onchange="e => OnToggle(p, e)" />
+                            <span>@p.Label</span>
+                        </label>
+                    }
+                    else
+                    {
+                        <label class="param @(enabled ? "" : "disabled")">
+                            <span>@p.Label</span>
+                            <input type="number" class="dark-input" step="@Num(p.Step)" min="@Num(p.Min)" max="@Num(p.Max)"
+                                   value="@Num(Values.Get(p.Key))" disabled="@(!enabled)" @oninput="e => OnNumberInput(p, e)" />
+                        </label>
+                    }
+                }
+            </div>
+        </div>
+
+        @* ── 型態範例：依目前參數即時產生 ── *@
+        <div class="ctl-box preview-box">
+            <div class="ctl-title">型態範例</div>
+            <div id="pattern-preview" class="preview-chart"></div>
+            <div class="preview-desc">@Pattern.Description</div>
+        </div>
     </div>
 
-    <div class="option-panel">
-        <div class="option-title">
-            型態參數
-            <button class="link-btn" @onclick="ResetOptions">恢復預設</button>
-        </div>
-        <div class="option-grid">
-            <label>前一天黑K實體至少 (%)<input type="number" step="0.1" min="0" @bind="Options.MinPrevBodyPct" class="dark-input" /></label>
-            <label>當天實體至少為前一天的 (倍)<input type="number" step="0.1" min="0" @bind="Options.MinBodyRatio" class="dark-input" /></label>
-            <label>吞沒容許誤差 (%)<input type="number" step="0.1" min="0" @bind="Options.TolerancePct" class="dark-input" /></label>
-            <label class="check"><input type="checkbox" @bind="Options.IncludeShadows" /> 影線也要吞沒</label>
-
-            <label class="check"><input type="checkbox" @bind="Options.RequireDowntrend" /> 要求先下跌</label>
-            <label>下跌判斷天數<input type="number" min="1" @bind="Options.DowntrendDays" class="dark-input" disabled="@(!Options.RequireDowntrend)" /></label>
-            <label>累計跌幅至少 (%)<input type="number" step="0.5" min="0" @bind="Options.DowntrendPct" class="dark-input" disabled="@(!Options.RequireDowntrend)" /></label>
-            <span></span>
-
-            <label class="check"><input type="checkbox" @bind="Options.RequireVolume" /> 要求成交量放大</label>
-            <label>均量天數<input type="number" min="1" @bind="Options.VolumeAvgDays" class="dark-input" disabled="@(!Options.RequireVolume)" /></label>
-            <label>當天量至少為均量的 (倍)<input type="number" step="0.1" min="0" @bind="Options.VolumeMultiplier" class="dark-input" disabled="@(!Options.RequireVolume)" /></label>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrEmpty(Message))
+    @if (!string.IsNullOrEmpty(State.Message))
     {
-        <div class="alert-box">⚠️ @Message</div>
+        <div class="alert-box">⚠️ @State.Message</div>
     }
 
-    @if (Result != null)
+    @if (State.Result != null)
     {
         <div class="result-bar">
-            <span>共 <b class="result-count">@Result.Matches.Count</b> 筆符合</span>
+            <span>@State.Result.PatternName：共 <b class="result-count">@State.Result.Matches.Count</b> 筆符合</span>
             @if (TotalPages > 1)
             {
                 <div class="pager">
-                    <button class="link-btn" @onclick="() => GoToPage(PageIndex - 1)" disabled="@(PageIndex == 0)">‹ 上一頁</button>
-                    <span>第 @(PageIndex + 1) / @TotalPages 頁</span>
-                    <button class="link-btn" @onclick="() => GoToPage(PageIndex + 1)" disabled="@(PageIndex >= TotalPages - 1)">下一頁 ›</button>
+                    <button class="link-btn" @onclick="() => GoToPage(State.PageIndex - 1)" disabled="@(State.PageIndex == 0)">‹ 上一頁</button>
+                    <span>第 @(State.PageIndex + 1) / @TotalPages 頁</span>
+                    <button class="link-btn" @onclick="() => GoToPage(State.PageIndex + 1)" disabled="@(State.PageIndex >= TotalPages - 1)">下一頁 ›</button>
                 </div>
             }
         </div>
+
+        @if (State.Result.Matches.Count == 0)
+        {
+            <div class="empty-hint">沒有符合的日子。可以放寬參數 (例如取消「要求先下跌」、降低實體門檻) 後再掃描。</div>
+        }
 
         <div class="card-grid">
             @for (int i = 0; i < PagedMatches.Count; i++)

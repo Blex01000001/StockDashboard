@@ -3,6 +3,7 @@ using StockDashboard.Repositories;
 using StockDashboard.Repositories.Implements;
 using StockDashboard.Repositories.Interfaces;
 using StockDashboard.Services;
+using StockDashboard.Services.Patterns;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +32,13 @@ builder.Services.AddScoped<IStockNameRepository, StockNameRepository>();
 // ── 商業邏輯層 (Service) ──
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
 builder.Services.AddScoped<IPatternScanService, PatternScanService>();
+
+// ── K 線型態：新增型態時在這裡註冊，型態掃描頁會自動列出 (顯示順序 = 註冊順序) ──
+builder.Services.AddSingleton<ICandlePattern, BullishEngulfingPattern>();
+builder.Services.AddSingleton<ICandlePattern, MorningStarPattern>();
+
+// 型態掃描頁的畫面狀態 (每個瀏覽器分頁一份，切換頁面後保留)
+builder.Services.AddScoped<PatternScanState>();
 
 var app = builder.Build();
 

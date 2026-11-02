@@ -13,8 +13,11 @@ namespace StockDashboard.Models.Patterns
         // 型態成立的那一天 (yyyy-MM-dd)
         public string SignalDate { get; set; } = string.Empty;
 
-        // 型態成立那天在 Candles 中的索引 (前面資料不足 10 天時會小於 10)
+        // 型態成立那天 (型態最後一根 K 棒) 在 Candles 中的索引 (前面資料不足時會較小)
         public int SignalIndex { get; set; }
+
+        // 型態由幾根 K 棒組成 (看漲吞沒 2、晨星 3)，小卡依此標示型態範圍
+        public int PatternBarCount { get; set; } = 1;
 
         // 型態前 N 天 + 當天 + 後 M 天的 K 線 (資料不足時較短)
         public List<PatternCandle> Candles { get; set; } = new();
@@ -47,6 +50,9 @@ namespace StockDashboard.Models.Patterns
     /// </summary>
     public class PatternScanResult
     {
+        // 掃描的型態名稱 (顯示用)
+        public string PatternName { get; set; } = string.Empty;
+
         // 依型態日期由新到舊排序
         public List<PatternMatch> Matches { get; set; } = new();
 
