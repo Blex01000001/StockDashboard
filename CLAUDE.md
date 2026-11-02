@@ -12,10 +12,14 @@
 | `Components/Pages/StockQuery.*` | `/stock-query` 單檔最新日線＋名稱 | |
 | `Components/Pages/StockChart.*` | `/stock-chart` K 線圖（`.razor.js` 畫 ECharts） | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
+| `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：自訂清單、參數、分頁小卡（`.razor.js` 畫小卡） | 小卡圖表改 `.razor.js` |
 | `Components/Pages/StockUpdate.*` | `/stock-update` TWSE 逐月同步、手動單筆、股票清單同步 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號） | 證交所格式改變時 |
 | `Services/StockPerformanceService.cs` | 滾動報酬率計算 | 報酬率公式（**先問使用者**） |
+| `Services/Patterns/BullishEngulfingDetector.cs` | 看漲吞沒判斷（純計算） | 判斷條件（**先問使用者**） |
+| `Services/PatternScanService.cs` | 掃描：讀完整日線 → 判斷 → 切小卡範圍、均線、之後報酬 | |
+| `Models/Patterns/BullishEngulfingOptions.cs` | 型態參數與預設值 | 預設值（**先問使用者**） |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
 | `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`） | |
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
@@ -56,6 +60,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - **新增資料表**：加到 `DatabaseInitializer` 的 `CREATE TABLE IF NOT EXISTS`；**先確認使用者的 stock.db 沒有同名表**（該語法遇到同名表會直接略過，曾與使用者的 `StockList` 衝突）。
 - **新增 Service／Repository**：`Program.cs` 註冊 `AddScoped`；呼叫外部 API 用 `AddHttpClient<介面, 實作>()`。
 - **新增設定鍵**：同步加到 `appsettings.Example.json`。
+- **新增 K 線型態**：在 `Services/Patterns/` 加判斷類別（純函式，吃由舊到新的 `StockDataPoint` 清單與索引）＋參數類別＋測試；`PatternScanService.FindMatches` 目前寫死看漲吞沒，加第二種型態時改成可選型態。
 - **證交所 API 改版**：先改 `appsettings.json` 的 `Twse:StockDayUrl`／`Twse:StockDayAllUrl`；格式變了才改 `TwseApiClient`。
 
 ## 硬性限制
@@ -88,6 +93,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 
 - 滾動報酬率：`(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，N 以所有股票「聯集」的時間軸計算；缺資料為 `null`（圖上斷線）。
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
+- 型態掃描：小卡為型態日前 10、後 20 個交易日；均線用完整歷史計算；之後報酬以型態當天收盤為基準；結果新的日期在前、每頁 10 張。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。
 
 ## 環境陷阱（雲端沙盒）

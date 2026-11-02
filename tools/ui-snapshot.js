@@ -49,6 +49,9 @@ const STATES = [
   ['u_init', async p => { await go(p, 'stock-update'); }],
   ['u_error', async p => { const c = p.locator('.card-box').nth(1); await c.locator('input').nth(0).fill(''); await c.locator('button').click(); await p.waitForTimeout(600); }],
   ['u_ok', async p => { const c = p.locator('.card-box').nth(1); await c.locator('input').nth(0).fill('9999'); await c.locator('input').nth(2).fill('10'); await c.locator('button').click(); await p.waitForTimeout(800); }],
+  ['p_init', async p => { await go(p, 'pattern-scan'); }],
+  ['p_result', async p => { await p.fill('.stock-list-input', '2330,0050'); await clickMain(p, 2000); }],
+  ['p_page2', async p => { const next = p.locator('.pager button').last(); if (await next.count()) { await next.click(); await p.waitForTimeout(1500); } }],
   ['x_404', async p => { await go(p, 'not-exist-page'); }],
 ];
 
