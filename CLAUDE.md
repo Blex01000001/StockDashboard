@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-台股報酬可視化工具：.NET 8 Blazor Web App（**Interactive Server**，C# 全在伺服器端）＋ SQLite（Dapper，無 EF Core）＋ ECharts（CDN）。個人專案，使用者非資訊本科。**回答與註解一律使用繁體中文。** 細節以程式碼與註解為準。
+台股報酬可視化工具：.NET 8 Blazor Web App（**Interactive Server**，C# 全在伺服器端）＋ SQLite（Dapper，無 EF Core）＋ ECharts（CDN）。個人專案，使用者非資訊本科。**聊天回覆與程式註解用繁體中文；commit 訊息用英文。** 細節以程式碼與註解為準。
 
 ## 檔案地圖
 
@@ -24,17 +24,29 @@
 | `Components/Layout/NavMenu.razor.css` | 側邊欄連結實際生效的樣式（權重高於 `app.css`） | |
 | `Components/Pages/*.razor.css` | 各頁 scoped CSS | |
 | `appsettings.Example.json` | 設定範本（`appsettings.json` 被 gitignore） | 新增設定鍵時同步更新 |
+| `tests/StockDashboard.Tests/` | xUnit：`TwseApiClient` 解析、報酬率計算、Repository（暫存 SQLite） | 改這些類別時補測試 |
+| `tests/.../Fixtures/` | 證交所實際回應範例（測試與 `fake-twse.py` 共用） | 證交所格式改變時更新 |
+| `tools/ui-snapshot.js` | UI 快照：擷取／比對 computed style 與截圖 | 新增頁面或互動狀態時加到 `STATES` |
+| `tools/fake-twse.py`、`tools/make-test-db.py` | 假證交所伺服器、確定性測試資料庫 | |
 
-未完成的空殼：`StockPriceService`（還原股價，未註冊 DI）、`StockDividend*`、`StockCorporateAction*`、`StockCombinationDto`。沒有測試專案。
+未完成的空殼：`StockPriceService`（還原股價，未註冊 DI）、`StockDividend*`、`StockCorporateAction*`、`StockCombinationDto`。
+主專案 `StockDashboard.csproj` 在 repo 根目錄，**已排除 `tests/**`、`tools/**`**（否則會把測試碼編進網站）；新增資料夾若不屬於網站也要排除。
 
 ## 修改後的驗證
 
 ```bash
-dotnet build   # 每次修改後必跑；增量約 3 秒，乾淨建置約 30 秒
+dotnet test    # 每次修改後必跑（含建置網站與測試專案）；約 10 秒，首次需下載 NuGet 套件會更久
+dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測試
 ```
-- **必須 0 error、0 warning**（目前是 0 warning，請維持）。
-- 動到 UI 時：啟動後用 Playwright 實際操作頁面確認（見「環境陷阱」）。
-- 動到 CSS 時：比對修改前後所有元素的 `getComputedStyle` 與截圖，必須一致（除非使用者同意改外觀）。
+- **必須 0 error、0 warning、測試全過才 commit；不可為了通過而跳過或刪除測試。**
+- 改 `TwseApiClient`、`StockPerformanceService`、Repository 時補對應測試。
+- 動到 UI／CSS 時（每次擷取約 1 分鐘）：
+  ```bash
+  python3 tools/make-test-db.py /tmp/ui.db   # appsettings.json 的 DefaultConnection 指向它，啟動網站
+  node tools/ui-snapshot.js capture /tmp/before --echarts <echarts.min.js>   # 修改前
+  node tools/ui-snapshot.js capture /tmp/after  --echarts <echarts.min.js>   # 修改、重建、重啟後
+  node tools/ui-snapshot.js diff /tmp/before /tmp/after   # 外觀不可改時必須 0 差異
+  ```
 - 本機啟動：`cp appsettings.Example.json appsettings.json`，改 `ConnectionStrings:DefaultConnection`，再 `dotnet run --launch-profile http`（http://localhost:8888）。
 
 ## 常見任務
@@ -82,8 +94,8 @@ dotnet build   # 每次修改後必跑；增量約 3 秒，乾淨建置約 30 �
 
 - 沒有預裝 .NET：`apt-get install -y dotnet-sdk-8.0`（約 1 分鐘）。
 - 連不到 `twse.com.tw`、`openapi.twse.com.tw`、ECharts CDN：
-  - 測 TWSE：本機跑假伺服器，`appsettings.json` 的 `Twse:StockDayUrl` 指向它。
-  - 測圖表：Playwright 用 `page.route` 把 `echarts.min.js` 換成 npm 下載的 `echarts@5.4.3`。
+  - 測 TWSE：`python3 tools/fake-twse.py`，`Twse:*` 設定指向它（用法見檔案開頭）；啟動網站要加 `NO_PROXY=127.0.0.1,localhost`，否則會走沙盒 proxy。
+  - 測圖表：`curl -sSL https://registry.npmjs.org/echarts/-/echarts-5.4.3.tgz | tar xz -C /tmp package/dist/echarts.min.js`，再傳 `--echarts /tmp/package/dist/echarts.min.js`。
 - **不要用 `pkill -f`／`pgrep -f` 關伺服器**：會比對到自己的 shell 指令而中斷 session。改用 `ps -eo pid,args | awk '/StockDashboard.dll/ && !/awk/ {print $1}' | xargs -r kill`。
 - 測試用的 `appsettings.json` 用完要刪（雖被 gitignore，但會影響之後的啟動）。
 - 使用者說「合併到 main」指的是 `master`（repo 沒有 `main` 分支）。
@@ -93,6 +105,7 @@ dotnet build   # 每次修改後必跑；增量約 3 秒，乾淨建置約 30 �
 - commit 訊息第一行簡述改了什麼，需要時空一行補充原因
 - commit 訊息只描述本次修改，不要附上待辦清單
 - 需要了解過去的修改時，用 git log 查詢
+- commit 訊息使用英文
 
 ## PROGRESS.md
 - 記錄已知限制與待辦，需要時再讀，不必每次 commit 都讀

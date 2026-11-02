@@ -13,4 +13,3 @@
 ## 待辦
 - 還原股價：實作 `StockPriceService.ApplyDividendAdjustment`，需要除權息資料表與 `IStockDividendRepository` 實作。
 - `StockCorporateAction`、`StockCombinationDto` 為規劃中的空殼。
-- 沒有自動化測試專案（解析、報酬率計算最需要）。
