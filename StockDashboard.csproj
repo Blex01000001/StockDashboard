@@ -6,6 +6,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- 主專案在 repo 根目錄，預設會編譯底下所有 .cs；測試專案與工具腳本要排除 -->
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <Content Remove="tests/**;tools/**" />
+    <None Remove="tests/**;tools/**" />
+    <EmbeddedResource Remove="tests/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.33" />

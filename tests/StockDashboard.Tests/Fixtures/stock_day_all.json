@@ -1,0 +1,7 @@
+[
+  {"Date":"1151030","Code":"2330","Name":"台積電","TradeVolume":"36615931","ClosingPrice":"2370.00"},
+  {"Date":"1151030","Code":"0050","Name":"元大台灣50 ","TradeVolume":"1000","ClosingPrice":"200.00"},
+  {"Date":"1151030","Code":"00981A","Name":"主動統一台股增長","TradeVolume":"1000","ClosingPrice":"15.00"},
+  {"Date":"1151030","Code":"","Name":"代號空白應略過"},
+  {"Date":"1151030","Code":"2330","Name":"重複代號應略過"}
+]
