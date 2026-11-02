@@ -30,6 +30,7 @@ builder.Services.AddScoped<IStockNameRepository, StockNameRepository>();
 
 // ── 商業邏輯層 (Service) ──
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
+builder.Services.AddScoped<IPatternScanService, PatternScanService>();
 
 var app = builder.Build();
 

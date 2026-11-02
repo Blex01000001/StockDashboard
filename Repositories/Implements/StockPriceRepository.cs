@@ -99,6 +99,28 @@ namespace StockDashboard.Repositories.Implements
             return await connection.QueryAsync<StockDataPoint>(sql, new { StockId = stockId, Count = count });
         }
 
+        public async Task<IEnumerable<StockDataPoint>> GetAllCandlesAsync(string stockId)
+        {
+            using var connection = new SqliteConnection(_connectionString);
+
+            // 證交所當日無成交時價格為 "--" (存成 NULL)，這種日子無法畫 K 棒也無法判斷型態，直接略過
+            string sql = @"
+                SELECT
+                    TradeDate AS Date,
+                    OpenPrice AS Open,
+                    HighPrice AS High,
+                    LowPrice AS Low,
+                    ClosePrice AS Close,
+                    IFNULL(Volume, 0) AS Volume
+                FROM StockDailyPrice
+                WHERE StockId = @StockId
+                  AND OpenPrice IS NOT NULL AND HighPrice IS NOT NULL
+                  AND LowPrice IS NOT NULL AND ClosePrice IS NOT NULL
+                ORDER BY TradeDate ASC";
+
+            return await connection.QueryAsync<StockDataPoint>(sql, new { StockId = stockId });
+        }
+
         public async Task<StockDailyPriceEntity?> GetLatestPriceAsync(string stockId)
         {
             using var connection = new SqliteConnection(_connectionString);
