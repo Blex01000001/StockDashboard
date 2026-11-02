@@ -60,6 +60,7 @@ const STATES = [
   ['p_crows', async p => { await p.selectOption('.pattern-select', 'three-black-crows'); await p.waitForTimeout(500); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
   ['p_horizon', async p => { await p.selectOption('.pattern-select', 'bullish-engulfing'); await p.fill('.extra-horizon-input', '60,120'); await p.locator('.extra-horizon-input').blur(); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
   ['p_ma', async p => { await p.uncheck('.ma-toggle:has-text("60") input'); await p.check('.ma-toggle:has-text("120") input'); await p.waitForTimeout(800); }],
+  ['p_macd', async p => { await p.selectOption('.sub-chart-select', 'macd'); await p.waitForTimeout(1000); }],
   ['x_404', async p => { await go(p, 'not-exist-page'); }],
 ];
 

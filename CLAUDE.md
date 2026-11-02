@@ -20,6 +20,7 @@
 | `Services/Patterns/ICandlePattern.cs` | 型態介面：參數定義、判斷、範例 K 線 | |
 | `Services/Patterns/*Pattern.cs` | 各型態（看漲吞沒、晨星、紅三兵／黑三兵）的方向、參數、預設值、判斷、範例 | 判斷條件與預設值（**先問使用者**） |
 | `Services/Patterns/PatternFilters.cs` | 共用條件（先下跌／先上漲、量增）與範例 K 線輔助 | |
+| `Services/Patterns/TechnicalIndicators.cs` | 技術指標（SMA、MACD）純計算 | 新增指標時（補測試） |
 | `Services/PatternScanService.cs` | 掃描：讀完整日線 → 判斷 → 切小卡範圍、均線、之後報酬、勝率 | |
 | `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped） | 新增要保留的輸入時 |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
@@ -97,6 +98,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 滾動報酬率：`(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，N 以所有股票「聯集」的時間軸計算；缺資料為 `null`（圖上斷線）。
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
 - 型態掃描：小卡為型態成立日前 10 天、後 max(20, 最長觀察天數) 天；均線 MA5／10／20／60／120 用完整歷史計算，預設顯示 5／10／20／60（使用者指定）；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
+- 小卡附圖可選「成交量」（預設，使用者指定；含量 MA5／MA10）或「MACD」：MACD(12,26,9)，DIF − 訊號線 = OSC 柱狀（正紅負綠），EMA 以第一筆收盤為起始值。
 - 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者輸入的「額外觀察天數」（可多組，如 `60,120`，1～250 天；以完整歷史計算，可超過小卡的後 20 天）。
 - 勝率醒目提示：50% 起每 5 個百分點一級（共 5 級），用黃色系而非紅綠（紅綠在台股代表漲跌）。
 - 看漲吞沒的預設參數由使用者確認過；晨星、紅三兵、黑三兵的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
