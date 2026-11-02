@@ -18,9 +18,9 @@
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號） | 證交所格式改變時 |
 | `Services/StockPerformanceService.cs` | 滾動報酬率計算 | 報酬率公式（**先問使用者**） |
 | `Services/Patterns/ICandlePattern.cs` | 型態介面：參數定義、判斷、範例 K 線 | |
-| `Services/Patterns/*Pattern.cs` | 各型態（看漲吞沒、晨星）的參數、預設值、判斷、範例 | 判斷條件與預設值（**先問使用者**） |
-| `Services/Patterns/PatternFilters.cs` | 共用條件（先下跌、量增）與範例 K 線輔助 | |
-| `Services/PatternScanService.cs` | 掃描：讀完整日線 → 判斷 → 切小卡範圍、均線、之後報酬 | |
+| `Services/Patterns/*Pattern.cs` | 各型態（看漲吞沒、晨星、紅三兵／黑三兵）的方向、參數、預設值、判斷、範例 | 判斷條件與預設值（**先問使用者**） |
+| `Services/Patterns/PatternFilters.cs` | 共用條件（先下跌／先上漲、量增）與範例 K 線輔助 | |
+| `Services/PatternScanService.cs` | 掃描：讀完整日線 → 判斷 → 切小卡範圍、均線、之後報酬、勝率 | |
 | `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped） | 新增要保留的輸入時 |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
 | `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`） | |
@@ -62,7 +62,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - **新增資料表**：加到 `DatabaseInitializer` 的 `CREATE TABLE IF NOT EXISTS`；**先確認使用者的 stock.db 沒有同名表**（該語法遇到同名表會直接略過，曾與使用者的 `StockList` 衝突）。
 - **新增 Service／Repository**：`Program.cs` 註冊 `AddScoped`；呼叫外部 API 用 `AddHttpClient<介面, 實作>()`。
 - **新增設定鍵**：同步加到 `appsettings.Example.json`。
-- **新增 K 線型態**：`Services/Patterns/XxxPattern.cs` 實作 `ICandlePattern`（共用條件用 `PatternFilters`）→ `Program.cs` 註冊 `AddSingleton<ICandlePattern, XxxPattern>()` → 加到測試的 `PatternExampleTests.AllPatterns` 並寫判斷測試。頁面不用改。`BuildExample` 必須產生符合自己判斷的 K 線（測試會用每個參數的最小／最大值檢查）。
+- **新增 K 線型態**：`Services/Patterns/XxxPattern.cs` 實作 `ICandlePattern`（設定 `Direction`；共用條件用 `PatternFilters`，趨勢量到哪一根見 `PassesTrend` 註解；鏡像型態可共用基底類別，參考 `ThreeCandlesPattern`）→ `Program.cs` 註冊 `AddSingleton<ICandlePattern, XxxPattern>()` → 加到測試的 `PatternExampleTests.AllPatterns` 並寫判斷測試。頁面不用改。`BuildExample` 必須產生符合自己判斷的 K 線（測試會用每個參數的最小／最大值檢查）。
 - **證交所 API 改版**：先改 `appsettings.json` 的 `Twse:StockDayUrl`／`Twse:StockDayAllUrl`；格式變了才改 `TwseApiClient`。
 
 ## 硬性限制
@@ -97,7 +97,8 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 滾動報酬率：`(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，N 以所有股票「聯集」的時間軸計算；缺資料為 `null`（圖上斷線）。
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
 - 型態掃描：小卡為型態成立日前 10、後 20 個交易日；均線用完整歷史計算；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
-- 看漲吞沒的預設參數由使用者確認過；晨星的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
+- 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。
+- 看漲吞沒的預設參數由使用者確認過；晨星、紅三兵、黑三兵的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。
 
 ## 環境陷阱（雲端沙盒）

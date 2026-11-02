@@ -56,6 +56,8 @@ const STATES = [
   // 用側邊欄切換 (不可用 page.goto：整頁重新載入會建立新連線，畫面狀態本來就會重置)
   ['p_kept', async p => { await p.click('a[href="stock-chart"]'); await p.waitForTimeout(1000); await p.click('a[href="pattern-scan"]'); await p.waitForTimeout(2000); }],
   ['p_star', async p => { await p.selectOption('.pattern-select', 'morning-star'); await p.waitForTimeout(800); }],
+  ['p_soldiers', async p => { await p.selectOption('.pattern-select', 'three-white-soldiers'); await p.waitForTimeout(500); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
+  ['p_crows', async p => { await p.selectOption('.pattern-select', 'three-black-crows'); await p.waitForTimeout(500); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
   ['x_404', async p => { await go(p, 'not-exist-page'); }],
 ];
 
