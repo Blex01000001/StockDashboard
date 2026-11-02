@@ -17,6 +17,16 @@ namespace StockDashboard.Services
         // 額外觀察天數的上限 (約一年的交易日)
         public const int MaxHorizon = 250;
 
+        // 小卡至少顯示型態成立後幾天
+        public const int MinDaysAfter = 20;
+
+        /// <summary>
+        /// 小卡要顯示型態成立後幾天：至少 20 天；有更長的觀察天數時延長到最長的那一個，
+        /// 讓使用者在小卡上看得到 60 日、120 日後的走勢。
+        /// </summary>
+        public static int CardDaysAfter(IEnumerable<int> horizons) =>
+            Math.Max(MinDaysAfter, horizons.DefaultIfEmpty(0).Max());
+
         /// <summary>
         /// 解析使用者輸入的額外觀察天數，例如 "60, 120"。
         /// 可用逗號、頓號、空白分隔；非數字與超出 1 ~ MaxHorizon 的值略過；去除重複並由小到大排序。
@@ -49,7 +59,9 @@ namespace StockDashboard.Services
             {
                 PatternName = pattern.Name,
                 IsBullish = pattern.Direction == PatternDirection.Bullish,
-                Horizons = days
+                Horizons = days,
+                DaysBefore = daysBefore,
+                DaysAfter = daysAfter
             };
             var names = await _stockNameRepository.GetStockNamesOrEmptyAsync(ids);
 

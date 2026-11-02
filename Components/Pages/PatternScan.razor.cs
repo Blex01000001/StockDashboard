@@ -12,7 +12,9 @@ namespace StockDashboard.Components.Pages
     {
         // 小卡範圍：型態成立日的前 / 後幾個交易日
         protected const int DaysBefore = 10;
-        protected const int DaysAfter = 20;
+
+        // 掃描中的過場至少顯示多久 (毫秒)，避免查詢太快時畫面一閃而過
+        private const int MinLoadingMs = 400;
         protected static readonly int[] PageSizeOptions = { 5, 10, 20, 50 };
 
         [Inject] private IPatternScanService PatternScanService { get; set; } = default!;
@@ -27,6 +29,10 @@ namespace StockDashboard.Components.Pages
         protected PatternParameterValues Values => State.ValuesFor(Pattern);
         protected List<PatternParameterGroup> ParameterLayout => PatternParameterLayout.Build(Pattern.Parameters);
         protected bool IsScanning { get; private set; }
+
+        // 目前輸入的觀察天數 (含 5 / 10 / 20)，以及依此決定的小卡「後 N 天」(標題即時顯示)
+        protected List<int> Horizons => ScanService.DefaultHorizons.Concat(ScanService.ParseHorizons(State.ExtraHorizonsInput)).Distinct().OrderBy(d => d).ToList();
+        protected int DaysAfter => ScanService.CardDaysAfter(Horizons);
 
         protected int TotalPages => State.Result == null ? 0 : (State.Result.Matches.Count + State.PageSize - 1) / State.PageSize;
         protected List<PatternMatch> PagedMatches =>
@@ -87,12 +93,24 @@ namespace StockDashboard.Components.Pages
                 return;
             }
 
+            // 先清掉舊的小卡 (含 ECharts 圖表)，顯示「掃描中」過場，再開始查詢
             IsScanning = true;
             State.Message = string.Empty;
+            State.Result = null;
+            await ClearCardChartsAsync();
+            StateHasChanged();
+            await Task.Delay(30);   // SQLite 查詢實際上是同步完成的，先讓出執行緒讓畫面更新
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
             try
             {
-                var horizons = ScanService.DefaultHorizons.Concat(ScanService.ParseHorizons(State.ExtraHorizonsInput)).ToList();
-                State.Result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore, DaysAfter, horizons);
+                var horizons = Horizons;
+                var result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore, ScanService.CardDaysAfter(horizons), horizons);
+
+                int remaining = MinLoadingMs - (int)stopwatch.ElapsedMilliseconds;
+                if (remaining > 0) await Task.Delay(remaining);
+
+                State.Result = result;
                 State.PageIndex = 0;
                 _cardsNeedRender = true;
 
@@ -110,6 +128,20 @@ namespace StockDashboard.Components.Pages
             {
                 IsScanning = false;
             }
+        }
+
+        protected void OnMovingAverageToggled(int period, ChangeEventArgs e)
+        {
+            if (e.Value is true) State.VisibleMovingAverages.Add(period);
+            else State.VisibleMovingAverages.Remove(period);
+            _cardsNeedRender = true;
+        }
+
+        private async Task ClearCardChartsAsync()
+        {
+            if (_jsModule == null) return;
+            try { await _jsModule.InvokeVoidAsync("renderPatternCards", Array.Empty<object>(), Array.Empty<string>()); }
+            catch (JSDisconnectedException) { }
         }
 
         protected void OnPageSizeChanged(ChangeEventArgs e)
@@ -163,7 +195,8 @@ namespace StockDashboard.Components.Pages
                         barCount = m.PatternBarCount,
                         candles = m.Candles
                     });
-                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards);
+                    var visibleMas = State.VisibleMovingAverages.Select(p => $"MA{p}").ToArray();
+                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas);
                 }
             }
             catch (JSDisconnectedException)

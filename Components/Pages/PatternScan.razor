@@ -40,6 +40,18 @@
                     <input type="text" placeholder="例如 60,120" class="dark-input extra-horizon-input" @bind="State.ExtraHorizonsInput" />
                 </label>
             </div>
+            <div class="ctl-field">
+                <span>顯示均線</span>
+                <div class="ma-toggles">
+                    @foreach (var period in StockDashboard.Services.PatternScanState.MovingAveragePeriods)
+                    {
+                        <label class="ma-toggle">
+                            <input type="checkbox" checked="@State.VisibleMovingAverages.Contains(period)" @onchange="e => OnMovingAverageToggled(period, e)" />
+                            <span>@period</span>
+                        </label>
+                    }
+                </div>
+            </div>
         </div>
 
         @* ── 型態參數 (依型態的參數定義自動產生) ── *@
@@ -95,6 +107,14 @@
     @if (!string.IsNullOrEmpty(State.Message))
     {
         <div class="alert-box">⚠️ @State.Message</div>
+    }
+
+    @if (IsScanning)
+    {
+        <div class="scan-loading">
+            <span class="spinner"></span>
+            <span>掃描中…正在比對 @Pattern.Name 型態</span>
+        </div>
     }
 
     @if (State.Result != null)

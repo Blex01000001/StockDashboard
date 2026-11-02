@@ -16,6 +16,10 @@ namespace StockDashboard.Services
 
         // 除了 5 / 10 / 20 日之外，額外計算報酬與勝率的天數 (使用者輸入原文，例如 "60,120")
         public string ExtraHorizonsInput { get; set; } = string.Empty;
+
+        // 小卡可畫的均線與預設是否顯示 (使用者指定預設：MA5 / 10 / 20 / 60 顯示，MA120 隱藏)
+        public static readonly int[] MovingAveragePeriods = { 5, 10, 20, 60, 120 };
+        public HashSet<int> VisibleMovingAverages { get; } = new() { 5, 10, 20, 60 };
         public int PageIndex { get; set; }
         public string Message { get; set; } = string.Empty;
         public PatternScanResult? Result { get; set; }

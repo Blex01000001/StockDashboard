@@ -24,14 +24,18 @@ export function disposeAll() {
 }
 
 // 換頁或重新掃描時，先釋放上一批小卡圖表，避免記憶體累積
-export function renderPatternCards(cards) {
+// visibleMas：預設顯示的均線名稱 (例如 ['MA5','MA20'])；其他均線仍在圖例中 (灰色)，點一下可單張顯示
+export function renderPatternCards(cards, visibleMas) {
     cardCharts.forEach(c => c.dispose());
     cardCharts = [];
+    const selected = Object.fromEntries(MA_LINES.map(m => [m.name, (visibleMas || []).includes(m.name)]));
     for (const card of cards) {
         const dom = document.getElementById(card.containerId);
         if (!dom) continue;
         const chart = echarts.init(dom);
-        chart.setOption(buildOption(card.candles, card.signalIndex, card.barCount, { showMa: true, showAxisLabels: true }));
+        const option = buildOption(card.candles, card.signalIndex, card.barCount, { showMa: true, showAxisLabels: true });
+        option.legend.selected = selected;
+        chart.setOption(option);
         cardCharts.push(chart);
     }
 }
@@ -93,7 +97,9 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels })
         animation: false,
         legend: showMa
             ? { data: MA_LINES.map(m => m.name), top: 0, right: 8, itemWidth: 12, itemHeight: 7, itemGap: 8,
-                textStyle: { color: '#8392A5', fontSize: 10 } }
+                textStyle: { color: '#8392A5', fontSize: 10 },
+                // 隱藏中的均線在圖例上調暗 (預設淺灰色會和 MA120 的灰色混淆)
+                inactiveColor: '#3a3f4b', inactiveBorderColor: '#3a3f4b' }
             : undefined,
         tooltip: showAxisLabels ? {
             trigger: 'axis',

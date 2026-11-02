@@ -520,6 +520,23 @@ public class PatternScanServiceTests
     public void 解析額外觀察天數(string? input, int[] expected) =>
         Assert.Equal(expected, PatternScanService.ParseHorizons(input));
 
+    [Theory]
+    [InlineData(new[] { 5, 10, 20 }, 20)]
+    [InlineData(new[] { 5, 10 }, 20)]             // 至少 20 天
+    [InlineData(new[] { 5, 10, 20, 60, 120 }, 120)]
+    [InlineData(new int[0], 20)]
+    public void 小卡後幾天跟著最長的觀察天數(int[] horizons, int expected) =>
+        Assert.Equal(expected, PatternScanService.CardDaysAfter(horizons));
+
+    [Fact]
+    public void 小卡後天數延長到120天()
+    {
+        var candles = Series(200, 30);
+        var m = Assert.Single(PatternScanService.FindMatches("2330", candles, Engulfing, K.NoTrend(Engulfing), 10, 120, new[] { 120 }));
+        Assert.Equal(131, m.Candles.Count);          // 前 10 + 當天 + 後 120
+        Assert.Equal(candles[150].Date, m.Candles[^1].Date);
+    }
+
     [Fact]
     public void 均線天數不足時為Null()
     {

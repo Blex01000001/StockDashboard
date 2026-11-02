@@ -59,6 +59,10 @@ namespace StockDashboard.Models.Patterns
         // true：看多型態 (之後上漲算勝)；false：看空型態 (之後下跌算勝)
         public bool IsBullish { get; set; } = true;
 
+        // 小卡顯示型態成立日前 / 後幾天
+        public int DaysBefore { get; set; }
+        public int DaysAfter { get; set; }
+
         // 這次掃描計算的觀察天數 (例如 5, 10, 20, 60)，由小到大
         public List<int> Horizons { get; set; } = new();
 
