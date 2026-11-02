@@ -50,8 +50,12 @@ const STATES = [
   ['u_error', async p => { const c = p.locator('.card-box').nth(1); await c.locator('input').nth(0).fill(''); await c.locator('button').click(); await p.waitForTimeout(600); }],
   ['u_ok', async p => { const c = p.locator('.card-box').nth(1); await c.locator('input').nth(0).fill('9999'); await c.locator('input').nth(2).fill('10'); await c.locator('button').click(); await p.waitForTimeout(800); }],
   ['p_init', async p => { await go(p, 'pattern-scan'); }],
-  ['p_result', async p => { await p.fill('.stock-list-input', '2330,0050'); await clickMain(p, 2000); }],
+  ['p_param', async p => { await p.locator('label.param:has-text("當天實體") input').fill('3'); await p.waitForTimeout(500); }],
+  ['p_result', async p => { await p.locator('label.param:has-text("當天實體") input').fill('1'); await p.fill('.stock-list-input', '2330,0050'); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
   ['p_page2', async p => { const next = p.locator('.pager button').last(); if (await next.count()) { await next.click(); await p.waitForTimeout(1500); } }],
+  // 用側邊欄切換 (不可用 page.goto：整頁重新載入會建立新連線，畫面狀態本來就會重置)
+  ['p_kept', async p => { await p.click('a[href="stock-chart"]'); await p.waitForTimeout(1000); await p.click('a[href="pattern-scan"]'); await p.waitForTimeout(2000); }],
+  ['p_star', async p => { await p.selectOption('.pattern-select', 'morning-star'); await p.waitForTimeout(800); }],
   ['x_404', async p => { await go(p, 'not-exist-page'); }],
 ];
 

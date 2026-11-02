@@ -12,14 +12,16 @@
 | `Components/Pages/StockQuery.*` | `/stock-query` 單檔最新日線＋名稱 | |
 | `Components/Pages/StockChart.*` | `/stock-chart` K 線圖（`.razor.js` 畫 ECharts） | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
-| `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：自訂清單、參數、分頁小卡（`.razor.js` 畫小卡） | 小卡圖表改 `.razor.js` |
+| `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生 | 小卡與預覽圖改 `.razor.js` |
 | `Components/Pages/StockUpdate.*` | `/stock-update` TWSE 逐月同步、手動單筆、股票清單同步 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號） | 證交所格式改變時 |
 | `Services/StockPerformanceService.cs` | 滾動報酬率計算 | 報酬率公式（**先問使用者**） |
-| `Services/Patterns/BullishEngulfingDetector.cs` | 看漲吞沒判斷（純計算） | 判斷條件（**先問使用者**） |
+| `Services/Patterns/ICandlePattern.cs` | 型態介面：參數定義、判斷、範例 K 線 | |
+| `Services/Patterns/*Pattern.cs` | 各型態（看漲吞沒、晨星）的參數、預設值、判斷、範例 | 判斷條件與預設值（**先問使用者**） |
+| `Services/Patterns/PatternFilters.cs` | 共用條件（先下跌、量增）與範例 K 線輔助 | |
 | `Services/PatternScanService.cs` | 掃描：讀完整日線 → 判斷 → 切小卡範圍、均線、之後報酬 | |
-| `Models/Patterns/BullishEngulfingOptions.cs` | 型態參數與預設值 | 預設值（**先問使用者**） |
+| `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped） | 新增要保留的輸入時 |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
 | `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`） | |
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
@@ -60,7 +62,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - **新增資料表**：加到 `DatabaseInitializer` 的 `CREATE TABLE IF NOT EXISTS`；**先確認使用者的 stock.db 沒有同名表**（該語法遇到同名表會直接略過，曾與使用者的 `StockList` 衝突）。
 - **新增 Service／Repository**：`Program.cs` 註冊 `AddScoped`；呼叫外部 API 用 `AddHttpClient<介面, 實作>()`。
 - **新增設定鍵**：同步加到 `appsettings.Example.json`。
-- **新增 K 線型態**：在 `Services/Patterns/` 加判斷類別（純函式，吃由舊到新的 `StockDataPoint` 清單與索引）＋參數類別＋測試；`PatternScanService.FindMatches` 目前寫死看漲吞沒，加第二種型態時改成可選型態。
+- **新增 K 線型態**：`Services/Patterns/XxxPattern.cs` 實作 `ICandlePattern`（共用條件用 `PatternFilters`）→ `Program.cs` 註冊 `AddSingleton<ICandlePattern, XxxPattern>()` → 加到測試的 `PatternExampleTests.AllPatterns` 並寫判斷測試。頁面不用改。`BuildExample` 必須產生符合自己判斷的 K 線（測試會用每個參數的最小／最大值檢查）。
 - **證交所 API 改版**：先改 `appsettings.json` 的 `Twse:StockDayUrl`／`Twse:StockDayAllUrl`；格式變了才改 `TwseApiClient`。
 
 ## 硬性限制
@@ -88,12 +90,14 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 | TWSE HttpClient 帶瀏覽器 User-Agent、自行解析回應 | 被封鎖時常回 HTML／403，要顯示看得懂的原因 |
 | 數字解析用 `InvariantCulture` | 避免電腦地區設定影響 |
 | 自動開瀏覽器包 try/catch | 無桌面環境會丟例外導致程式崩潰 |
+| 型態掃描頁的狀態放在 Scoped 的 `PatternScanState` | 使用者要求切換頁面後保留結果；Blazor 元件離開頁面即銷毀，Scoped 服務在同一連線內持續存在（F5 重新整理才重置） |
 
 ## 核心邏輯（修改前須先與使用者確認）
 
 - 滾動報酬率：`(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，N 以所有股票「聯集」的時間軸計算；缺資料為 `null`（圖上斷線）。
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
-- 型態掃描：小卡為型態日前 10、後 20 個交易日；均線用完整歷史計算；之後報酬以型態當天收盤為基準；結果新的日期在前、每頁 10 張。
+- 型態掃描：小卡為型態成立日前 10、後 20 個交易日；均線用完整歷史計算；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
+- 看漲吞沒的預設參數由使用者確認過；晨星的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。
 
 ## 環境陷阱（雲端沙盒）
