@@ -12,6 +12,7 @@ const MA_LINES = [
     { key: 'ma120', name: 'MA120', color: '#bdbdbd' }
 ];
 const SIGNAL_COLOR = '#ffd54f';   // 型態標示
+const HORIZON_COLOR = '#8392A5';  // 觀察日標示
 
 let cardCharts = [];
 let previewChart = null;
@@ -25,7 +26,8 @@ export function disposeAll() {
 
 // 換頁或重新掃描時，先釋放上一批小卡圖表，避免記憶體累積
 // visibleMas：預設顯示的均線名稱 (例如 ['MA5','MA20'])；其他均線仍在圖例中 (灰色)，點一下可單張顯示
-export function renderPatternCards(cards, visibleMas) {
+// horizons：觀察天數 (例如 [5, 10, 20, 60])，在型態成立日之後第 N 根 K 棒畫淡色直線
+export function renderPatternCards(cards, visibleMas, horizons) {
     cardCharts.forEach(c => c.dispose());
     cardCharts = [];
     const selected = Object.fromEntries(MA_LINES.map(m => [m.name, (visibleMas || []).includes(m.name)]));
@@ -33,7 +35,7 @@ export function renderPatternCards(cards, visibleMas) {
         const dom = document.getElementById(card.containerId);
         if (!dom) continue;
         const chart = echarts.init(dom);
-        const option = buildOption(card.candles, card.signalIndex, card.barCount, { showMa: true, showAxisLabels: true });
+        const option = buildOption(card.candles, card.signalIndex, card.barCount, { showMa: true, showAxisLabels: true, horizons: horizons || [] });
         option.legend.selected = selected;
         chart.setOption(option);
         cardCharts.push(chart);
@@ -51,7 +53,7 @@ export function renderPreview(containerId, candles, signalIndex, barCount) {
     previewChart.setOption(buildOption(candles, signalIndex, barCount, { showMa: false, showAxisLabels: false }), true);
 }
 
-function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels }) {
+function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, horizons = [] }) {
     const dates = candles.map(c => c.date);
     const signalDate = dates[signalIndex];
     const axisLine = { lineStyle: { color: '#8392A5' } };
@@ -73,7 +75,17 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels })
             markLine: {
                 silent: true, symbol: 'none', label: { show: false },
                 lineStyle: { color: SIGNAL_COLOR, type: 'dashed', width: 1 },
-                data: [{ xAxis: signalDate }]
+                data: [
+                    { xAxis: signalDate },
+                    // 觀察日：型態成立後第 N 個交易日 (之後報酬就是算到這一天的收盤)；超出資料範圍的不畫
+                    ...horizons
+                        .filter(h => signalIndex + h < dates.length)
+                        .map(h => ({
+                            xAxis: dates[signalIndex + h],
+                            lineStyle: { color: HORIZON_COLOR, type: 'dotted', width: 1, opacity: 0.55 },
+                            label: { show: true, formatter: `${h}日`, position: 'end', color: HORIZON_COLOR, fontSize: 9, distance: 2 }
+                        }))
+                ]
             },
             markPoint: {
                 silent: true, symbol: 'triangle', symbolSize: 8, symbolOffset: [0, 11],
@@ -118,7 +130,8 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels })
         } : undefined,
         axisPointer: { link: [{ xAxisIndex: 'all' }] },
         grid: showAxisLabels
-            ? [{ left: 48, right: 12, top: 22, height: '58%' }, { left: 48, right: 12, top: '76%', height: '14%' }]
+            // K 線區上方留一列給觀察日標籤 (5日、10日…)，避免和右上角的均線圖例重疊
+            ? [{ left: 48, right: 12, top: 36, height: '54%' }, { left: 48, right: 12, top: '76%', height: '14%' }]
             : [{ left: 6, right: 6, top: 6, height: '68%' }, { left: 6, right: 6, top: '80%', height: '16%' }],
         xAxis: [
             { type: 'category', data: dates, axisLine, axisLabel: { show: false }, axisTick: { show: false } },

@@ -196,7 +196,7 @@ namespace StockDashboard.Components.Pages
                         candles = m.Candles
                     });
                     var visibleMas = State.VisibleMovingAverages.Select(p => $"MA{p}").ToArray();
-                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas);
+                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas, State.Result!.Horizons);
                 }
             }
             catch (JSDisconnectedException)
