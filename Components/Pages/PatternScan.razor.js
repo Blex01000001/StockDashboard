@@ -2,8 +2,15 @@
 
 const UP = '#ef5350';     // 漲：紅 (台股配色)
 const DOWN = '#26a69a';   // 跌：綠
-const MA5_COLOR = '#f5c242';
-const MA20_COLOR = '#42a5f5';
+// 均線：欄位名 (對應 C# PatternCandle 的 camelCase)、圖例名稱、顏色。點圖例可隱藏 / 顯示該條線
+// 顏色避開漲紅跌綠，以免和 K 棒混淆
+const MA_LINES = [
+    { key: 'ma5', name: 'MA5', color: '#f5c242' },
+    { key: 'ma10', name: 'MA10', color: '#ab47bc' },
+    { key: 'ma20', name: 'MA20', color: '#42a5f5' },
+    { key: 'ma60', name: 'MA60', color: '#ff9800' },
+    { key: 'ma120', name: 'MA120', color: '#bdbdbd' }
+];
 const SIGNAL_COLOR = '#ffd54f';   // 型態標示
 
 let cardCharts = [];
@@ -76,16 +83,17 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels })
         }
     ];
     if (showMa) {
-        series.push(
-            { name: 'MA5', type: 'line', data: candles.map(c => c.ma5), showSymbol: false, lineStyle: { width: 1, color: MA5_COLOR }, itemStyle: { color: MA5_COLOR } },
-            { name: 'MA20', type: 'line', data: candles.map(c => c.ma20), showSymbol: false, lineStyle: { width: 1, color: MA20_COLOR }, itemStyle: { color: MA20_COLOR } }
-        );
+        for (const m of MA_LINES) {
+            series.push({ name: m.name, type: 'line', data: candles.map(c => c[m.key]), showSymbol: false,
+                          lineStyle: { width: 1, color: m.color }, itemStyle: { color: m.color } });
+        }
     }
 
     return {
         animation: false,
         legend: showMa
-            ? { data: ['MA5', 'MA20'], top: 0, right: 8, itemWidth: 14, itemHeight: 8, textStyle: { color: '#8392A5', fontSize: 11 } }
+            ? { data: MA_LINES.map(m => m.name), top: 0, right: 8, itemWidth: 12, itemHeight: 7, itemGap: 8,
+                textStyle: { color: '#8392A5', fontSize: 10 } }
             : undefined,
         tooltip: showAxisLabels ? {
             trigger: 'axis',
@@ -99,8 +107,7 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels })
                 return `<div style="font-weight:bold;color:#fff;">${c.date}${c.date === signalDate ? '（型態成立）' : ''}</div>
                     <div style="color:${color}">開 ${c.open}　高 ${c.high}<br/>低 ${c.low}　收 ${c.close}</div>
                     <div>量 ${c.volume.toLocaleString()}</div>
-                    <div style="color:${MA5_COLOR}">MA5 ${c.ma5 ?? '-'}</div>
-                    <div style="color:${MA20_COLOR}">MA20 ${c.ma20 ?? '-'}</div>`;
+                    ${MA_LINES.map(m => `<div style="color:${m.color}">${m.name} ${c[m.key] ?? '-'}</div>`).join('')}`;
             }
         } : undefined,
         axisPointer: { link: [{ xAxisIndex: 'all' }] },

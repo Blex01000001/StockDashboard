@@ -350,6 +350,29 @@ public class PatternExampleTests
     }
 }
 
+public class PatternParameterLayoutTests
+{
+    [Fact]
+    public void 勾選參數與附屬數值分成一組_單一參數排前面()
+    {
+        var layout = PatternParameterLayout.Build(new BullishEngulfingPattern().Parameters);
+
+        Assert.Equal(new[] { "MinPrevBodyPct", "MinBodyRatio", "TolerancePct", "IncludeShadows", "RequireDowntrend", "RequireVolume" },
+                     layout.Select(g => g.Head.Key));
+        Assert.False(layout.Single(g => g.Head.Key == "IncludeShadows").IsGroup);   // 沒有附屬數值的勾選不成組
+        Assert.Equal(new[] { "DowntrendDays", "DowntrendPct" }, layout.Single(g => g.Head.Key == "RequireDowntrend").Children.Select(c => c.Key));
+        Assert.Equal(new[] { "VolumeAvgDays", "VolumeMultiplier" }, layout.Single(g => g.Head.Key == "RequireVolume").Children.Select(c => c.Key));
+    }
+
+    [Theory]
+    [MemberData(nameof(PatternExampleTests.Patterns), MemberType = typeof(PatternExampleTests))]
+    public void 每個參數都恰好出現一次(ICandlePattern pattern)
+    {
+        var keys = PatternParameterLayout.Build(pattern.Parameters).SelectMany(g => g.Children.Prepend(g.Head)).Select(p => p.Key).ToList();
+        Assert.Equal(pattern.Parameters.Select(p => p.Key).OrderBy(k => k), keys.OrderBy(k => k));
+    }
+}
+
 public class PatternParameterValuesTests
 {
     private static readonly PatternParameter Days = new() { Key = "Days", Default = 5, Min = 1, Max = 60, IsInteger = true };
@@ -470,6 +493,32 @@ public class PatternScanServiceTests
         Assert.Equal(Math.Round(candles.Skip(16).Take(5).Average(c => c.Close), 2), m.Candles[0].Ma5);
         Assert.Equal(Math.Round(candles.Skip(1).Take(20).Average(c => c.Close), 2), m.Candles[0].Ma20);
     }
+
+    [Fact]
+    public void MA10_MA60_MA120以完整歷史計算_天數不足為Null()
+    {
+        var candles = Series(200, 150);
+        var m = Assert.Single(Find(candles));
+        var first = m.Candles[0];   // 第 140 根
+        Assert.Equal(Math.Round(candles.Skip(131).Take(10).Average(c => c.Close), 2), first.Ma10);
+        Assert.Equal(Math.Round(candles.Skip(81).Take(60).Average(c => c.Close), 2), first.Ma60);
+        Assert.Equal(Math.Round(candles.Skip(21).Take(120).Average(c => c.Close), 2), first.Ma120);
+
+        var early = Assert.Single(Find(Series(60, 30)));
+        Assert.Null(early.Candles[^1].Ma60);    // 第 50 根，不足 60 根
+        Assert.Null(early.Candles[^1].Ma120);
+        Assert.NotNull(early.Candles[^1].Ma10);
+    }
+
+    [Theory]
+    [InlineData("60,120", new[] { 60, 120 })]
+    [InlineData(" 120 , 60 ,60", new[] { 60, 120 })]   // 排序、去重複、去空白
+    [InlineData("60、90，120 30", new[] { 30, 60, 90, 120 })]
+    [InlineData("0,-5,abc,251,250", new[] { 250 })]    // 非數字與超出 1~250 的略過
+    [InlineData("", new int[0])]
+    [InlineData(null, new int[0])]
+    public void 解析額外觀察天數(string? input, int[] expected) =>
+        Assert.Equal(expected, PatternScanService.ParseHorizons(input));
 
     [Fact]
     public void 均線天數不足時為Null()

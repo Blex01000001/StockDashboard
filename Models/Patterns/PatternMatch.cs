@@ -42,7 +42,10 @@ namespace StockDashboard.Models.Patterns
 
         // 以完整歷史計算的均線 (不是只用小卡範圍)，前面天數不足時為 null
         public double? Ma5 { get; set; }
+        public double? Ma10 { get; set; }
         public double? Ma20 { get; set; }
+        public double? Ma60 { get; set; }
+        public double? Ma120 { get; set; }
     }
 
     /// <summary>

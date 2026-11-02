@@ -14,6 +14,22 @@ namespace StockDashboard.Services
         // 預設的觀察天數 (報酬與勝率)
         public static readonly int[] DefaultHorizons = { 5, 10, 20 };
 
+        // 額外觀察天數的上限 (約一年的交易日)
+        public const int MaxHorizon = 250;
+
+        /// <summary>
+        /// 解析使用者輸入的額外觀察天數，例如 "60, 120"。
+        /// 可用逗號、頓號、空白分隔；非數字與超出 1 ~ MaxHorizon 的值略過；去除重複並由小到大排序。
+        /// </summary>
+        public static List<int> ParseHorizons(string? input) =>
+            (input ?? string.Empty)
+                .Split(new[] { ',', '，', '、', ' ', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => int.TryParse(t.Trim(), out int d) ? d : 0)
+                .Where(d => d >= 1 && d <= MaxHorizon)
+                .Distinct()
+                .OrderBy(d => d)
+                .ToList();
+
         private readonly IStockPriceRepository _priceRepository;
         private readonly IStockNameRepository _stockNameRepository;
 
@@ -74,7 +90,10 @@ namespace StockDashboard.Services
 
             // 均線以完整歷史計算，小卡最左邊的均線才會是正確值
             double?[] ma5 = MovingAverage(candles, 5);
+            double?[] ma10 = MovingAverage(candles, 10);
             double?[] ma20 = MovingAverage(candles, 20);
+            double?[] ma60 = MovingAverage(candles, 60);
+            double?[] ma120 = MovingAverage(candles, 120);
 
             for (int i = pattern.BarCount - 1; i < candles.Count; i++)
             {
@@ -90,7 +109,7 @@ namespace StockDashboard.Services
                     window.Add(new PatternCandle
                     {
                         Date = c.Date, Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume,
-                        Ma5 = ma5[k], Ma20 = ma20[k]
+                        Ma5 = ma5[k], Ma10 = ma10[k], Ma20 = ma20[k], Ma60 = ma60[k], Ma120 = ma120[k]
                     });
                 }
 

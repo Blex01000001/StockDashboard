@@ -35,10 +35,9 @@
                         }
                     </select>
                 </label>
-                <label class="ctl-field" title="除了 5 / 10 / 20 日之外，再計算這個天數的報酬與勝率（掃描後生效）">
+                <label class="ctl-field" title="除了 5 / 10 / 20 日之外，再計算這些天數的報酬與勝率；多組以逗號分隔，1 ~ 250 天（掃描後生效）">
                     <span>額外觀察天數</span>
-                    <input type="number" min="1" max="@MaxExtraHorizon" step="1" placeholder="例如 60"
-                           class="dark-input extra-horizon-input" value="@State.ExtraHorizon" @onchange="OnExtraHorizonChanged" />
+                    <input type="text" placeholder="例如 60,120" class="dark-input extra-horizon-input" @bind="State.ExtraHorizonsInput" />
                 </label>
             </div>
         </div>
@@ -50,23 +49,33 @@
                 <button class="link-btn" @onclick="ResetValues">恢復預設</button>
             </div>
             <div class="param-grid">
-                @foreach (var p in Pattern.Parameters)
+                @foreach (var item in ParameterLayout)
                 {
-                    bool enabled = p.EnabledBy == null || Values.GetBool(p.EnabledBy);
-                    if (p.Kind == Models.Patterns.PatternParameterKind.Toggle)
+                    if (item.IsGroup)
+                    {
+                        @* 勾選參數與它控制的數值放在同一個框內，表示是一組設定 *@
+                        bool on = Values.GetBool(item.Head.Key);
+                        <div class="param-group @(on ? "on" : "off")">
+                            <label class="param toggle group-head">
+                                <input type="checkbox" checked="@on" @onchange="e => OnToggle(item.Head, e)" />
+                                <span>@item.Head.Label</span>
+                            </label>
+                            @foreach (var child in item.Children)
+                            {
+                                @NumberParam(child, on)
+                            }
+                        </div>
+                    }
+                    else if (item.Head.Kind == Models.Patterns.PatternParameterKind.Toggle)
                     {
                         <label class="param toggle">
-                            <input type="checkbox" checked="@Values.GetBool(p.Key)" @onchange="e => OnToggle(p, e)" />
-                            <span>@p.Label</span>
+                            <input type="checkbox" checked="@Values.GetBool(item.Head.Key)" @onchange="e => OnToggle(item.Head, e)" />
+                            <span>@item.Head.Label</span>
                         </label>
                     }
                     else
                     {
-                        <label class="param @(enabled ? "" : "disabled")">
-                            <span>@p.Label</span>
-                            <input type="number" class="dark-input" step="@Num(p.Step)" min="@Num(p.Min)" max="@Num(p.Max)"
-                                   value="@Num(Values.Get(p.Key))" disabled="@(!enabled)" @oninput="e => OnNumberInput(p, e)" />
-                        </label>
+                        @NumberParam(item.Head, true)
                     }
                 }
             </div>
@@ -162,3 +171,13 @@
         </div>
     }
 </div>
+
+@code {
+    // 數值參數：標籤 + 窄輸入框
+    private RenderFragment NumberParam(Models.Patterns.PatternParameter p, bool enabled) =>
+        @<label class="param @(enabled ? "" : "disabled")">
+            <span>@p.Label</span>
+            <input type="number" class="dark-input" step="@Num(p.Step)" min="@Num(p.Min)" max="@Num(p.Max)"
+                   value="@Num(Values.Get(p.Key))" disabled="@(!enabled)" @oninput="e => OnNumberInput(p, e)" />
+        </label>;
+}

@@ -88,6 +88,24 @@
     align-content: start;
 }
 
+/* 勾選參數與它控制的數值：外框表示是一組；未勾選時整組淡化 */
+.param-group {
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 5px 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+    .param-group.on {
+        border-color: rgba(41, 98, 255, 0.55);
+    }
+
+    .param-group .group-head {
+        font-weight: 600;
+    }
+
 .param {
     display: flex;
     align-items: center;

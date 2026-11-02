@@ -14,7 +14,6 @@ namespace StockDashboard.Components.Pages
         protected const int DaysBefore = 10;
         protected const int DaysAfter = 20;
         protected static readonly int[] PageSizeOptions = { 5, 10, 20, 50 };
-        protected const int MaxExtraHorizon = 250;   // 約一年的交易日
 
         [Inject] private IPatternScanService PatternScanService { get; set; } = default!;
         [Inject] private IEnumerable<ICandlePattern> PatternRegistrations { get; set; } = default!;
@@ -26,6 +25,7 @@ namespace StockDashboard.Components.Pages
         protected List<ICandlePattern> Patterns { get; private set; } = new();
         protected ICandlePattern Pattern => Patterns.FirstOrDefault(p => p.Key == State.PatternKey) ?? Patterns[0];
         protected PatternParameterValues Values => State.ValuesFor(Pattern);
+        protected List<PatternParameterGroup> ParameterLayout => PatternParameterLayout.Build(Pattern.Parameters);
         protected bool IsScanning { get; private set; }
 
         protected int TotalPages => State.Result == null ? 0 : (State.Result.Matches.Count + State.PageSize - 1) / State.PageSize;
@@ -91,8 +91,7 @@ namespace StockDashboard.Components.Pages
             State.Message = string.Empty;
             try
             {
-                var horizons = ScanService.DefaultHorizons.ToList();
-                if (State.ExtraHorizon is int extra) horizons.Add(extra);
+                var horizons = ScanService.DefaultHorizons.Concat(ScanService.ParseHorizons(State.ExtraHorizonsInput)).ToList();
                 State.Result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore, DaysAfter, horizons);
                 State.PageIndex = 0;
                 _cardsNeedRender = true;
@@ -111,12 +110,6 @@ namespace StockDashboard.Components.Pages
             {
                 IsScanning = false;
             }
-        }
-
-        // 額外觀察天數：留白代表不加；超出範圍時自動限制在 1 ~ MaxExtraHorizon
-        protected void OnExtraHorizonChanged(ChangeEventArgs e)
-        {
-            State.ExtraHorizon = int.TryParse(e.Value?.ToString(), out int days) ? Math.Clamp(days, 1, MaxExtraHorizon) : null;
         }
 
         protected void OnPageSizeChanged(ChangeEventArgs e)
