@@ -58,7 +58,7 @@ const STATES = [
   ['p_star', async p => { await p.selectOption('.pattern-select', 'morning-star'); await p.waitForTimeout(800); }],
   ['p_soldiers', async p => { await p.selectOption('.pattern-select', 'three-white-soldiers'); await p.waitForTimeout(500); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
   ['p_crows', async p => { await p.selectOption('.pattern-select', 'three-black-crows'); await p.waitForTimeout(500); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
-  ['p_horizon', async p => { await p.selectOption('.pattern-select', 'bullish-engulfing'); await p.fill('.extra-horizon-input', '60'); await p.locator('.extra-horizon-input').blur(); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
+  ['p_horizon', async p => { await p.selectOption('.pattern-select', 'bullish-engulfing'); await p.fill('.extra-horizon-input', '60,120'); await p.locator('.extra-horizon-input').blur(); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],
   ['x_404', async p => { await go(p, 'not-exist-page'); }],
 ];
 

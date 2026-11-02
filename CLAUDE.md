@@ -12,7 +12,7 @@
 | `Components/Pages/StockQuery.*` | `/stock-query` 單檔最新日線＋名稱 | |
 | `Components/Pages/StockChart.*` | `/stock-chart` K 線圖（`.razor.js` 畫 ECharts） | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
-| `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生 | 小卡與預覽圖改 `.razor.js` |
+| `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`） | 小卡與預覽圖改 `.razor.js` |
 | `Components/Pages/StockUpdate.*` | `/stock-update` TWSE 逐月同步、手動單筆、股票清單同步 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號） | 證交所格式改變時 |
@@ -96,8 +96,8 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 
 - 滾動報酬率：`(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，N 以所有股票「聯集」的時間軸計算；缺資料為 `null`（圖上斷線）。
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
-- 型態掃描：小卡為型態成立日前 10、後 20 個交易日；均線用完整歷史計算；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
-- 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者可選的「額外觀察天數」（以完整歷史計算，可超過小卡的後 20 天）。
+- 型態掃描：小卡為型態成立日前 10、後 20 個交易日；均線 MA5／10／20／60／120 用完整歷史計算；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
+- 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者輸入的「額外觀察天數」（可多組，如 `60,120`，1～250 天；以完整歷史計算，可超過小卡的後 20 天）。
 - 勝率醒目提示：50% 起每 5 個百分點一級（共 5 級），用黃色系而非紅綠（紅綠在台股代表漲跌）。
 - 看漲吞沒的預設參數由使用者確認過；晨星、紅三兵、黑三兵的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。
