@@ -1,9 +1,11 @@
-/* 標題與說明同一行，節省版面 */
+/* 標題與說明同一行，並縮小與下方控制列的距離 (共用面板預設 margin 24px / padding 12px) */
 .pattern-header {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
     gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
 }
 
 /* ── 上方控制列：掃描設定｜型態參數｜型態範例，壓縮高度把版面留給結果小卡 ── */
@@ -58,15 +60,24 @@
     color-scheme: dark;
 }
 
-.title-actions {
-    display: flex;
-    align-items: center;
+/* 每頁筆數與額外觀察天數並排 */
+.ctl-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
 }
 
+/* 開始掃描：參數卡片底部靠右 */
+.scan-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
 .ctl-box .scan-btn {
-    padding: 4px 14px;
-    font-size: 0.8rem;
+    padding: 6px 22px;
+    font-size: 0.85rem;
 }
 
 /* 參數：兩欄，每列「標籤 + 窄輸入框」 */
@@ -154,13 +165,29 @@
 }
 
 .win-rate {
-    margin-left: 12px;
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: 4px;
     color: var(--text-main);
 }
 
     .win-rate b {
         color: #ffffff;
     }
+
+/* 勝率醒目提示：50% 起每 5 個百分點加深一級 (用黃色系，避免與台股紅漲綠跌混淆) */
+.wr-level-1 { background-color: rgba(255, 213, 79, 0.08); }
+.wr-level-2 { background-color: rgba(255, 213, 79, 0.16); }
+.wr-level-3 { background-color: rgba(255, 213, 79, 0.26); }
+.wr-level-4 { background-color: rgba(255, 213, 79, 0.38); }
+.wr-level-5 { background-color: rgba(255, 213, 79, 0.52); }
+
+/* 底色越深，文字越要亮，避免黃底黃字或灰字看不清楚 */
+.wr-level-1 b, .wr-level-2 b { color: #ffe082; }
+.wr-level-3 b { color: #fff3c4; }
+.wr-level-4 b, .wr-level-5 b { color: #ffffff; }
+.wr-level-3 .win-count, .wr-level-4 .win-count, .wr-level-5 .win-count { color: rgba(255, 255, 255, 0.85); }
+.wr-level-4, .wr-level-5 { box-shadow: 0 0 0 1px #ffd54f; }
 
 .win-count {
     color: var(--text-muted);

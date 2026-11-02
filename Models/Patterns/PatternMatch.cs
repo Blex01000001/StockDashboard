@@ -22,10 +22,10 @@ namespace StockDashboard.Models.Patterns
         // 型態前 N 天 + 當天 + 後 M 天的 K 線 (資料不足時較短)
         public List<PatternCandle> Candles { get; set; } = new();
 
-        // 型態成立後第 5 / 10 / 20 個交易日的收盤報酬 %；資料不足為 null
-        public double? Return5 { get; set; }
-        public double? Return10 { get; set; }
-        public double? Return20 { get; set; }
+        // 型態成立後第 N 個交易日的收盤報酬 % (Key = N，例如 5 / 10 / 20 / 使用者自訂天數)；資料不足為 null
+        public Dictionary<int, double?> Returns { get; set; } = new();
+
+        public double? ReturnAfter(int days) => Returns.TryGetValue(days, out var r) ? r : null;
     }
 
     /// <summary>
@@ -56,7 +56,10 @@ namespace StockDashboard.Models.Patterns
         // true：看多型態 (之後上漲算勝)；false：看空型態 (之後下跌算勝)
         public bool IsBullish { get; set; } = true;
 
-        // 5 / 10 / 20 日勝率
+        // 這次掃描計算的觀察天數 (例如 5, 10, 20, 60)，由小到大
+        public List<int> Horizons { get; set; } = new();
+
+        // 各觀察天數的勝率 (順序同 Horizons)
         public List<PatternWinRate> WinRates { get; set; } = new();
 
         // 依型態日期由新到舊排序
@@ -78,5 +81,8 @@ namespace StockDashboard.Models.Patterns
 
         // 百分比 (0~100)；沒有可計算的樣本時為 null
         public double? Rate => Total == 0 ? null : Math.Round(Wins * 100.0 / Total, 1);
+
+        // 醒目程度：0 = 未滿 50%；1 = 50% 以上，之後每多 5 個百分點加一級，最高 5 級 (70% 以上)
+        public int HighlightLevel => Rate is double r && r >= 50 ? Math.Min((int)((r - 50) / 5) + 1, 5) : 0;
     }
 }

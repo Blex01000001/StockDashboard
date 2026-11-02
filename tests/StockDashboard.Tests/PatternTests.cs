@@ -237,7 +237,8 @@ public class ThreeCandlesPatternTests
 
 public class WinRateTests
 {
-    private static PatternMatch M(double? r5, double? r10, double? r20) => new() { Return5 = r5, Return10 = r10, Return20 = r20 };
+    private static PatternMatch M(double? r5, double? r10, double? r20) =>
+        new() { Returns = new Dictionary<int, double?> { [5] = r5, [10] = r10, [20] = r20 } };
 
     [Fact]
     public void 看多型態_上漲算勝_資料不足不計入()
@@ -260,6 +261,30 @@ public class WinRateTests
         var rates = PatternScanService.ComputeWinRates(new[] { M(-1, 1, -3), M(-2, -1, 2) }, PatternDirection.Bearish);
         Assert.Equal(new[] { 2, 1, 1 }, rates.Select(r => r.Wins));
     }
+
+    [Fact]
+    public void 自訂觀察天數也計算勝率()
+    {
+        var matches = new[] { new PatternMatch { Returns = new() { [60] = 5 } }, new PatternMatch { Returns = new() { [60] = -1 } } };
+        var rate = Assert.Single(PatternScanService.ComputeWinRates(matches, PatternDirection.Bullish, new[] { 60 }));
+        Assert.Equal((60, 1, 2), (rate.Days, rate.Wins, rate.Total));
+    }
+
+    [Theory]
+    [InlineData(1, 3, 0)]     // 33.3%
+    [InlineData(49, 100, 0)]  // 49%
+    [InlineData(1, 2, 1)]     // 50%
+    [InlineData(54, 100, 1)]  // 54%
+    [InlineData(55, 100, 2)]  // 55%
+    [InlineData(60, 100, 3)]  // 60%
+    [InlineData(65, 100, 4)]  // 65%
+    [InlineData(70, 100, 5)]  // 70%
+    [InlineData(1, 1, 5)]     // 100% 也是最高級
+    public void 勝率醒目程度每5個百分點一級(int wins, int total, int level) =>
+        Assert.Equal(level, new PatternWinRate { Days = 5, Wins = wins, Total = total }.HighlightLevel);
+
+    [Fact]
+    public void 沒有樣本時醒目程度為0() => Assert.Equal(0, new PatternWinRate().HighlightLevel);
 
     [Fact]
     public void 沒有樣本時勝率為Null()
@@ -410,8 +435,8 @@ public class PatternScanServiceTests
 
         var late = matches.Single(m => m.SignalDate == candles[35].Date);
         Assert.Equal(15, late.Candles.Count);        // 前 10 + 當天 + 後 4
-        Assert.Null(late.Return5);
-        Assert.Null(late.Return20);
+        Assert.Null(late.ReturnAfter(5));
+        Assert.Null(late.ReturnAfter(20));
     }
 
     [Fact]
@@ -420,8 +445,20 @@ public class PatternScanServiceTests
         var candles = Series(60, 30);
         var m = Assert.Single(Find(candles));
         double baseClose = candles[30].Close;
-        Assert.Equal(Math.Round((candles[35].Close - baseClose) / baseClose * 100, 2), m.Return5);
-        Assert.Equal(Math.Round((candles[50].Close - baseClose) / baseClose * 100, 2), m.Return20);
+        Assert.Equal(Math.Round((candles[35].Close - baseClose) / baseClose * 100, 2), m.ReturnAfter(5));
+        Assert.Equal(Math.Round((candles[50].Close - baseClose) / baseClose * 100, 2), m.ReturnAfter(20));
+    }
+
+    [Fact]
+    public void 自訂觀察天數可超過小卡的後20天_以完整歷史計算()
+    {
+        var candles = Series(120, 30);
+        var m = Assert.Single(PatternScanService.FindMatches("2330", candles, Engulfing, K.NoTrend(Engulfing), 10, 20, new[] { 5, 60 }));
+
+        Assert.Equal(31, m.Candles.Count);   // 小卡仍是 31 根
+        double baseClose = candles[30].Close;
+        Assert.Equal(Math.Round((candles[90].Close - baseClose) / baseClose * 100, 2), m.ReturnAfter(60));
+        Assert.Null(m.ReturnAfter(10));      // 沒有要求的天數不計算
     }
 
     [Fact]

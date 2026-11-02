@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using StockDashboard.Models.Patterns;
 using StockDashboard.Services;
+using ScanService = StockDashboard.Services.PatternScanService;
 using StockDashboard.Services.Patterns;
 
 namespace StockDashboard.Components.Pages
@@ -13,6 +14,7 @@ namespace StockDashboard.Components.Pages
         protected const int DaysBefore = 10;
         protected const int DaysAfter = 20;
         protected static readonly int[] PageSizeOptions = { 5, 10, 20, 50 };
+        protected const int MaxExtraHorizon = 250;   // 約一年的交易日
 
         [Inject] private IPatternScanService PatternScanService { get; set; } = default!;
         [Inject] private IEnumerable<ICandlePattern> PatternRegistrations { get; set; } = default!;
@@ -89,7 +91,9 @@ namespace StockDashboard.Components.Pages
             State.Message = string.Empty;
             try
             {
-                State.Result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore, DaysAfter);
+                var horizons = ScanService.DefaultHorizons.ToList();
+                if (State.ExtraHorizon is int extra) horizons.Add(extra);
+                State.Result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore, DaysAfter, horizons);
                 State.PageIndex = 0;
                 _cardsNeedRender = true;
 
@@ -107,6 +111,12 @@ namespace StockDashboard.Components.Pages
             {
                 IsScanning = false;
             }
+        }
+
+        // 額外觀察天數：留白代表不加；超出範圍時自動限制在 1 ~ MaxExtraHorizon
+        protected void OnExtraHorizonChanged(ChangeEventArgs e)
+        {
+            State.ExtraHorizon = int.TryParse(e.Value?.ToString(), out int days) ? Math.Clamp(days, 1, MaxExtraHorizon) : null;
         }
 
         protected void OnPageSizeChanged(ChangeEventArgs e)

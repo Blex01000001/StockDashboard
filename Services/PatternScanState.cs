@@ -13,6 +13,9 @@ namespace StockDashboard.Services
         public string StockIdsInput { get; set; } = "2330,0050,006208";
         public string PatternKey { get; set; } = string.Empty;
         public int PageSize { get; set; } = 10;
+
+        // 除了 5 / 10 / 20 日之外，額外計算報酬與勝率的天數；null 代表不加
+        public int? ExtraHorizon { get; set; }
         public int PageIndex { get; set; }
         public string Message { get; set; } = string.Empty;
         public PatternScanResult? Result { get; set; }

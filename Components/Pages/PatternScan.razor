@@ -25,25 +25,29 @@
                 <span>股票清單</span>
                 <input type="text" @bind="State.StockIdsInput" placeholder="以逗號分隔，如: 2330, 0050" class="dark-input stock-list-input" />
             </label>
-            <label class="ctl-field">
-                <span>每頁筆數</span>
-                <select class="dark-input page-size-select" value="@State.PageSize" @onchange="OnPageSizeChanged">
-                    @foreach (var size in PageSizeOptions)
-                    {
-                        <option value="@size">@size</option>
-                    }
-                </select>
-            </label>
+            <div class="ctl-pair">
+                <label class="ctl-field">
+                    <span>每頁筆數</span>
+                    <select class="dark-input page-size-select" value="@State.PageSize" @onchange="OnPageSizeChanged">
+                        @foreach (var size in PageSizeOptions)
+                        {
+                            <option value="@size">@size</option>
+                        }
+                    </select>
+                </label>
+                <label class="ctl-field" title="除了 5 / 10 / 20 日之外，再計算這個天數的報酬與勝率（掃描後生效）">
+                    <span>額外觀察天數</span>
+                    <input type="number" min="1" max="@MaxExtraHorizon" step="1" placeholder="例如 60"
+                           class="dark-input extra-horizon-input" value="@State.ExtraHorizon" @onchange="OnExtraHorizonChanged" />
+                </label>
+            </div>
         </div>
 
         @* ── 型態參數 (依型態的參數定義自動產生) ── *@
         <div class="ctl-box">
             <div class="ctl-title">
                 @Pattern.Name 參數
-                <div class="title-actions">
-                    <button class="link-btn" @onclick="ResetValues">恢復預設</button>
-                    <button @onclick="ScanAsync" class="action-btn scan-btn" disabled="@IsScanning">@(IsScanning ? "掃描中..." : "開始掃描")</button>
-                </div>
+                <button class="link-btn" @onclick="ResetValues">恢復預設</button>
             </div>
             <div class="param-grid">
                 @foreach (var p in Pattern.Parameters)
@@ -65,6 +69,9 @@
                         </label>
                     }
                 }
+            </div>
+            <div class="scan-row">
+                <button @onclick="ScanAsync" class="action-btn scan-btn" disabled="@IsScanning">@(IsScanning ? "掃描中..." : "開始掃描")</button>
             </div>
         </div>
 
@@ -92,7 +99,7 @@
                         勝率（@(State.Result.IsBullish ? "上漲" : "下跌")算勝）
                         @foreach (var w in State.Result.WinRates)
                         {
-                            <span class="win-rate">
+                            <span class="win-rate wr-level-@w.HighlightLevel">
                                 @(w.Days)日
                                 @if (w.Rate == null)
                                 {
@@ -134,10 +141,11 @@
                     </div>
                     <div id="@($"pattern-chart-{i}")" class="card-chart"></div>
                     <div class="card-returns">
-                        @foreach (var (label, value) in new[] { ("5日", match.Return5), ("10日", match.Return10), ("20日", match.Return20) })
+                        @foreach (var days in State.Result.Horizons)
                         {
+                            var value = match.ReturnAfter(days);
                             <span>
-                                @label
+                                @(days)日
                                 @if (value == null)
                                 {
                                     <span class="ret-na">資料不足</span>
