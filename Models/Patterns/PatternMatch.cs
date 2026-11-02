@@ -46,6 +46,15 @@ namespace StockDashboard.Models.Patterns
         public double? Ma20 { get; set; }
         public double? Ma60 { get; set; }
         public double? Ma120 { get; set; }
+
+        // 成交量均線 (附圖：成交量)
+        public double? VolMa5 { get; set; }
+        public double? VolMa10 { get; set; }
+
+        // MACD (12, 26, 9) (附圖：MACD)：DIF、MACD 訊號線、OSC 柱狀 = DIF − MACD
+        public double? Dif { get; set; }
+        public double? Macd { get; set; }
+        public double? Osc { get; set; }
     }
 
     /// <summary>

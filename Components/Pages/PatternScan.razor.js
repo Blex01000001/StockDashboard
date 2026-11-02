@@ -14,6 +14,18 @@ const MA_LINES = [
 const SIGNAL_COLOR = '#ffd54f';   // 型態標示
 const HORIZON_COLOR = '#8392A5';  // 觀察日標示
 
+// 附圖的線：成交量均線、MACD 的 DIF / 訊號線
+const SUB_LINES = {
+    volume: [
+        { key: 'volMa5', name: '量MA5', color: '#f5c242' },
+        { key: 'volMa10', name: '量MA10', color: '#ab47bc' }
+    ],
+    macd: [
+        { key: 'dif', name: 'DIF', color: '#f5c242' },
+        { key: 'macd', name: 'MACD', color: '#42a5f5' }
+    ]
+};
+
 let cardCharts = [];
 let previewChart = null;
 
@@ -27,7 +39,8 @@ export function disposeAll() {
 // 換頁或重新掃描時，先釋放上一批小卡圖表，避免記憶體累積
 // visibleMas：預設顯示的均線名稱 (例如 ['MA5','MA20'])；其他均線仍在圖例中 (灰色)，點一下可單張顯示
 // horizons：觀察天數 (例如 [5, 10, 20, 60])，在型態成立日之後第 N 根 K 棒畫淡色直線
-export function renderPatternCards(cards, visibleMas, horizons) {
+// subChart：附圖內容，'volume' (成交量 + 量均線) 或 'macd' (DIF、MACD 訊號線、OSC 柱狀)
+export function renderPatternCards(cards, visibleMas, horizons, subChart) {
     cardCharts.forEach(c => c.dispose());
     cardCharts = [];
     const selected = Object.fromEntries(MA_LINES.map(m => [m.name, (visibleMas || []).includes(m.name)]));
@@ -35,8 +48,9 @@ export function renderPatternCards(cards, visibleMas, horizons) {
         const dom = document.getElementById(card.containerId);
         if (!dom) continue;
         const chart = echarts.init(dom);
-        const option = buildOption(card.candles, card.signalIndex, card.barCount, { showMa: true, showAxisLabels: true, horizons: horizons || [] });
-        option.legend.selected = selected;
+        const option = buildOption(card.candles, card.signalIndex, card.barCount,
+            { showMa: true, showAxisLabels: true, horizons: horizons || [], subChart: subChart || 'volume' });
+        option.legend[0].selected = selected;
         chart.setOption(option);
         cardCharts.push(chart);
     }
@@ -53,7 +67,7 @@ export function renderPreview(containerId, candles, signalIndex, barCount) {
     previewChart.setOption(buildOption(candles, signalIndex, barCount, { showMa: false, showAxisLabels: false }), true);
 }
 
-function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, horizons = [] }) {
+function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, horizons = [], subChart = 'volume' }) {
     const dates = candles.map(c => c.date);
     const signalDate = dates[signalIndex];
     const axisLine = { lineStyle: { color: '#8392A5' } };
@@ -93,11 +107,23 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, h
                 data: patternMarks
             }
         },
-        {
-            type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
-            data: candles.map(c => ({ value: c.volume, itemStyle: { color: c.close >= c.open ? UP : DOWN } }))
-        }
+        // 附圖：成交量 (紅漲綠跌) 或 MACD 的 OSC 柱狀 (正紅負綠)
+        subChart === 'macd'
+            ? {
+                name: 'OSC', type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
+                data: candles.map(c => ({ value: c.osc, itemStyle: { color: (c.osc ?? 0) >= 0 ? UP : DOWN } }))
+            }
+            : {
+                type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
+                data: candles.map(c => ({ value: c.volume, itemStyle: { color: c.close >= c.open ? UP : DOWN } }))
+            }
     ];
+    // 附圖的線 (只在小卡上畫，預覽圖維持單純的成交量)
+    const subLines = showAxisLabels ? SUB_LINES[subChart] || [] : [];
+    for (const l of subLines) {
+        series.push({ name: l.name, type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: candles.map(c => c[l.key]),
+                      showSymbol: false, lineStyle: { width: 1, color: l.color }, itemStyle: { color: l.color } });
+    }
     if (showMa) {
         for (const m of MA_LINES) {
             series.push({ name: m.name, type: 'line', data: candles.map(c => c[m.key]), showSymbol: false,
@@ -108,10 +134,15 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, h
     return {
         animation: false,
         legend: showMa
-            ? { data: MA_LINES.map(m => m.name), top: 0, right: 8, itemWidth: 12, itemHeight: 7, itemGap: 8,
-                textStyle: { color: '#8392A5', fontSize: 10 },
-                // 隱藏中的均線在圖例上調暗 (預設淺灰色會和 MA120 的灰色混淆)
-                inactiveColor: '#3a3f4b', inactiveBorderColor: '#3a3f4b' }
+            ? [
+                { data: MA_LINES.map(m => m.name), top: 0, right: 8, itemWidth: 12, itemHeight: 7, itemGap: 8,
+                  textStyle: { color: '#8392A5', fontSize: 10 },
+                  // 隱藏中的均線在圖例上調暗 (預設淺灰色會和 MA120 的灰色混淆)
+                  inactiveColor: '#3a3f4b', inactiveBorderColor: '#3a3f4b' },
+                // 附圖圖例：放在附圖左上方
+                { data: subLines.map(l => l.name), top: '68%', left: 48, itemWidth: 12, itemHeight: 7, itemGap: 8,
+                  textStyle: { color: '#8392A5', fontSize: 10 }, inactiveColor: '#3a3f4b', inactiveBorderColor: '#3a3f4b' }
+              ]
             : undefined,
         tooltip: showAxisLabels ? {
             trigger: 'axis',
@@ -125,6 +156,9 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, h
                 return `<div style="font-weight:bold;color:#fff;">${c.date}${c.date === signalDate ? '（型態成立）' : ''}</div>
                     <div style="color:${color}">開 ${c.open}　高 ${c.high}<br/>低 ${c.low}　收 ${c.close}</div>
                     <div>量 ${c.volume.toLocaleString()}</div>
+                    ${subChart === 'macd'
+                        ? `<div>DIF ${c.dif ?? '-'}　MACD ${c.macd ?? '-'}　OSC ${c.osc ?? '-'}</div>`
+                        : `<div>量MA5 ${c.volMa5?.toLocaleString() ?? '-'}　量MA10 ${c.volMa10?.toLocaleString() ?? '-'}</div>`}
                     ${MA_LINES.map(m => `<div style="color:${m.color}">${m.name} ${c[m.key] ?? '-'}</div>`).join('')}`;
             }
         } : undefined,

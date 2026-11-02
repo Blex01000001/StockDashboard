@@ -101,11 +101,16 @@ namespace StockDashboard.Services
             if (candles.Count < pattern.BarCount) return matches;
 
             // 均線以完整歷史計算，小卡最左邊的均線才會是正確值
-            double?[] ma5 = MovingAverage(candles, 5);
-            double?[] ma10 = MovingAverage(candles, 10);
-            double?[] ma20 = MovingAverage(candles, 20);
-            double?[] ma60 = MovingAverage(candles, 60);
-            double?[] ma120 = MovingAverage(candles, 120);
+            var closes = candles.Select(c => c.Close).ToList();
+            var volumes = candles.Select(c => (double)c.Volume).ToList();
+            double?[] ma5 = TechnicalIndicators.MovingAverage(closes, 5);
+            double?[] ma10 = TechnicalIndicators.MovingAverage(closes, 10);
+            double?[] ma20 = TechnicalIndicators.MovingAverage(closes, 20);
+            double?[] ma60 = TechnicalIndicators.MovingAverage(closes, 60);
+            double?[] ma120 = TechnicalIndicators.MovingAverage(closes, 120);
+            double?[] volMa5 = TechnicalIndicators.MovingAverage(volumes, 5, decimals: 0);
+            double?[] volMa10 = TechnicalIndicators.MovingAverage(volumes, 10, decimals: 0);
+            var (dif, macd, osc) = TechnicalIndicators.Macd(closes);
 
             for (int i = pattern.BarCount - 1; i < candles.Count; i++)
             {
@@ -121,7 +126,9 @@ namespace StockDashboard.Services
                     window.Add(new PatternCandle
                     {
                         Date = c.Date, Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume,
-                        Ma5 = ma5[k], Ma10 = ma10[k], Ma20 = ma20[k], Ma60 = ma60[k], Ma120 = ma120[k]
+                        Ma5 = ma5[k], Ma10 = ma10[k], Ma20 = ma20[k], Ma60 = ma60[k], Ma120 = ma120[k],
+                        VolMa5 = volMa5[k], VolMa10 = volMa10[k],
+                        Dif = dif[k], Macd = macd[k], Osc = osc[k]
                     });
                 }
 
@@ -158,19 +165,6 @@ namespace StockDashboard.Services
         {
             if (index + days >= candles.Count || candles[index].Close <= 0) return null;
             return Math.Round((candles[index + days].Close - candles[index].Close) / candles[index].Close * 100, 2);
-        }
-
-        private static double?[] MovingAverage(IReadOnlyList<StockDataPoint> candles, int period)
-        {
-            var result = new double?[candles.Count];
-            double sum = 0;
-            for (int i = 0; i < candles.Count; i++)
-            {
-                sum += candles[i].Close;
-                if (i >= period) sum -= candles[i - period].Close;
-                if (i >= period - 1) result[i] = Math.Round(sum / period, 2);
-            }
-            return result;
         }
     }
 }

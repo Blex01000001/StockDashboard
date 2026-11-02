@@ -20,6 +20,10 @@ namespace StockDashboard.Services
         // 小卡可畫的均線與預設是否顯示 (使用者指定預設：MA5 / 10 / 20 / 60 顯示，MA120 隱藏)
         public static readonly int[] MovingAveragePeriods = { 5, 10, 20, 60, 120 };
         public HashSet<int> VisibleMovingAverages { get; } = new() { 5, 10, 20, 60 };
+
+        // 小卡附圖：值 → 顯示名稱 (值也是傳給 JS 的識別字)。預設成交量 (使用者指定)
+        public static readonly (string Value, string Label)[] SubChartOptions = { ("volume", "成交量"), ("macd", "MACD") };
+        public string SubChart { get; set; } = "volume";
         public int PageIndex { get; set; }
         public string Message { get; set; } = string.Empty;
         public PatternScanResult? Result { get; set; }

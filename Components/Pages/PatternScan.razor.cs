@@ -130,6 +130,16 @@ namespace StockDashboard.Components.Pages
             }
         }
 
+        protected void OnSubChartChanged(ChangeEventArgs e)
+        {
+            string value = e.Value?.ToString() ?? "volume";
+            if (PatternScanState.SubChartOptions.Any(o => o.Value == value))
+            {
+                State.SubChart = value;
+                _cardsNeedRender = true;
+            }
+        }
+
         protected void OnMovingAverageToggled(int period, ChangeEventArgs e)
         {
             if (e.Value is true) State.VisibleMovingAverages.Add(period);
@@ -196,7 +206,7 @@ namespace StockDashboard.Components.Pages
                         candles = m.Candles
                     });
                     var visibleMas = State.VisibleMovingAverages.Select(p => $"MA{p}").ToArray();
-                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas, State.Result!.Horizons);
+                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas, State.Result!.Horizons, State.SubChart);
                 }
             }
             catch (JSDisconnectedException)

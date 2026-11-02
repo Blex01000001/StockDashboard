@@ -40,6 +40,15 @@
                     <input type="text" placeholder="例如 60,120" class="dark-input extra-horizon-input" @bind="State.ExtraHorizonsInput" />
                 </label>
             </div>
+            <label class="ctl-field">
+                <span>附圖</span>
+                <select class="dark-input sub-chart-select" value="@State.SubChart" @onchange="OnSubChartChanged">
+                    @foreach (var (value, label) in StockDashboard.Services.PatternScanState.SubChartOptions)
+                    {
+                        <option value="@value">@label</option>
+                    }
+                </select>
+            </label>
             <div class="ctl-field">
                 <span>顯示均線</span>
                 <div class="ma-toggles">
