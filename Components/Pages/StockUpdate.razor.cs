@@ -21,8 +21,8 @@ namespace StockDashboard.Components.Pages
         [Inject] private IStockNameRepository StockNameRepository { get; set; } = default!;
         [Inject] private IInstitutionalRepository InstitutionalRepository { get; set; } = default!;
         [Inject] private IInstitutionalSyncService InstitutionalSync { get; set; } = default!;
+        [Inject] private IFinMindSyncService FinMindSync { get; set; } = default!;
 
-        public StockDailyPriceEntity InputPrice { get; set; } = new();
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
         public bool IsError { get; set; } = false;
@@ -40,19 +40,26 @@ namespace StockDashboard.Components.Pages
         public static readonly (string Value, string Label)[] InstitutionalRangeOptions =
         {
             ("7", "最近一週"),
-            ("3m", "近三個月"),
-            ("12m", "近一年"),
+            ("1m", "最近一個月"),
         };
-        public string InstitutionalRange { get; set; } = "3m";
+        public string InstitutionalRange { get; set; } = "7";
         public (string? FirstDate, string? LastDate, int Days)? InstitutionalSummary { get; set; }
         public bool IsSyncingInstitutional { get; set; } = false;
         public string InstitutionalStatusMessage { get; set; } = string.Empty;
         public bool InstitutionalIsError { get; set; } = false;
         private CancellationTokenSource? _institutionalCts;
 
+        // ── FinMind 個股三大法人同步 ──
+        public string FinMindStockIds { get; set; } = string.Empty;
+        public bool FinMindFullReload { get; set; } = false;
+        public int FinMindSyncedCount { get; set; }
+        public bool IsSyncingFinMind { get; set; } = false;
+        public string FinMindStatusMessage { get; set; } = string.Empty;
+        public bool FinMindIsError { get; set; } = false;
+        private CancellationTokenSource? _finMindCts;
+
         protected override async Task OnInitializedAsync()
         {
-            InputPrice.TradeDate = DateTime.Today.ToString("yyyy-MM-dd");
             await LoadNameSummaryAsync();
             await LoadInstitutionalSummaryAsync();
         }
@@ -61,6 +68,7 @@ namespace StockDashboard.Components.Pages
         {
             // 離開頁面時停止同步 (同步中的頁面元件已銷毀，進度無處顯示)
             _institutionalCts?.Cancel();
+            _finMindCts?.Cancel();
         }
 
         private async Task LoadInstitutionalSummaryAsync()
@@ -68,6 +76,7 @@ namespace StockDashboard.Components.Pages
             try
             {
                 InstitutionalSummary = await InstitutionalRepository.GetSummaryAsync();
+                FinMindSyncedCount = (await InstitutionalRepository.GetFinMindSyncedAsync(FinMindSyncService.TradingDataset)).Count;
             }
             catch (Exception ex)
             {
@@ -78,9 +87,8 @@ namespace StockDashboard.Components.Pages
         /// <summary>同步範圍的起日 (含)</summary>
         public static DateTime InstitutionalFromDate(string range, DateTime today) => range switch
         {
-            "7" => today.AddDays(-6),
-            "12m" => today.AddYears(-1).AddDays(1),
-            _ => today.AddMonths(-3).AddDays(1),
+            "1m" => today.AddMonths(-1).AddDays(1),
+            _ => today.AddDays(-6),
         };
 
         /// <summary>
@@ -96,7 +104,7 @@ namespace StockDashboard.Components.Pages
             SetInstitutionalStatus("準備同步三大法人資料...", false);
 
             // 不用 Progress<T>：它的回呼是非同步排入的，可能在同步結束後才執行，蓋掉最後的結果訊息
-            var progress = new SyncProgress(p =>
+            var progress = new SyncProgress<InstitutionalSyncProgress>(p =>
             {
                 string eta = "";
                 if (p.Done > 0 && p.Done < p.Total)
@@ -141,15 +149,84 @@ namespace StockDashboard.Components.Pages
             }
         }
 
-        private sealed class SyncProgress(Action<InstitutionalSyncProgress> onReport) : IProgress<InstitutionalSyncProgress>
+        private sealed class SyncProgress<T>(Action<T> onReport) : IProgress<T>
         {
-            public void Report(InstitutionalSyncProgress value) => onReport(value);
+            public void Report(T value) => onReport(value);
         }
 
         public void StopInstitutionalSync()
         {
             _institutionalCts?.Cancel();
             SetInstitutionalStatus("正在停止...", false);
+        }
+
+        /// <summary>
+        /// 用 FinMind 逐檔下載多年三大法人買賣超與外資持股；IP 被封鎖或達上限時立即停止
+        /// </summary>
+        public async Task SyncFinMind()
+        {
+            if (IsSyncingFinMind) return;
+
+            var stockIds = FinMindStockIds
+                .Split(new[] { ',', '，', '、', ' ', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().ToUpperInvariant())
+                .Distinct()
+                .ToList();
+            if (stockIds.Count == 0)
+            {
+                SetFinMindStatus("請輸入至少一檔股票代號！", true);
+                return;
+            }
+
+            IsSyncingFinMind = true;
+            _finMindCts = new CancellationTokenSource();
+            SetFinMindStatus($"準備同步 {stockIds.Count} 檔...", false);
+            var progress = new SyncProgress<FinMindSyncProgress>(p => SetFinMindStatus($"[{p.Done}/{p.Total}] {p.Message}", false));
+
+            try
+            {
+                var result = await FinMindSync.SyncAsync(stockIds, FinMindFullReload, progress, _finMindCts.Token);
+                await LoadInstitutionalSummaryAsync();
+
+                string summary = $"完成 {result.StocksDone}/{stockIds.Count} 檔、寫入 {result.RowsWritten} 筆，向 FinMind 請求 {result.Requests} 次。";
+                if (result.Error != null)
+                {
+                    string retry = result.Blocked ? "" : "已完成的股票都已存入，稍後再按一次同步即可。";
+                    SetFinMindStatus($"同步中斷：{result.Error}。{retry}{summary}", true);
+                }
+                else if (result.Cancelled)
+                {
+                    SetFinMindStatus($"已停止。{summary}", false);
+                }
+                else
+                {
+                    SetFinMindStatus($"FinMind 同步完成。{summary}", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                SetFinMindStatus($"FinMind 同步失敗: {ex.Message}", true);
+            }
+            finally
+            {
+                IsSyncingFinMind = false;
+                _finMindCts.Dispose();
+                _finMindCts = null;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
+        public void StopFinMindSync()
+        {
+            _finMindCts?.Cancel();
+            SetFinMindStatus("正在停止...", false);
+        }
+
+        private void SetFinMindStatus(string msg, bool isError)
+        {
+            FinMindStatusMessage = msg;
+            FinMindIsError = isError;
+            InvokeAsync(StateHasChanged);
         }
 
         private void SetInstitutionalStatus(string msg, bool isError)
@@ -212,35 +289,6 @@ namespace StockDashboard.Components.Pages
             finally
             {
                 IsSyncingList = false;
-            }
-        }
-
-        /// <summary>
-        /// 儲存單筆手動輸入的股價資料
-        /// </summary>
-        public async Task SaveSinglePrice()
-        {
-            if (string.IsNullOrWhiteSpace(InputPrice.StockId) || string.IsNullOrWhiteSpace(InputPrice.TradeDate))
-            {
-                SetStatus("股票代號與交易日期不可為空！", true);
-                return;
-            }
-
-            IsProcessing = true;
-            SetStatus("正在寫入資料庫...", false);
-
-            try
-            {
-                await PriceRepository.UpsertPricesAsync(new[] { InputPrice });
-                SetStatus($"成功！股票 {InputPrice.StockId} 在 {InputPrice.TradeDate} 的資料已成功同步更新。", false);
-            }
-            catch (Exception ex)
-            {
-                SetStatus($"寫入資料庫失敗: {ex.Message}", true);
-            }
-            finally
-            {
-                IsProcessing = false;
             }
         }
 

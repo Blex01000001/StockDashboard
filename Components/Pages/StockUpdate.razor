@@ -4,167 +4,185 @@
 
 <div class="dashboard-panel panel-standard">
     <div class="panel-header">
-        <h2 class="panel-title">⚙️ API / 手動資料更新面板</h2>
-        <span class="panel-subtitle">維護本機 SQLite 資料庫結構 (`StockDailyPrice`)</span>
+        <h2 class="panel-title">⚙️ API 資料更新面板</h2>
+        <span class="panel-subtitle">依資料來源分組，從外部 API 更新本機 SQLite 資料庫</span>
     </div>
 
-    <div class="update-grid">
-        <div class="card-box">
-            <h3 class="card-title">🌐 外部 API 批次同步</h3>
-            <p class="description">從遠端證券 API 抓取歷史 K 線資料，並使用 <code class="code-tag">INSERT OR REPLACE</code> 覆寫或更新本機 SQLite 資料。</p>
-
-            <div class="form-group">
-                <label>更新時間範圍</label>
-                <select @bind="SelectedRange" class="dark-input w-100" style="padding-right: 10px;">
-                    <option value="1">本月</option>
-                    <option value="3">近三個月</option>
-                    <option value="12">近一年</option>
-                    <option value="36">近三年 (36個月)</option>
-                    <option value="60">近五年 (60個月)</option>
-                    <option value="120">近十年 (120個月)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>指定股票代號</label>
-                <div class="search-box-container">
-                    <input type="text" @bind="BatchStockId" placeholder="例如: 2330" class="dark-input" list="stock-id-options" />
-                    <button @onclick="SyncFromApi" class="action-btn" disabled="@IsProcessing">⚡ 執行 API 同步</button>
-                </div>
-            </div>
-
-            @if (!string.IsNullOrEmpty(StatusMessage))
-            {
-                <div class="status-box @(IsError ? "error" : "success")">
-                    @StatusMessage
-                </div>
-            }
-        </div>
-        <div class="card-box">
-            <h3 class="card-title">📝 單筆數據維護 (INSERT / UPDATE)</h3>
-            <div class="form-group">
-                <label>股票代號</label>
-                <input type="text" @bind="InputPrice.StockId" placeholder="例如: 2330" class="dark-input w-100" list="stock-id-options" />
-            </div>
-            <div class="form-group">
-                <label>交易日期</label>
-                <input type="text" @bind="InputPrice.TradeDate" placeholder="YYYY-MM-DD" class="dark-input w-100" />
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>開盤價</label>
-                    <input type="number" step="0.01" @bind="InputPrice.OpenPrice" class="dark-input" />
-                </div>
-                <div class="form-group">
-                    <label>最高價</label>
-                    <input type="number" step="0.01" @bind="InputPrice.HighPrice" class="dark-input" />
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>最低價</label>
-                    <input type="number" step="0.01" @bind="InputPrice.LowPrice" class="dark-input" />
-                </div>
-                <div class="form-group">
-                    <label>收盤價</label>
-                    <input type="number" step="0.01" @bind="InputPrice.ClosePrice" class="dark-input" />
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>成交股數 (Volume)</label>
-                    <input type="number" @bind="InputPrice.Volume" class="dark-input" />
-                </div>
-                <div class="form-group">
-                    <label>成交金額 (Amount)</label>
-                    <input type="number" @bind="InputPrice.Amount" class="dark-input" />
-                </div>
-            </div>
-            <button @onclick="SaveSinglePrice" class="action-btn mt-10 w-100" disabled="@IsProcessing">
-                💾 儲存至 SQLite
-            </button>
+    @* ── 來源：證交所 ── *@
+    <section class="source-group">
+        <div class="source-header">
+            <span class="source-name">🏛️ 證交所 TWSE</span>
+            <span class="source-note">日線一次一檔一個月；三大法人一次一天、全部上市股票</span>
         </div>
 
-        <div class="card-box card-wide">
-            <h3 class="card-title">📋 股票清單同步</h3>
-            <p class="description">
-                從證交所 OpenAPI 下載所有上市股票與 ETF 的代號、名稱，存入 <code class="code-tag">StockNameList</code>
-                （不會修改原有的 <code class="code-tag">StockList</code> 上市公司基本資料；兩者都有的代號以公司基本資料的簡稱為準）。
-                同步後，查詢頁會顯示股票名稱、圖表會顯示「代號 名稱」，輸入股票代號時也會出現自動完成選單。
-            </p>
+        <div class="update-grid">
+            <div class="card-box">
+                <h3 class="card-title">🌐 日線批次同步</h3>
+                <div class="api-url"><code>twse.com.tw/exchangeReport/STOCK_DAY</code></div>
+                <p class="description">逐月抓取歷史 K 線資料，並使用 <code class="code-tag">INSERT OR REPLACE</code> 覆寫或更新本機 SQLite 資料。</p>
 
-            <div class="list-sync-row">
-                <span class="description list-summary">
-                    @if (NameSummary != null)
-                    {
-                        @if (NameSummary.CompanyCount != null)
+                <div class="form-group">
+                    <label>更新時間範圍</label>
+                    <select @bind="SelectedRange" class="dark-input w-100" style="padding-right: 10px;">
+                        <option value="1">本月</option>
+                        <option value="3">近三個月</option>
+                        <option value="12">近一年</option>
+                        <option value="36">近三年 (36個月)</option>
+                        <option value="60">近五年 (60個月)</option>
+                        <option value="120">近十年 (120個月)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>指定股票代號</label>
+                    <div class="search-box-container">
+                        <input type="text" @bind="BatchStockId" placeholder="例如: 2330" class="dark-input" list="stock-id-options" />
+                        <button @onclick="SyncFromApi" class="action-btn" disabled="@IsProcessing">⚡ 執行 API 同步</button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(StatusMessage))
+                {
+                    <div class="status-box @(IsError ? "error" : "success")">
+                        @StatusMessage
+                    </div>
+                }
+            </div>
+
+            <div class="card-box">
+                <h3 class="card-title">🏦 三大法人（逐日，全部上市股票）</h3>
+                <div class="api-url"><code>twse.com.tw/fund/T86</code>　<code>twse.com.tw/fund/MI_QFIIS</code></div>
+                <p class="description">
+                    下載每日「三大法人買賣超」與「外資持股」，一天兩個請求（間隔約 2.5 秒），適合補最近幾天。
+                    已下載的日期與確認過的休市日會自動略過；多年資料請用下方 FinMind 個股同步。
+                </p>
+
+                <div class="form-group">
+                    <label>同步範圍</label>
+                    <div class="search-box-container">
+                        <select @bind="InstitutionalRange" class="dark-input" disabled="@IsSyncingInstitutional">
+                            @foreach (var option in InstitutionalRangeOptions)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                        @if (IsSyncingInstitutional)
                         {
-                            <span>上市公司基本資料：<b>@NameSummary.CompanyCount</b> 家　｜　</span>
+                            <button @onclick="StopInstitutionalSync" class="action-btn">⏹ 停止</button>
                         }
-                        <span>證交所同步清單：<b>@NameSummary.SyncedCount</b> 檔</span>
-                        @if (NameSummary.LastSyncedAt != null)
+                        else
                         {
-                            <span>（最後更新：@NameSummary.LastSyncedAt）</span>
+                            <button @onclick="SyncInstitutional" class="action-btn">🔄 同步三大法人</button>
                         }
-                    }
-                </span>
-                <button @onclick="SyncStockList" class="action-btn" disabled="@IsSyncingList">🔄 更新股票清單</button>
-            </div>
-
-            @if (!string.IsNullOrEmpty(ListStatusMessage))
-            {
-                <div class="status-box @(ListIsError ? "error" : "success")">
-                    @ListStatusMessage
+                    </div>
                 </div>
-            }
-        </div>
 
-        <div class="card-box card-wide">
-            <h3 class="card-title">🏦 三大法人資料同步</h3>
-            <p class="description">
-                從證交所下載每日「三大法人買賣超」(T86) 與「外資持股」(MI_QFIIS)，存入 <code class="code-tag">InstitutionalDaily</code>，
-                供型態掃描的三大法人附圖使用。證交所一次回傳一天、全部上市股票，因此逐日下載（每次間隔約 2.5 秒，一天兩個請求）；
-                已下載的日期與確認過的休市日會自動略過，中途停止也會保留已下載的部分。
-            </p>
-
-            <div class="list-sync-row">
-                <span class="description list-summary">
+                <p class="description summary-line">
                     @if (InstitutionalSummary is { Days: > 0 } summary)
                     {
-                        <span>已有資料：<b>@summary.FirstDate</b> ～ <b>@summary.LastDate</b>，共 <b>@summary.Days</b> 個交易日</span>
+                        <span>資料庫已有：<b>@summary.FirstDate</b> ～ <b>@summary.LastDate</b>，共 <b>@summary.Days</b> 個交易日（含 FinMind）</span>
                     }
                     else
                     {
                         <span>尚未下載任何三大法人資料</span>
                     }
-                </span>
-                <div class="inst-sync-actions">
-                    <select @bind="InstitutionalRange" class="dark-input inst-range" disabled="@IsSyncingInstitutional">
-                        @foreach (var option in InstitutionalRangeOptions)
-                        {
-                            <option value="@option.Value">@option.Label</option>
-                        }
-                    </select>
-                    @if (IsSyncingInstitutional)
-                    {
-                        <button @onclick="StopInstitutionalSync" class="action-btn">⏹ 停止</button>
-                    }
-                    else
-                    {
-                        <button @onclick="SyncInstitutional" class="action-btn">🔄 同步三大法人</button>
-                    }
-                </div>
+                </p>
+
+                @if (!string.IsNullOrEmpty(InstitutionalStatusMessage))
+                {
+                    <div class="status-box @(InstitutionalIsError ? "error" : "success")">
+                        @InstitutionalStatusMessage
+                    </div>
+                }
             </div>
 
-            @if (!string.IsNullOrEmpty(InstitutionalStatusMessage))
-            {
-                <div class="status-box @(InstitutionalIsError ? "error" : "success")">
-                    @InstitutionalStatusMessage
+            <div class="card-box card-wide">
+                <h3 class="card-title">📋 股票清單同步</h3>
+                <div class="api-url"><code>openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL</code></div>
+                <p class="description">
+                    下載所有上市股票與 ETF 的代號、名稱，存入 <code class="code-tag">StockNameList</code>
+                    （不會修改原有的 <code class="code-tag">StockList</code> 上市公司基本資料；兩者都有的代號以公司基本資料的簡稱為準）。
+                    同步後，查詢頁會顯示股票名稱、圖表會顯示「代號 名稱」，輸入股票代號時也會出現自動完成選單。
+                </p>
+
+                <div class="list-sync-row">
+                    <span class="description list-summary">
+                        @if (NameSummary != null)
+                        {
+                            @if (NameSummary.CompanyCount != null)
+                            {
+                                <span>上市公司基本資料：<b>@NameSummary.CompanyCount</b> 家　｜　</span>
+                            }
+                            <span>證交所同步清單：<b>@NameSummary.SyncedCount</b> 檔</span>
+                            @if (NameSummary.LastSyncedAt != null)
+                            {
+                                <span>（最後更新：@NameSummary.LastSyncedAt）</span>
+                            }
+                        }
+                    </span>
+                    <button @onclick="SyncStockList" class="action-btn" disabled="@IsSyncingList">🔄 更新股票清單</button>
                 </div>
-            }
+
+                @if (!string.IsNullOrEmpty(ListStatusMessage))
+                {
+                    <div class="status-box @(ListIsError ? "error" : "success")">
+                        @ListStatusMessage
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    @* ── 來源：FinMind ── *@
+    <section class="source-group">
+        <div class="source-header">
+            <span class="source-name">📦 FinMind</span>
+            <span class="source-note">一次一檔、整段期間（2012-05-02 起）；匿名使用，IP 被封鎖時立即停止</span>
         </div>
 
-    </div>
+        <div class="update-grid">
+            <div class="card-box card-wide">
+                <h3 class="card-title">🏦 三大法人（個股，多年）</h3>
+                <div class="api-url">
+                    <code>api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell</code>
+                    <code>api.finmindtrade.com/api/v4/data?dataset=TaiwanStockShareholding</code>
+                </div>
+                <p class="description">
+                    每檔股票兩個請求（買賣超、外資持股），寫入與證交所相同的 <code class="code-tag">InstitutionalDaily</code>。
+                    第一次從 2012-05-02 抓到今天；之後只從上次同步日往前 @StockDashboard.Services.FinMindSyncService.OverlapDays 天開始補。
+                </p>
+
+                <div class="form-group">
+                    <label>股票代號（可多檔，以逗號分隔）</label>
+                    <div class="search-box-container">
+                        <input type="text" @bind="FinMindStockIds" placeholder="例如: 2330,0050" class="dark-input" list="stock-id-options" disabled="@IsSyncingFinMind" />
+                        @if (IsSyncingFinMind)
+                        {
+                            <button @onclick="StopFinMindSync" class="action-btn">⏹ 停止</button>
+                        }
+                        else
+                        {
+                            <button @onclick="SyncFinMind" class="action-btn">🔄 同步三大法人</button>
+                        }
+                    </div>
+                </div>
+
+                <label class="description full-reload">
+                    <input type="checkbox" @bind="FinMindFullReload" disabled="@IsSyncingFinMind" />
+                    重新完整下載（忽略同步紀錄，從 2012-05-02 起）
+                </label>
+
+                <p class="description summary-line">已用 FinMind 同步過：<b>@FinMindSyncedCount</b> 檔</p>
+
+                @if (!string.IsNullOrEmpty(FinMindStatusMessage))
+                {
+                    <div class="status-box @(FinMindIsError ? "error" : "success")">
+                        @FinMindStatusMessage
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
 
     <StockIdDataList Id="stock-id-options" @ref="_stockIdDataList" />
 </div>

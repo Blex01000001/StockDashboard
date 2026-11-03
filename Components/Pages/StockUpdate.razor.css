@@ -33,19 +33,9 @@
         color: var(--text-muted);
     }
 
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
 .w-100 {
     width: 100%;
     box-sizing: border-box;
-}
-
-.mt-10 {
-    margin-top: 10px;
 }
 
 .description {
@@ -101,11 +91,6 @@
         white-space: nowrap;
     }
 
-/* 「儲存至 SQLite」按鈕不在 flex 容器內，需要自己的上下 padding */
-.card-box .action-btn.w-100 {
-    padding: 10px 20px;
-}
-
 /* 股票清單卡片：橫跨整列 */
 .card-wide {
     grid-column: 1 / -1;
@@ -127,14 +112,60 @@
         flex-shrink: 0;
     }
 
-/* 三大法人同步：範圍選單與按鈕同一列 */
-.inst-sync-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
+/* ── 依資料來源分組的外框 ── */
+.source-group {
+    margin-top: 20px;
+    padding: 14px 18px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
 }
 
-    .card-box .inst-sync-actions .inst-range {
-        width: auto;
+.source-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.source-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.source-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.source-group .update-grid {
+    margin-top: 14px;
+}
+
+/* 卡片標題下方的 API 簡短網址 */
+.api-url {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: -8px 0 4px;
+}
+
+    .api-url code {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        background-color: #232733;
+        padding: 2px 6px;
+        border-radius: 4px;
+        word-break: break-all;
     }
+
+.summary-line {
+    margin: 4px 0 0;
+}
+
+.full-reload {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}

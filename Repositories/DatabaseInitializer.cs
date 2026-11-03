@@ -51,6 +51,15 @@ namespace StockDashboard.Repositories
                 PRIMARY KEY (TradeDate, Source)
             );
 
+            -- FinMind 個股同步紀錄：每檔股票、每個資料集最後同步到哪一天 (下次只補之後的資料)
+            CREATE TABLE IF NOT EXISTS FinMindSyncLog (
+                StockId   TEXT NOT NULL,
+                Dataset   TEXT NOT NULL,              -- TaiwanStockInstitutionalInvestorsBuySell / TaiwanStockShareholding
+                LastDate  TEXT NOT NULL,              -- yyyy-MM-dd，請求的結束日
+                CheckedAt TEXT NOT NULL,              -- yyyy-MM-dd HH:mm:ss
+                PRIMARY KEY (StockId, Dataset)
+            );
+
             CREATE TABLE IF NOT EXISTS StockNameList (
                 StockId   TEXT NOT NULL PRIMARY KEY,
                 StockName TEXT NOT NULL,

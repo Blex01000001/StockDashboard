@@ -8,7 +8,8 @@
             "StockDayAllUrl": "http://127.0.0.1:9999/v1/exchangeReport/STOCK_DAY_ALL",
             "T86Url":         "http://127.0.0.1:9999/fund/T86",
             "QfiisUrl":       "http://127.0.0.1:9999/fund/MI_QFIIS",
-            "RequestDelayMs": "200" }
+            "RequestDelayMs": "200" },
+  "FinMind": { "DataUrl": "http://127.0.0.1:9999/api/v4/data", "RequestDelayMs": "200" }
 （雲端沙盒有 HTTP proxy，啟動網站時要加環境變數 NO_PROXY=127.0.0.1,localhost）
 
 STOCK_DAY 的回應依 stockNo 決定：
@@ -21,6 +22,9 @@ T86 / MI_QFIIS (三大法人) 依 date 決定：
   週一～週五 → t86_20261030.json / mi_qfiis_20261030.json (證交所實際回應，日期欄改成請求的日期)
   週末       → t86_no_data.json (證交所實際的「沒有符合條件的資料」回應)
   20000101  → HTML 網頁 (模擬被封鎖)
+FinMind /api/v4/data 依 dataset 與 data_id 決定：
+  BAN   → {"msg":"ip banned","status":403} (模擬 IP 被封鎖)
+  其他  → finmind_buysell_2330.json / finmind_shareholding_2330.json (使用者提供的實際回應，stock_id 改成請求的代號)
 每個請求都會印出 stockNo、date 與 User-Agent。
 """
 import datetime
@@ -46,6 +50,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         stock, date = query.get("stockNo", [""])[0], query.get("date", [""])[0]
         print(f"{url.path} stockNo={stock} date={date} UA={self.headers.get('User-Agent', '')[:40]}", flush=True)
 
+        if url.path.endswith("/api/v4/data"):
+            return self.finmind(query)
         if url.path.endswith("STOCK_DAY_ALL"):
             return self.reply(fixture("stock_day_all.json"))
         if url.path.endswith("T86") or url.path.endswith("MI_QFIIS"):
@@ -57,6 +63,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if stock == "2330" and date == "20261001":
             return self.reply(fixture("stock_day_2330_202610.json"))
         return self.reply(NO_DATA)
+
+    def finmind(self, query):
+        dataset, stock_id = query.get("dataset", [""])[0], query.get("data_id", [""])[0]
+        print(f"FinMind {dataset} {stock_id} {query.get('start_date', [''])[0]}~{query.get('end_date', [''])[0]}", flush=True)
+        if stock_id == "BAN":
+            return self.reply(fixture("finmind_ip_banned.json"), status=403)
+        name = "finmind_buysell_2330.json" if dataset == "TaiwanStockInstitutionalInvestorsBuySell" else "finmind_shareholding_2330.json"
+        body = json.loads(fixture(name))
+        for row in body["data"]:
+            row["stock_id"] = stock_id
+        return self.reply(json.dumps(body, ensure_ascii=False))
 
     def institutional(self, path, date):
         if date == "20000101":

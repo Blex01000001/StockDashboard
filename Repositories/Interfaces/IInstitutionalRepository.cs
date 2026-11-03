@@ -16,6 +16,12 @@ namespace StockDashboard.Repositories.Interfaces
         // 某來源已查過的日期：日期 → (是否有資料, 查詢時間)
         Task<Dictionary<string, (bool HasData, DateTime CheckedAt)>> GetCheckedDatesAsync(string source);
 
+        // FinMind：記錄某檔股票某資料集已同步到哪一天
+        Task LogFinMindSyncAsync(string stockId, string dataset, string lastDate, DateTime checkedAt);
+
+        // FinMind：某資料集各股票已同步到的日期 (代號 → yyyy-MM-dd)
+        Task<Dictionary<string, string>> GetFinMindSyncedAsync(string dataset);
+
         // 單檔股票全部三大法人資料 (由舊到新)
         Task<IEnumerable<InstitutionalDailyEntity>> GetByStockAsync(string stockId);
 

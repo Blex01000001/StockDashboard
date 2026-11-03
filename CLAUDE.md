@@ -13,10 +13,12 @@
 | `Components/Pages/StockChart.*` | `/stock-chart` K 線圖（`.razor.js` 畫 ECharts） | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
 | `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`） | 小卡與預覽圖改 `.razor.js` |
-| `Components/Pages/StockUpdate.*` | `/stock-update` TWSE 逐月同步、手動單筆、股票清單同步、三大法人同步（可停止） | 同步流程、錯誤訊息 |
+| `Components/Pages/StockUpdate.*` | `/stock-update` 依來源分框（`.source-group`）：證交所（日線逐月、三大法人逐日、股票清單）、FinMind（個股多年三大法人）；卡片標題下列 API 簡短網址 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
 | `Services/InstitutionalSyncService.cs` | 三大法人逐日同步（T86 買賣超＋MI_QFIIS 外資持股），寫入 `InstitutionalDaily`、記錄 `InstitutionalSyncLog` | |
+| `Services/FinMindApiClient.cs` | FinMind API（匿名、無 Token）：個股三大法人買賣超（每日多列合併）、外資持股；`ip banned`／402 丟 `FinMindBlockedException` | FinMind 格式改變時 |
+| `Services/FinMindSyncService.cs` | FinMind 逐檔同步，寫入 `InstitutionalDaily`、記錄 `FinMindSyncLog` | |
 | `Services/StockPerformanceService.cs` | 滾動報酬率計算 | 報酬率公式（**先問使用者**） |
 | `Services/Patterns/ICandlePattern.cs` | 型態介面：參數定義、判斷、範例 K 線 | |
 | `Services/Patterns/*Pattern.cs` | 各型態（看漲吞沒、晨星、紅三兵／黑三兵）的方向、參數、預設值、判斷、範例 | 判斷條件與預設值（**先問使用者**） |
@@ -26,7 +28,7 @@
 | `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped） | 新增要保留的輸入時 |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
 | `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`） | |
-| `Repositories/Implements/InstitutionalRepository.cs` | `InstitutionalDaily`／`InstitutionalSyncLog` 讀寫 | |
+| `Repositories/Implements/InstitutionalRepository.cs` | `InstitutionalDaily`／`InstitutionalSyncLog`／`FinMindSyncLog` 讀寫 | |
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
 | `Repositories/DatabaseInitializer.cs` | 啟動時 `CREATE TABLE IF NOT EXISTS`（Schema 在此） | 新增資料表 |
 | `wwwroot/app.css` | 全域：色彩變數、版面、側邊欄、共用面板 `.panel-standard` | |
@@ -36,7 +38,7 @@
 | `tests/StockDashboard.Tests/` | xUnit：`TwseApiClient` 解析、報酬率計算、Repository（暫存 SQLite） | 改這些類別時補測試 |
 | `tests/.../Fixtures/` | 證交所實際回應範例（測試與 `fake-twse.py` 共用） | 證交所格式改變時更新 |
 | `tools/ui-snapshot.js` | UI 快照：擷取／比對 computed style 與截圖 | 新增頁面或互動狀態時加到 `STATES` |
-| `tools/fake-twse.py`、`tools/make-test-db.py` | 假證交所伺服器、確定性測試資料庫 | |
+| `tools/fake-twse.py`、`tools/make-test-db.py` | 假證交所（含 FinMind 端點）伺服器、確定性測試資料庫 | |
 
 未完成的空殼：`StockPriceService`（還原股價，未註冊 DI）、`StockDividend*`、`StockCorporateAction*`、`StockCombinationDto`。
 主專案 `StockDashboard.csproj` 在 repo 根目錄，**已排除 `tests/**`、`tools/**`**（否則會把測試碼編進網站）；新增資料夾若不屬於網站也要排除。
@@ -66,7 +68,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - **新增 Service／Repository**：`Program.cs` 註冊 `AddScoped`；呼叫外部 API 用 `AddHttpClient<介面, 實作>()`。
 - **新增設定鍵**：同步加到 `appsettings.Example.json`。
 - **新增 K 線型態**：`Services/Patterns/XxxPattern.cs` 實作 `ICandlePattern`（設定 `Direction`；共用條件用 `PatternFilters`，趨勢量到哪一根見 `PassesTrend` 註解；鏡像型態可共用基底類別，參考 `ThreeCandlesPattern`）→ `Program.cs` 註冊 `AddSingleton<ICandlePattern, XxxPattern>()` → 加到測試的 `PatternExampleTests.AllPatterns` 並寫判斷測試。頁面不用改。`BuildExample` 必須產生符合自己判斷的 K 線（測試會用每個參數的最小／最大值檢查）。
-- **證交所 API 改版**：先改 `appsettings.json` 的 `Twse:StockDayUrl`／`Twse:StockDayAllUrl`；格式變了才改 `TwseApiClient`。
+- **證交所／FinMind API 改版**：先改 `appsettings.json` 的 `Twse:*Url`／`FinMind:DataUrl`；格式變了才改 `TwseApiClient`／`FinMindApiClient`（並更新 Fixtures）。
 
 ## 硬性限制
 
@@ -91,7 +93,10 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 | 批次寫入包在單一交易 | SQLite 逐筆交易極慢；失敗整批還原 |
 | TWSE 請求間隔 `Twse:RequestDelayMs`（預設 2.5 秒）；逐月同步連續 3 個月無資料中斷（本月不計） | 證交所會封鎖頻繁請求；月初本月本來就沒資料 |
 | 三大法人 T86 與 MI_QFIIS 寫入同一列，各自 `ON CONFLICT` 只更新自己的欄位 | 兩個來源分開請求，先後順序不定；互不覆蓋 |
-| 三大法人同步記錄每天每來源查過與否（`InstitutionalSyncLog`）；無資料的日期若是「之後」才查的就不再查 | 一年約 500 次請求，重跑時只補缺的；當天查無資料可能只是尚未公布 |
+| 三大法人同步記錄每天每來源查過與否（`InstitutionalSyncLog`）；無資料的日期若是「之後」才查的就不再查 | 重跑時只補缺的；當天查無資料可能只是尚未公布 |
+| 三大法人分工：證交所只補最近（一週／一個月，逐日全市場）；多年資料用 FinMind（逐檔，一次整段）。兩者寫同一張 `InstitutionalDaily` | 證交所一天一請求太慢；FinMind 定義相同，附圖不必分來源 |
+| FinMind 第一次從 2012-05-02 抓，之後從 `FinMindSyncLog` 的上次同步日往前 7 天補；可勾「重新完整下載」 | 請求次數相同但資料量差很多；重疊幾天補上當時未公布或修正的資料 |
+| FinMind 封鎖（`ip banned`／403）或達上限（402）立即停止、不重試 | FinMind 封鎖政策嚴格（使用者要求） |
 | TWSE HttpClient 帶瀏覽器 User-Agent、自行解析回應 | 被封鎖時常回 HTML／403，要顯示看得懂的原因 |
 | 數字解析用 `InvariantCulture` | 避免電腦地區設定影響 |
 | 自動開瀏覽器包 try/catch | 無桌面環境會丟例外導致程式崩潰 |
@@ -106,7 +111,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 指標預設：MACD 12,26,9（DIF − 訊號線 = OSC 柱狀，正紅負綠；EMA 以第一筆收盤為起始值）、KD 9,3,3（K/D 起始 50，參考線 80/20）、RSI 6 與 12（Wilder 平滑，參考線 70/30）。三者參數都可在頁面調整（定義在 `PatternScan.razor.cs` 的 `IndicatorGroups`，新增指標時加一組）。
 - 指標用 `PatternScanService.ApplyIndicators` 以完整日線計算；掃描結果保留各股完整日線（`FullCandles`），調整指標參數時 `RecomputeIndicators` 即時重算，不重新查資料庫。
 - 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者輸入的「額外觀察天數」（可多組，如 `60,120`，1～250 天；以完整歷史計算，可超過小卡的後 20 天）。
-- 三大法人附圖（使用者指定）：單位「張」（股 ÷ 1000），正紅負綠。「三大法人」只畫合計買賣超柱狀；「外資」= 外陸資（不含外資自營商）＋ 外資自營商，另畫「全體外資及陸資持股比率」線（自己的 Y 軸）；投信、自營商（自行買賣＋避險）只畫買賣超。整張小卡無資料時顯示提示。同步範圍選項：最近一週／近三個月（預設）／近一年。
+- 三大法人附圖（使用者指定）：單位「張」（股 ÷ 1000），正紅負綠。「三大法人」只畫合計買賣超柱狀；「外資」= 外陸資（不含外資自營商）＋ 外資自營商，另畫「全體外資及陸資持股比率」線（自己的 Y 軸）；投信、自營商（自行買賣＋避險）只畫買賣超。整張小卡無資料時顯示提示。證交所同步範圍：最近一週（預設）／最近一個月（使用者指定）。FinMind 分類換算：外資 = `Foreign_Investor`、外資自營商 = `Foreign_Dealer_Self`（2017-12-18 前無此列，留 null）、投信 = `Investment_Trust`、自營商 = `Dealer` + `Dealer_self` + `Dealer_Hedging`（2014-12-01 前後擇一有值）；持股比例 = `TaiwanStockShareholding.ForeignInvestmentSharesRatio`。
 - 勝率醒目提示：50% 起每 5 個百分點一級（共 5 級），用黃色系而非紅綠（紅綠在台股代表漲跌）。
 - 看漲吞沒的預設參數由使用者確認過；晨星、紅三兵、黑三兵的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。
@@ -114,8 +119,8 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 ## 環境陷阱（雲端沙盒）
 
 - 沒有預裝 .NET：`apt-get install -y dotnet-sdk-8.0`（約 1 分鐘）。
-- 連不到 `twse.com.tw`、`openapi.twse.com.tw`、ECharts CDN：
-  - 測 TWSE：`python3 tools/fake-twse.py`，`Twse:*` 設定指向它（用法見檔案開頭）；啟動網站要加 `NO_PROXY=127.0.0.1,localhost`，否則會走沙盒 proxy。
+- 連不到 `twse.com.tw`、`openapi.twse.com.tw`、`api.finmindtrade.com`、ECharts CDN（使用者可在環境 Network access 加 Allowed domains）：
+  - 測 TWSE／FinMind：`python3 tools/fake-twse.py`，`Twse:*`、`FinMind:DataUrl` 設定指向它（用法見檔案開頭）；啟動網站要加 `NO_PROXY=127.0.0.1,localhost`，否則會走沙盒 proxy。
   - 測圖表：`curl -sSL https://registry.npmjs.org/echarts/-/echarts-5.4.3.tgz | tar xz -C /tmp package/dist/echarts.min.js`，再傳 `--echarts /tmp/package/dist/echarts.min.js`。
 - **不要用 `pkill -f`／`pgrep -f` 關伺服器**：會比對到自己的 shell 指令而中斷 session。改用 `ps -eo pid,args | awk '/StockDashboard.dll/ && !/awk/ {print $1}' | xargs -r kill`。
 - 測試用的 `appsettings.json` 用完要刪（雖被 gitignore，但會影響之後的啟動）。

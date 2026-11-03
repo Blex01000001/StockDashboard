@@ -25,6 +25,13 @@ builder.Services.AddHttpClient<ITwseApiClient, TwseApiClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// ── 外部 API：FinMind (個股多年三大法人；匿名使用，不帶 Token) ──
+builder.Services.AddHttpClient<IFinMindApiClient, FinMindApiClient>(client =>
+{
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.Timeout = TimeSpan.FromSeconds(60);   // 一次回傳十幾年資料，給長一點
+});
+
 // ── 資料存取層 (Repository) ──
 builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
 builder.Services.AddScoped<IStockNameRepository, StockNameRepository>();
@@ -34,6 +41,7 @@ builder.Services.AddScoped<IInstitutionalRepository, InstitutionalRepository>();
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
 builder.Services.AddScoped<IPatternScanService, PatternScanService>();
 builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
+builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 
 // ── K 線型態：新增型態時在這裡註冊，型態掃描頁會自動列出 (顯示順序 = 註冊順序) ──
 builder.Services.AddSingleton<ICandlePattern, BullishEngulfingPattern>();

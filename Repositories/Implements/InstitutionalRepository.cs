@@ -57,6 +57,24 @@ namespace StockDashboard.Repositories.Implements
                 r => (r.HasData == 1, DateTime.ParseExact(r.CheckedAt, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)));
         }
 
+        public async Task LogFinMindSyncAsync(string stockId, string dataset, string lastDate, DateTime checkedAt)
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.ExecuteAsync(@"
+                INSERT INTO FinMindSyncLog (StockId, Dataset, LastDate, CheckedAt)
+                VALUES (@StockId, @Dataset, @LastDate, @CheckedAt)
+                ON CONFLICT(StockId, Dataset) DO UPDATE SET LastDate = excluded.LastDate, CheckedAt = excluded.CheckedAt;",
+                new { StockId = stockId, Dataset = dataset, LastDate = lastDate, CheckedAt = checkedAt.ToString("yyyy-MM-dd HH:mm:ss") });
+        }
+
+        public async Task<Dictionary<string, string>> GetFinMindSyncedAsync(string dataset)
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            var rows = await connection.QueryAsync<(string StockId, string LastDate)>(
+                "SELECT StockId, LastDate FROM FinMindSyncLog WHERE Dataset = @Dataset", new { Dataset = dataset });
+            return rows.ToDictionary(r => r.StockId, r => r.LastDate);
+        }
+
         public async Task<IEnumerable<InstitutionalDailyEntity>> GetByStockAsync(string stockId)
         {
             using var connection = new SqliteConnection(_connectionString);
