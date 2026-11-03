@@ -52,6 +52,89 @@ public class TechnicalIndicatorsTests
     }
 
     [Fact]
+    public void KD_手算驗證()
+    {
+        // 週期 3：第 3 根 RSV = (11.5 − 8) / (12 − 8) × 100 = 87.5；K = (50×2 + 87.5)/3 = 62.5；D = (50×2 + 62.5)/3 = 54.17
+        //         第 4 根 RSV = (11 − 9) / (12 − 9) × 100 = 66.67；K = (62.5×2 + 66.67)/3 = 63.89；D = (54.17×2 + 63.89)/3 = 57.41
+        var (k, d) = TechnicalIndicators.Kd(new double[] { 10, 11, 12, 12 }, new double[] { 8, 9, 10, 11 }, new double[] { 9, 10, 11.5, 11 }, period: 3);
+        Assert.Equal(new double?[] { null, null, 62.5, 63.89 }, k);
+        Assert.Equal(new double?[] { null, null, 54.17, 57.41 }, d);
+    }
+
+    [Fact]
+    public void KD_最高等於最低時RSV視為50()
+    {
+        var flat = Enumerable.Repeat(100.0, 20).ToList();
+        var (k, d) = TechnicalIndicators.Kd(flat, flat, flat);
+        Assert.Equal(50, k[^1]);
+        Assert.Equal(50, d[^1]);
+    }
+
+    [Fact]
+    public void RSI_手算驗證()
+    {
+        // 週期 2，漲跌 +1, −0.5, +1.5：第 3 根 平均漲 0.5 / 平均跌 0.25 → RSI 66.67；
+        // 第 4 根 平均漲 (0.5 + 1.5)/2 = 1、平均跌 (0.25 + 0)/2 = 0.125 → RSI 88.89
+        Assert.Equal(new double?[] { null, null, 66.67, 88.89 }, TechnicalIndicators.Rsi(new double[] { 10, 11, 10.5, 12 }, 2));
+    }
+
+    [Fact]
+    public void RSI_只漲為100_不動為50_資料不足全為Null()
+    {
+        Assert.Equal(100, TechnicalIndicators.Rsi(Enumerable.Range(0, 20).Select(i => 100.0 + i).ToList(), 6)[^1]);
+        Assert.Equal(50, TechnicalIndicators.Rsi(Enumerable.Repeat(100.0, 20).ToList(), 6)[^1]);
+        Assert.All(TechnicalIndicators.Rsi(new double[] { 1, 2, 3 }, 6), v => Assert.Null(v));
+    }
+
+    [Theory]
+    [InlineData(12, 26, 9, null)]
+    [InlineData(6, 13, 5, null)]
+    [InlineData(26, 12, 9, "快線天數必須小於慢線天數")]
+    [InlineData(12, 12, 9, "快線天數必須小於慢線天數")]
+    [InlineData(0, 26, 9, "需介於")]
+    [InlineData(12, 26, 0, "需介於")]
+    [InlineData(12, 500, 9, "需介於")]
+    public void MACD參數檢查(int fast, int slow, int signal, string? error)
+    {
+        var message = new Models.Patterns.IndicatorSettings { MacdFast = fast, MacdSlow = slow, MacdSignal = signal }.ValidateMacd();
+        if (error == null) Assert.Null(message);
+        else Assert.Contains(error, message);
+    }
+
+    [Fact]
+    public void 調整MACD參數後重算_與直接計算一致()
+    {
+        var candles = new List<StockDataPoint>();
+        var rng = new Random(7);
+        double price = 100;
+        for (int i = 0; i < 120; i++)
+        {
+            double open = price;
+            price *= 1 + (rng.NextDouble() - 0.5) * 0.04;
+            candles.Add(new StockDataPoint { Date = $"d{i:000}", Open = open, Close = price, High = Math.Max(open, price) * 1.01, Low = Math.Min(open, price) * 0.99, Volume = 1000 });
+        }
+        var engulfing = new BullishEngulfingPattern();
+        var values = Models.Patterns.PatternParameterValues.FromDefaults(engulfing.Parameters).Set(PatternFilters.RequireDowntrend, false);
+        var matches = PatternScanService.FindMatches("X", candles, engulfing, values, 10, 20);
+        Assert.NotEmpty(matches);
+
+        var result = new Models.Patterns.PatternScanResult { Matches = matches, FullCandles = { ["X"] = candles } };
+        var before = matches[0].Candles[^1].Dif;
+        var settings = new Models.Patterns.IndicatorSettings { MacdFast = 6, MacdSlow = 13, MacdSignal = 5 };
+        PatternScanService.RecomputeIndicators(result, settings);
+
+        var (dif, macd, _) = TechnicalIndicators.Macd(candles.Select(c => c.Close).ToList(), 6, 13, 5);
+        var m = matches[0];
+        int last = m.WindowStart + m.Candles.Count - 1;
+        Assert.Equal(dif[last], m.Candles[^1].Dif);
+        Assert.Equal(macd[last], m.Candles[^1].Macd);
+        Assert.NotEqual(before, m.Candles[^1].Dif);
+        // KD、RSI 也已填入
+        Assert.NotNull(m.Candles[^1].K);
+        Assert.NotNull(m.Candles[^1].RsiFast);
+    }
+
+    [Fact]
     public void 小卡K棒帶有成交量均線與MACD()
     {
         // 成交量 1000, 1100, 1200 … 遞增；收盤固定 100，看漲吞沒放在第 30 根

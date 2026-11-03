@@ -11,6 +11,6 @@ namespace StockDashboard.Services
         /// </summary>
         Task<PatternScanResult> ScanAsync(
             IEnumerable<string> stockIds, ICandlePattern pattern, PatternParameterValues values,
-            int daysBefore = 10, int daysAfter = 20, IEnumerable<int>? horizons = null);
+            int daysBefore = 10, int daysAfter = 20, IEnumerable<int>? horizons = null, IndicatorSettings? indicators = null);
     }
 }

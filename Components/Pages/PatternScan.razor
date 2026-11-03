@@ -49,6 +49,25 @@
                     }
                 </select>
             </label>
+            @if (State.SubChart == "macd")
+            {
+                @* MACD 參數平常收折；調整後立即用已載入的日線重算，不必重新掃描 *@
+                <details class="macd-params">
+                    <summary>MACD 參數（@State.Indicators.MacdFast, @State.Indicators.MacdSlow, @State.Indicators.MacdSignal）</summary>
+                    <div class="macd-grid">
+                        <label>快線<input type="number" min="1" max="200" class="dark-input macd-fast" value="@State.Indicators.MacdFast" @onchange="e => OnMacdChanged(MacdField.Fast, e)" /></label>
+                        <label>慢線<input type="number" min="1" max="200" class="dark-input macd-slow" value="@State.Indicators.MacdSlow" @onchange="e => OnMacdChanged(MacdField.Slow, e)" /></label>
+                        <label>訊號<input type="number" min="1" max="200" class="dark-input macd-signal" value="@State.Indicators.MacdSignal" @onchange="e => OnMacdChanged(MacdField.Signal, e)" /></label>
+                    </div>
+                    <div class="macd-foot">
+                        @if (MacdError != null)
+                        {
+                            <span class="macd-error">@MacdError</span>
+                        }
+                        <button class="link-btn" @onclick="ResetMacd">預設 12, 26, 9</button>
+                    </div>
+                </details>
+            }
             <div class="ctl-field">
                 <span>顯示均線</span>
                 <div class="ma-toggles">

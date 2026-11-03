@@ -19,6 +19,9 @@ namespace StockDashboard.Models.Patterns
         // 型態由幾根 K 棒組成 (看漲吞沒 2、晨星 3)，小卡依此標示型態範圍
         public int PatternBarCount { get; set; } = 1;
 
+        // 小卡第一根 K 棒在該股完整日線中的位置 (重算技術指標時用)
+        public int WindowStart { get; set; }
+
         // 型態前 N 天 + 當天 + 後 M 天的 K 線 (資料不足時較短)
         public List<PatternCandle> Candles { get; set; } = new();
 
@@ -55,6 +58,12 @@ namespace StockDashboard.Models.Patterns
         public double? Dif { get; set; }
         public double? Macd { get; set; }
         public double? Osc { get; set; }
+
+        // KD (9, 3, 3) 與 RSI (6)、RSI (12)
+        public double? K { get; set; }
+        public double? D { get; set; }
+        public double? RsiFast { get; set; }
+        public double? RsiSlow { get; set; }
     }
 
     /// <summary>
@@ -83,6 +92,9 @@ namespace StockDashboard.Models.Patterns
 
         // 資料庫中查無日線資料的股票代號 (頁面提示使用者先同步)
         public List<string> StocksWithoutData { get; set; } = new();
+
+        // 各股完整日線 (由舊到新)：調整 MACD 等參數時，不必重新查資料庫就能重算小卡上的指標
+        public Dictionary<string, List<StockDataPoint>> FullCandles { get; set; } = new();
     }
 
     /// <summary>

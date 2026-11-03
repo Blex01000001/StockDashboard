@@ -22,8 +22,12 @@ namespace StockDashboard.Services
         public HashSet<int> VisibleMovingAverages { get; } = new() { 5, 10, 20, 60 };
 
         // 小卡附圖：值 → 顯示名稱 (值也是傳給 JS 的識別字)。預設成交量 (使用者指定)
-        public static readonly (string Value, string Label)[] SubChartOptions = { ("volume", "成交量"), ("macd", "MACD") };
+        public static readonly (string Value, string Label)[] SubChartOptions =
+            { ("volume", "成交量"), ("macd", "MACD"), ("kd", "KD"), ("rsi", "RSI") };
         public string SubChart { get; set; } = "volume";
+
+        // 技術指標參數 (MACD 可在頁面調整，調整後用保留的完整日線即時重算)
+        public IndicatorSettings Indicators { get; set; } = new();
         public int PageIndex { get; set; }
         public string Message { get; set; } = string.Empty;
         public PatternScanResult? Result { get; set; }

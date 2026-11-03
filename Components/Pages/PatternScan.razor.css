@@ -67,6 +67,45 @@
     gap: 8px;
 }
 
+/* MACD 參數：平常收折 */
+.macd-params {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 4px 8px;
+}
+
+    .macd-params summary {
+        cursor: pointer;
+        color: var(--text-main);
+    }
+
+.macd-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 6px;
+}
+
+    .macd-grid label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+.macd-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.macd-error {
+    color: #ff4a5a;
+}
+
 /* 顯示均線：一排小勾選 */
 .ma-toggles {
     display: flex;

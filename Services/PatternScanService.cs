@@ -51,7 +51,7 @@ namespace StockDashboard.Services
 
         public async Task<PatternScanResult> ScanAsync(
             IEnumerable<string> stockIds, ICandlePattern pattern, PatternParameterValues values,
-            int daysBefore = 10, int daysAfter = 20, IEnumerable<int>? horizons = null)
+            int daysBefore = 10, int daysAfter = 20, IEnumerable<int>? horizons = null, IndicatorSettings? indicators = null)
         {
             var ids = stockIds.Distinct().ToList();
             var days = (horizons ?? DefaultHorizons).Where(d => d > 0).Distinct().OrderBy(d => d).ToList();
@@ -74,7 +74,8 @@ namespace StockDashboard.Services
                     continue;
                 }
 
-                var matches = FindMatches(stockId, candles, pattern, values, daysBefore, daysAfter, days);
+                var matches = FindMatches(stockId, candles, pattern, values, daysBefore, daysAfter, days, indicators);
+                if (matches.Count > 0) result.FullCandles[stockId] = candles;
                 names.TryGetValue(stockId, out var name);
                 matches.ForEach(m => m.StockName = name);
                 result.Matches.AddRange(matches);
@@ -94,23 +95,11 @@ namespace StockDashboard.Services
         /// </summary>
         public static List<PatternMatch> FindMatches(
             string stockId, IReadOnlyList<StockDataPoint> candles, ICandlePattern pattern, PatternParameterValues values,
-            int daysBefore, int daysAfter, IReadOnlyList<int>? horizons = null)
+            int daysBefore, int daysAfter, IReadOnlyList<int>? horizons = null, IndicatorSettings? indicators = null)
         {
             horizons ??= DefaultHorizons;
             var matches = new List<PatternMatch>();
             if (candles.Count < pattern.BarCount) return matches;
-
-            // 均線以完整歷史計算，小卡最左邊的均線才會是正確值
-            var closes = candles.Select(c => c.Close).ToList();
-            var volumes = candles.Select(c => (double)c.Volume).ToList();
-            double?[] ma5 = TechnicalIndicators.MovingAverage(closes, 5);
-            double?[] ma10 = TechnicalIndicators.MovingAverage(closes, 10);
-            double?[] ma20 = TechnicalIndicators.MovingAverage(closes, 20);
-            double?[] ma60 = TechnicalIndicators.MovingAverage(closes, 60);
-            double?[] ma120 = TechnicalIndicators.MovingAverage(closes, 120);
-            double?[] volMa5 = TechnicalIndicators.MovingAverage(volumes, 5, decimals: 0);
-            double?[] volMa10 = TechnicalIndicators.MovingAverage(volumes, 10, decimals: 0);
-            var (dif, macd, osc) = TechnicalIndicators.Macd(closes);
 
             for (int i = pattern.BarCount - 1; i < candles.Count; i++)
             {
@@ -125,10 +114,7 @@ namespace StockDashboard.Services
                     var c = candles[k];
                     window.Add(new PatternCandle
                     {
-                        Date = c.Date, Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume,
-                        Ma5 = ma5[k], Ma10 = ma10[k], Ma20 = ma20[k], Ma60 = ma60[k], Ma120 = ma120[k],
-                        VolMa5 = volMa5[k], VolMa10 = volMa10[k],
-                        Dif = dif[k], Macd = macd[k], Osc = osc[k]
+                        Date = c.Date, Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume
                     });
                 }
 
@@ -138,13 +124,63 @@ namespace StockDashboard.Services
                     SignalDate = candles[i].Date,
                     SignalIndex = i - start,
                     PatternBarCount = pattern.BarCount,
+                    WindowStart = start,
                     Candles = window,
                     // 報酬用完整歷史計算，所以觀察天數可以超過小卡顯示的「後 20 天」
                     Returns = horizons.ToDictionary(d => d, d => ReturnAfter(candles, i, d))
                 });
             }
 
+            ApplyIndicators(matches, candles, indicators ?? new IndicatorSettings());
             return matches;
+        }
+
+        /// <summary>
+        /// 以完整日線計算技術指標 (均線、量均線、MACD、KD、RSI)，填入同一檔股票各小卡的 K 棒。
+        /// 用完整歷史計算，小卡最左邊的數值才會正確。
+        /// </summary>
+        public static void ApplyIndicators(IEnumerable<PatternMatch> matchesOfStock, IReadOnlyList<StockDataPoint> candles, IndicatorSettings s)
+        {
+            var closes = candles.Select(c => c.Close).ToList();
+            var volumes = candles.Select(c => (double)c.Volume).ToList();
+            double?[] ma5 = TechnicalIndicators.MovingAverage(closes, 5);
+            double?[] ma10 = TechnicalIndicators.MovingAverage(closes, 10);
+            double?[] ma20 = TechnicalIndicators.MovingAverage(closes, 20);
+            double?[] ma60 = TechnicalIndicators.MovingAverage(closes, 60);
+            double?[] ma120 = TechnicalIndicators.MovingAverage(closes, 120);
+            double?[] volMa5 = TechnicalIndicators.MovingAverage(volumes, 5, decimals: 0);
+            double?[] volMa10 = TechnicalIndicators.MovingAverage(volumes, 10, decimals: 0);
+            var (dif, macd, osc) = TechnicalIndicators.Macd(closes, s.MacdFast, s.MacdSlow, s.MacdSignal);
+            var (kLine, dLine) = TechnicalIndicators.Kd(
+                candles.Select(c => c.High).ToList(), candles.Select(c => c.Low).ToList(), closes, s.KdPeriod, s.KdKSmooth, s.KdDSmooth);
+            double?[] rsiFast = TechnicalIndicators.Rsi(closes, s.RsiFast);
+            double?[] rsiSlow = TechnicalIndicators.Rsi(closes, s.RsiSlow);
+
+            foreach (var match in matchesOfStock)
+            {
+                for (int j = 0; j < match.Candles.Count; j++)
+                {
+                    int k = match.WindowStart + j;
+                    var c = match.Candles[j];
+                    c.Ma5 = ma5[k]; c.Ma10 = ma10[k]; c.Ma20 = ma20[k]; c.Ma60 = ma60[k]; c.Ma120 = ma120[k];
+                    c.VolMa5 = volMa5[k]; c.VolMa10 = volMa10[k];
+                    c.Dif = dif[k]; c.Macd = macd[k]; c.Osc = osc[k];
+                    c.K = kLine[k]; c.D = dLine[k];
+                    c.RsiFast = rsiFast[k]; c.RsiSlow = rsiSlow[k];
+                }
+            }
+        }
+
+        /// <summary>
+        /// 調整指標參數後重算整份結果 (使用掃描時保留的完整日線，不查資料庫)。
+        /// </summary>
+        public static void RecomputeIndicators(PatternScanResult result, IndicatorSettings settings)
+        {
+            foreach (var group in result.Matches.GroupBy(m => m.StockId))
+            {
+                if (result.FullCandles.TryGetValue(group.Key, out var candles))
+                    ApplyIndicators(group, candles, settings);
+            }
         }
 
         /// <summary>

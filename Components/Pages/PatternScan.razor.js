@@ -23,8 +23,19 @@ const SUB_LINES = {
     macd: [
         { key: 'dif', name: 'DIF', color: '#f5c242' },
         { key: 'macd', name: 'MACD', color: '#42a5f5' }
+    ],
+    kd: [
+        { key: 'k', name: 'K', color: '#f5c242' },
+        { key: 'd', name: 'D', color: '#42a5f5' }
+    ],
+    rsi: [
+        { key: 'rsiFast', name: 'RSI6', color: '#f5c242' },
+        { key: 'rsiSlow', name: 'RSI12', color: '#42a5f5' }
     ]
 };
+
+// 0~100 的擺盪指標：固定 Y 軸範圍，並畫超買 / 超賣參考線
+const OSCILLATOR_LEVELS = { kd: [80, 20], rsi: [70, 30] };
 
 let cardCharts = [];
 let previewChart = null;
@@ -39,7 +50,7 @@ export function disposeAll() {
 // 換頁或重新掃描時，先釋放上一批小卡圖表，避免記憶體累積
 // visibleMas：預設顯示的均線名稱 (例如 ['MA5','MA20'])；其他均線仍在圖例中 (灰色)，點一下可單張顯示
 // horizons：觀察天數 (例如 [5, 10, 20, 60])，在型態成立日之後第 N 根 K 棒畫淡色直線
-// subChart：附圖內容，'volume' (成交量 + 量均線) 或 'macd' (DIF、MACD 訊號線、OSC 柱狀)
+// subChart：附圖內容，'volume' (成交量 + 量均線)、'macd' (DIF、MACD 訊號線、OSC 柱狀)、'kd' (K、D)、'rsi' (RSI6、RSI12)
 export function renderPatternCards(cards, visibleMas, horizons, subChart) {
     cardCharts.forEach(c => c.dispose());
     cardCharts = [];
@@ -107,23 +118,32 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, h
                 data: patternMarks
             }
         },
-        // 附圖：成交量 (紅漲綠跌) 或 MACD 的 OSC 柱狀 (正紅負綠)
-        subChart === 'macd'
-            ? {
-                name: 'OSC', type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
-                data: candles.map(c => ({ value: c.osc, itemStyle: { color: (c.osc ?? 0) >= 0 ? UP : DOWN } }))
-            }
-            : {
-                type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
-                data: candles.map(c => ({ value: c.volume, itemStyle: { color: c.close >= c.open ? UP : DOWN } }))
-            }
     ];
-    // 附圖的線 (只在小卡上畫，預覽圖維持單純的成交量)
-    const subLines = showAxisLabels ? SUB_LINES[subChart] || [] : [];
-    for (const l of subLines) {
-        series.push({ name: l.name, type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: candles.map(c => c[l.key]),
-                      showSymbol: false, lineStyle: { width: 1, color: l.color }, itemStyle: { color: l.color } });
+    // 附圖柱狀：成交量 (紅漲綠跌)、MACD 的 OSC (正紅負綠)；KD、RSI 只有線
+    // 預覽圖 (showAxisLabels = false) 一律畫單純的成交量
+    const sub = showAxisLabels ? subChart : 'volume';
+    if (sub === 'macd') {
+        series.push({ name: 'OSC', type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
+                      data: candles.map(c => ({ value: c.osc, itemStyle: { color: (c.osc ?? 0) >= 0 ? UP : DOWN } })) });
+    } else if (sub === 'volume') {
+        series.push({ type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
+                      data: candles.map(c => ({ value: c.volume, itemStyle: { color: c.close >= c.open ? UP : DOWN } })) });
     }
+    // 附圖的線 (只在小卡上畫)
+    const subLines = showAxisLabels ? SUB_LINES[sub] || [] : [];
+    const levels = OSCILLATOR_LEVELS[sub];
+    subLines.forEach((l, i) => {
+        series.push({
+            name: l.name, type: 'line', xAxisIndex: 1, yAxisIndex: 1, data: candles.map(c => c[l.key]),
+            showSymbol: false, lineStyle: { width: 1, color: l.color }, itemStyle: { color: l.color },
+            // 超買 / 超賣參考線 (掛在第一條線上即可)
+            markLine: levels && i === 0 ? {
+                silent: true, symbol: 'none', label: { show: true, position: 'start', color: '#5d6270', fontSize: 9, distance: 2 },
+                lineStyle: { color: '#5d6270', type: 'dashed', width: 1 },
+                data: levels.map(v => ({ yAxis: v }))
+            } : undefined
+        });
+    });
     if (showMa) {
         for (const m of MA_LINES) {
             series.push({ name: m.name, type: 'line', data: candles.map(c => c[m.key]), showSymbol: false,
@@ -156,9 +176,11 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, h
                 return `<div style="font-weight:bold;color:#fff;">${c.date}${c.date === signalDate ? '（型態成立）' : ''}</div>
                     <div style="color:${color}">開 ${c.open}　高 ${c.high}<br/>低 ${c.low}　收 ${c.close}</div>
                     <div>量 ${c.volume.toLocaleString()}</div>
-                    ${subChart === 'macd'
-                        ? `<div>DIF ${c.dif ?? '-'}　MACD ${c.macd ?? '-'}　OSC ${c.osc ?? '-'}</div>`
-                        : `<div>量MA5 ${c.volMa5?.toLocaleString() ?? '-'}　量MA10 ${c.volMa10?.toLocaleString() ?? '-'}</div>`}
+                    <div>${({
+                        macd: `DIF ${c.dif ?? '-'}　MACD ${c.macd ?? '-'}　OSC ${c.osc ?? '-'}`,
+                        kd: `K ${c.k ?? '-'}　D ${c.d ?? '-'}`,
+                        rsi: `RSI6 ${c.rsiFast ?? '-'}　RSI12 ${c.rsiSlow ?? '-'}`
+                    })[subChart] ?? `量MA5 ${c.volMa5?.toLocaleString() ?? '-'}　量MA10 ${c.volMa10?.toLocaleString() ?? '-'}`}</div>
                     ${MA_LINES.map(m => `<div style="color:${m.color}">${m.name} ${c[m.key] ?? '-'}</div>`).join('')}`;
             }
         } : undefined,
@@ -175,7 +197,9 @@ function buildOption(candles, signalIndex, barCount, { showMa, showAxisLabels, h
         yAxis: [
             { scale: true, axisLine, axisLabel: { show: showAxisLabels, color: '#8392A5', fontSize: 10 },
               splitLine: { show: showAxisLabels, lineStyle: { color: '#2d3139' } } },
-            { gridIndex: 1, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false } }
+            { gridIndex: 1, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false },
+              // KD、RSI 固定 0~100，參考線位置才有意義
+              ...(levels ? { min: 0, max: 100 } : {}) }
         ],
         series
     };

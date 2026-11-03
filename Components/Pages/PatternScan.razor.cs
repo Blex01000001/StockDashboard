@@ -105,7 +105,8 @@ namespace StockDashboard.Components.Pages
             try
             {
                 var horizons = Horizons;
-                var result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore, ScanService.CardDaysAfter(horizons), horizons);
+                var result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore,
+                    ScanService.CardDaysAfter(horizons), horizons, State.Indicators.Clone());
 
                 int remaining = MinLoadingMs - (int)stopwatch.ElapsedMilliseconds;
                 if (remaining > 0) await Task.Delay(remaining);
@@ -136,6 +137,54 @@ namespace StockDashboard.Components.Pages
             if (PatternScanState.SubChartOptions.Any(o => o.Value == value))
             {
                 State.SubChart = value;
+                _cardsNeedRender = true;
+            }
+        }
+
+        // ── MACD 參數 ──
+
+        protected enum MacdField { Fast, Slow, Signal }
+        protected string? MacdError { get; private set; }
+
+        protected void OnMacdChanged(MacdField field, ChangeEventArgs e)
+        {
+            if (!int.TryParse(e.Value?.ToString(), out int value))
+            {
+                MacdError = "請輸入整數";
+                return;
+            }
+
+            var settings = State.Indicators.Clone();
+            switch (field)
+            {
+                case MacdField.Fast: settings.MacdFast = value; break;
+                case MacdField.Slow: settings.MacdSlow = value; break;
+                case MacdField.Signal: settings.MacdSignal = value; break;
+            }
+
+            // 不合理的組合 (例如快線 ≥ 慢線) 不套用，只顯示原因
+            MacdError = settings.ValidateMacd();
+            if (MacdError == null) ApplyIndicatorSettings(settings);
+        }
+
+        protected void ResetMacd()
+        {
+            var defaults = new IndicatorSettings();
+            var settings = State.Indicators.Clone();
+            settings.MacdFast = defaults.MacdFast;
+            settings.MacdSlow = defaults.MacdSlow;
+            settings.MacdSignal = defaults.MacdSignal;
+            MacdError = null;
+            ApplyIndicatorSettings(settings);
+        }
+
+        // 套用指標參數：已有掃描結果時，用保留的完整日線立即重算小卡上的指標
+        private void ApplyIndicatorSettings(IndicatorSettings settings)
+        {
+            State.Indicators = settings;
+            if (State.Result != null)
+            {
+                ScanService.RecomputeIndicators(State.Result, settings);
                 _cardsNeedRender = true;
             }
         }
