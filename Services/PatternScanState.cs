@@ -21,10 +21,13 @@ namespace StockDashboard.Services
         public static readonly int[] MovingAveragePeriods = { 5, 10, 20, 60, 120 };
         public HashSet<int> VisibleMovingAverages { get; } = new() { 5, 10, 20, 60 };
 
-        // 小卡附圖：值 → 顯示名稱 (值也是傳給 JS 的識別字)。預設成交量 (使用者指定)
+        // 小卡附圖：值 → 顯示名稱 (值也是傳給 JS 的識別字)。可複選，依此順序疊在 K 線下方；預設只有成交量 (使用者指定)
         public static readonly (string Value, string Label)[] SubChartOptions =
             { ("volume", "成交量"), ("macd", "MACD"), ("kd", "KD"), ("rsi", "RSI") };
-        public string SubChart { get; set; } = "volume";
+        public HashSet<string> SubCharts { get; } = new() { "volume" };
+
+        // 依 SubChartOptions 的順序排列已勾選的附圖
+        public List<string> OrderedSubCharts => SubChartOptions.Select(o => o.Value).Where(SubCharts.Contains).ToList();
 
         // 技術指標參數 (MACD 可在頁面調整，調整後用保留的完整日線即時重算)
         public IndicatorSettings Indicators { get; set; } = new();

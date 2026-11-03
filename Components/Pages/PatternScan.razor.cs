@@ -131,50 +131,72 @@ namespace StockDashboard.Components.Pages
             }
         }
 
-        protected void OnSubChartChanged(ChangeEventArgs e)
+        // ── 附圖與指標參數 ──
+
+        protected void OnSubChartToggled(string value, ChangeEventArgs e)
         {
-            string value = e.Value?.ToString() ?? "volume";
-            if (PatternScanState.SubChartOptions.Any(o => o.Value == value))
-            {
-                State.SubChart = value;
-                _cardsNeedRender = true;
-            }
+            if (e.Value is true) State.SubCharts.Add(value);
+            else State.SubCharts.Remove(value);
+            _cardsNeedRender = true;
         }
 
-        // ── MACD 參數 ──
+        // 各附圖的可調參數：新增指標時在這裡加一組即可 (畫面自動產生收合的輸入框)
+        protected record IndicatorParam(string Label, string CssClass, Func<IndicatorSettings, int> Get, Action<IndicatorSettings, int> Set);
+        protected record IndicatorGroup(string SubChart, string Title, IndicatorParam[] Params);
 
-        protected enum MacdField { Fast, Slow, Signal }
-        protected string? MacdError { get; private set; }
+        protected static readonly IndicatorGroup[] IndicatorGroups =
+        {
+            new("macd", "MACD", new IndicatorParam[]
+            {
+                new("快線", "macd-fast", s => s.MacdFast, (s, v) => s.MacdFast = v),
+                new("慢線", "macd-slow", s => s.MacdSlow, (s, v) => s.MacdSlow = v),
+                new("訊號", "macd-signal", s => s.MacdSignal, (s, v) => s.MacdSignal = v),
+            }),
+            new("kd", "KD", new IndicatorParam[]
+            {
+                new("RSV天數", "kd-period", s => s.KdPeriod, (s, v) => s.KdPeriod = v),
+                new("K平滑", "kd-k", s => s.KdKSmooth, (s, v) => s.KdKSmooth = v),
+                new("D平滑", "kd-d", s => s.KdDSmooth, (s, v) => s.KdDSmooth = v),
+            }),
+            new("rsi", "RSI", new IndicatorParam[]
+            {
+                new("短週期", "rsi-fast", s => s.RsiFast, (s, v) => s.RsiFast = v),
+                new("長週期", "rsi-slow", s => s.RsiSlow, (s, v) => s.RsiSlow = v),
+            }),
+        };
 
-        protected void OnMacdChanged(MacdField field, ChangeEventArgs e)
+        protected static readonly IndicatorSettings DefaultIndicators = new();
+
+        // 各附圖參數的錯誤訊息 (Key = 附圖識別字)
+        protected Dictionary<string, string> IndicatorErrors { get; } = new();
+
+        protected void OnIndicatorChanged(IndicatorGroup group, IndicatorParam param, ChangeEventArgs e)
         {
             if (!int.TryParse(e.Value?.ToString(), out int value))
             {
-                MacdError = "請輸入整數";
+                IndicatorErrors[group.SubChart] = "請輸入整數";
                 return;
             }
 
             var settings = State.Indicators.Clone();
-            switch (field)
-            {
-                case MacdField.Fast: settings.MacdFast = value; break;
-                case MacdField.Slow: settings.MacdSlow = value; break;
-                case MacdField.Signal: settings.MacdSignal = value; break;
-            }
+            param.Set(settings, value);
 
             // 不合理的組合 (例如快線 ≥ 慢線) 不套用，只顯示原因
-            MacdError = settings.ValidateMacd();
-            if (MacdError == null) ApplyIndicatorSettings(settings);
+            string? error = settings.Validate(group.SubChart);
+            if (error != null)
+            {
+                IndicatorErrors[group.SubChart] = error;
+                return;
+            }
+            IndicatorErrors.Remove(group.SubChart);
+            ApplyIndicatorSettings(settings);
         }
 
-        protected void ResetMacd()
+        protected void ResetIndicator(IndicatorGroup group)
         {
-            var defaults = new IndicatorSettings();
             var settings = State.Indicators.Clone();
-            settings.MacdFast = defaults.MacdFast;
-            settings.MacdSlow = defaults.MacdSlow;
-            settings.MacdSignal = defaults.MacdSignal;
-            MacdError = null;
+            foreach (var p in group.Params) p.Set(settings, p.Get(DefaultIndicators));
+            IndicatorErrors.Remove(group.SubChart);
             ApplyIndicatorSettings(settings);
         }
 
@@ -255,7 +277,7 @@ namespace StockDashboard.Components.Pages
                         candles = m.Candles
                     });
                     var visibleMas = State.VisibleMovingAverages.Select(p => $"MA{p}").ToArray();
-                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas, State.Result!.Horizons, State.SubChart);
+                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas, State.Result!.Horizons, State.OrderedSubCharts, State.Indicators);
                 }
             }
             catch (JSDisconnectedException)

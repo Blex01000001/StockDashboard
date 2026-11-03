@@ -101,6 +101,59 @@ public class TechnicalIndicatorsTests
         else Assert.Contains(error, message);
     }
 
+    [Theory]
+    [InlineData("kd", 9, 3, 3, 6, 12, null)]
+    [InlineData("kd", 0, 3, 3, 6, 12, "KD 參數需介於")]
+    [InlineData("kd", 9, 3, 300, 6, 12, "KD 參數需介於")]
+    [InlineData("rsi", 9, 3, 3, 5, 10, null)]
+    [InlineData("rsi", 9, 3, 3, 12, 6, "短週期必須小於長週期")]
+    [InlineData("rsi", 9, 3, 3, 0, 12, "RSI 參數需介於")]
+    [InlineData("volume", 0, 0, 0, 0, 0, null)]   // 成交量沒有參數
+    public void KD與RSI參數檢查(string subChart, int kdPeriod, int k, int d, int rsiFast, int rsiSlow, string? error)
+    {
+        var settings = new Models.Patterns.IndicatorSettings { KdPeriod = kdPeriod, KdKSmooth = k, KdDSmooth = d, RsiFast = rsiFast, RsiSlow = rsiSlow };
+        var message = settings.Validate(subChart);
+        if (error == null) Assert.Null(message);
+        else Assert.Contains(error, message);
+    }
+
+    [Fact]
+    public void 附圖依固定順序疊加()
+    {
+        var state = new PatternScanState();
+        Assert.Equal(new[] { "volume" }, state.OrderedSubCharts);          // 預設只有成交量
+        state.SubCharts.Add("rsi");
+        state.SubCharts.Add("macd");
+        state.SubCharts.Remove("volume");
+        Assert.Equal(new[] { "macd", "rsi" }, state.OrderedSubCharts);    // 不管勾選先後，依 成交量→MACD→KD→RSI 排列
+    }
+
+    [Fact]
+    public void 調整KD與RSI參數後重算()
+    {
+        var candles = Enumerable.Range(0, 80).Select(i =>
+        {
+            double c = 100 + Math.Sin(i / 4.0) * 5;
+            return new StockDataPoint { Date = $"d{i:000}", Open = c - 0.5, Close = c, High = c + 1, Low = c - 1.5, Volume = 1000 };
+        }).ToList();
+        var match = new Models.Patterns.PatternMatch
+        {
+            StockId = "X", WindowStart = 40,
+            Candles = Enumerable.Range(0, 10).Select(_ => new Models.Patterns.PatternCandle()).ToList()
+        };
+        var result = new Models.Patterns.PatternScanResult { Matches = { match }, FullCandles = { ["X"] = candles } };
+
+        var settings = new Models.Patterns.IndicatorSettings { KdPeriod = 5, RsiFast = 3, RsiSlow = 9 };
+        PatternScanService.RecomputeIndicators(result, settings);
+
+        var closes = candles.Select(c => c.Close).ToList();
+        var (k, d) = TechnicalIndicators.Kd(candles.Select(c => c.High).ToList(), candles.Select(c => c.Low).ToList(), closes, 5);
+        Assert.Equal(k[45], match.Candles[5].K);
+        Assert.Equal(d[45], match.Candles[5].D);
+        Assert.Equal(TechnicalIndicators.Rsi(closes, 3)[45], match.Candles[5].RsiFast);
+        Assert.Equal(TechnicalIndicators.Rsi(closes, 9)[45], match.Candles[5].RsiSlow);
+    }
+
     [Fact]
     public void 調整MACD參數後重算_與直接計算一致()
     {

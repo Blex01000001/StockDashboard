@@ -40,31 +40,36 @@
                     <input type="text" placeholder="例如 60,120" class="dark-input extra-horizon-input" @bind="State.ExtraHorizonsInput" />
                 </label>
             </div>
-            <label class="ctl-field">
-                <span>附圖</span>
-                <select class="dark-input sub-chart-select" value="@State.SubChart" @onchange="OnSubChartChanged">
+            <div class="ctl-field">
+                <span>附圖（可複選，依序疊在 K 線下方）</span>
+                <div class="ma-toggles">
                     @foreach (var (value, label) in StockDashboard.Services.PatternScanState.SubChartOptions)
                     {
-                        <option value="@value">@label</option>
+                        <label class="ma-toggle sub-toggle">
+                            <input type="checkbox" checked="@State.SubCharts.Contains(value)" @onchange="e => OnSubChartToggled(value, e)" />
+                            <span>@label</span>
+                        </label>
                     }
-                </select>
-            </label>
-            @if (State.SubChart == "macd")
+                </div>
+            </div>
+            @foreach (var group in IndicatorGroups.Where(g => State.SubCharts.Contains(g.SubChart)))
             {
-                @* MACD 參數平常收折；調整後立即用已載入的日線重算，不必重新掃描 *@
-                <details class="macd-params">
-                    <summary>MACD 參數（@State.Indicators.MacdFast, @State.Indicators.MacdSlow, @State.Indicators.MacdSignal）</summary>
-                    <div class="macd-grid">
-                        <label>快線<input type="number" min="1" max="200" class="dark-input macd-fast" value="@State.Indicators.MacdFast" @onchange="e => OnMacdChanged(MacdField.Fast, e)" /></label>
-                        <label>慢線<input type="number" min="1" max="200" class="dark-input macd-slow" value="@State.Indicators.MacdSlow" @onchange="e => OnMacdChanged(MacdField.Slow, e)" /></label>
-                        <label>訊號<input type="number" min="1" max="200" class="dark-input macd-signal" value="@State.Indicators.MacdSignal" @onchange="e => OnMacdChanged(MacdField.Signal, e)" /></label>
-                    </div>
-                    <div class="macd-foot">
-                        @if (MacdError != null)
+                @* 指標參數平常收折；調整後立即用已載入的日線重算，不必重新掃描 *@
+                <details class="indicator-params" data-indicator="@group.SubChart">
+                    <summary>@group.Title 參數（@string.Join(", ", group.Params.Select(p => p.Get(State.Indicators)))）</summary>
+                    <div class="indicator-grid" style="grid-template-columns: repeat(@group.Params.Length, 1fr)">
+                        @foreach (var param in group.Params)
                         {
-                            <span class="macd-error">@MacdError</span>
+                            <label>@param.Label<input type="number" min="1" max="@Models.Patterns.IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
+                                                     value="@param.Get(State.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" /></label>
                         }
-                        <button class="link-btn" @onclick="ResetMacd">預設 12, 26, 9</button>
+                    </div>
+                    <div class="indicator-foot">
+                        @if (IndicatorErrors.TryGetValue(group.SubChart, out var error))
+                        {
+                            <span class="indicator-error">@error</span>
+                        }
+                        <button class="link-btn" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
                     </div>
                 </details>
             }

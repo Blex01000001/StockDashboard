@@ -1,7 +1,7 @@
 namespace StockDashboard.Models.Patterns
 {
     /// <summary>
-    /// 小卡附圖技術指標的參數。MACD 可在頁面上調整；KD、RSI 目前固定為台灣看盤軟體常用值。
+    /// 小卡附圖技術指標的參數 (預設為台灣看盤軟體常用值，頁面上可調整)。
     /// </summary>
     public class IndicatorSettings
     {
@@ -28,6 +28,22 @@ namespace StockDashboard.Models.Patterns
             if (MacdFast >= MacdSlow)
                 return "MACD 快線天數必須小於慢線天數";
             return null;
+        }
+
+        /// <summary>
+        /// 檢查某個附圖 ("macd" / "kd" / "rsi") 的參數；正確回傳 null，否則回傳說明文字。
+        /// </summary>
+        public string? Validate(string subChart)
+        {
+            static bool InRange(params int[] values) => values.All(v => v >= 1 && v <= MaxPeriod);
+            return subChart switch
+            {
+                "macd" => ValidateMacd(),
+                "kd" => InRange(KdPeriod, KdKSmooth, KdDSmooth) ? null : $"KD 參數需介於 1 ~ {MaxPeriod}",
+                "rsi" => !InRange(RsiFast, RsiSlow) ? $"RSI 參數需介於 1 ~ {MaxPeriod}"
+                       : RsiFast >= RsiSlow ? "RSI 短週期必須小於長週期" : null,
+                _ => null
+            };
         }
 
         public IndicatorSettings Clone() => (IndicatorSettings)MemberwiseClone();

@@ -67,8 +67,8 @@
     gap: 8px;
 }
 
-/* MACD 參數：平常收折 */
-.macd-params {
+/* 指標參數 (MACD / KD / RSI)：平常收折 */
+.indicator-params {
     font-size: 0.75rem;
     color: var(--text-muted);
     border: 1px solid var(--border-color);
@@ -76,25 +76,24 @@
     padding: 4px 8px;
 }
 
-    .macd-params summary {
+    .indicator-params summary {
         cursor: pointer;
         color: var(--text-main);
     }
 
-.macd-grid {
+.indicator-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     margin-top: 6px;
 }
 
-    .macd-grid label {
+    .indicator-grid label {
         display: flex;
         flex-direction: column;
         gap: 2px;
     }
 
-.macd-foot {
+.indicator-foot {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -102,7 +101,7 @@
     margin-top: 6px;
 }
 
-.macd-error {
+.indicator-error {
     color: #ff4a5a;
 }
 
