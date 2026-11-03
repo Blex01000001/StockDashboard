@@ -11,5 +11,6 @@
 - 「更新股票清單」與 TWSE 實際連線尚未由使用者確認成功（開發環境連不到證交所）。
 
 ## 待辦
+- 型態掃描小卡：附圖改成可同時疊加多個（成交量、MACD、KD、RSI 依序排在 K 線下方），K 線區高度維持不變（使用者已提出，排在下一輪）。
 - 還原股價：實作 `StockPriceService.ApplyDividendAdjustment`，需要除權息資料表與 `IStockDividendRepository` 實作。
 - `StockCorporateAction`、`StockCombinationDto` 為規劃中的空殼。
