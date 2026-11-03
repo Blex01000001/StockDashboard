@@ -48,6 +48,7 @@ const STATES = [
   }],
   // 切到別頁再回來：代號、附圖設定與圖表都保留
   ['c_kept', async p => { await p.click('a[href="stock-query"]'); await p.waitForTimeout(800); await p.click('a[href="stock-chart"]'); await p.waitForTimeout(1500); }],
+  ['c_count', async p => { await p.selectOption('.count-select', '0'); await p.waitForTimeout(1200); }],
   ['m_init', async p => { await go(p, 'stock-compare'); }],
   ['m_alert', async p => { await p.fill('.dashboard-panel input', ''); await clickMain(p); }],
   ['m_drawn', async p => { await p.fill('.dashboard-panel input', '2330,0050'); await clickMain(p, 1500); }],
@@ -75,6 +76,8 @@ const STATES = [
     for (const name of ['三大法人', '外資', '投信', '自營商']) await p.locator('.sub-toggle', { hasText: name }).locator('input').check();
     await p.waitForTimeout(1200);
   }],
+  // 小卡的「技術圖表」連結：開啟技術圖表並標示型態成立日
+  ['p_link', async p => { await p.locator('.chart-link').first().click(); await p.waitForTimeout(2000); }],
   ['x_404', async p => { await go(p, 'not-exist-page'); }],
 ];
 

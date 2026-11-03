@@ -7,6 +7,14 @@
     color: var(--text-muted);
 }
 
+    /* 框線群組 (技術圖表頁) */
+    .ctl-field.framed {
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 6px 10px 8px;
+        gap: 5px;
+    }
+
 /* 指標參數 (MACD / KD / RSI)：平常收折 */
 .indicator-params {
     font-size: 0.75rem;

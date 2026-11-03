@@ -131,6 +131,10 @@ namespace StockDashboard.Components.Pages
             }
         }
 
+        // 小卡 →「K線技術指標圖表」頁 (同一連線內切換，型態掃描結果仍保留)
+        protected static string ChartLink(Models.Patterns.PatternMatch match) =>
+            $"stock-chart?id={Uri.EscapeDataString(match.StockId)}&date={Uri.EscapeDataString(match.SignalDate)}";
+
         // ── 附圖、均線、指標參數 (ChartDisplayOptions 元件) ──
 
         // 指標參數改變時，用掃描時保留的完整日線立即重算小卡上的指標 (不查資料庫)

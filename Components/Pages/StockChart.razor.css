@@ -1,13 +1,20 @@
-/* 附圖、指標參數、均線勾選：橫向排列在搜尋列下方 */
+/* 附圖、指標參數、均線：各自一個框，橫向排列在搜尋列下方 */
 .chart-options {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    gap: 8px 28px;
+    gap: 10px 14px;
     margin-top: 12px;
-    max-width: 800px;
 }
 
     .chart-options ::deep details {
         min-width: 220px;
     }
+
+/* 顯示筆數下拉選單：沒有放大鏡圖示，覆寫共用 .dark-input 的寬度與左側 padding */
+.search-box-container .count-select {
+    width: auto;
+    flex-shrink: 0;
+    padding: 0 12px;
+    color-scheme: dark;
+}

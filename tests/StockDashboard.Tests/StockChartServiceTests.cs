@@ -55,4 +55,41 @@ public class StockChartServiceTests
         Assert.NotEqual(before, data.Candles[^1].RsiFast);
         Assert.Equal(2000, data.Candles[^1].TotalNet);   // 重算指標不影響三大法人
     }
+
+    [Fact]
+    public void 改顯示筆數_重切範圍_0為全部()
+    {
+        var full = Candles(400);
+        var inst = new[] { new InstitutionalDailyEntity { StockId = "2330", TradeDate = full[^1].Date, TotalNet = 5 } };
+        var data = StockChartService.Build(full, 120, new IndicatorSettings(), inst);
+        Assert.Equal(120, data.Candles.Count);
+
+        StockChartService.SetWindow(data, 0, new IndicatorSettings());
+        Assert.Equal(0, data.WindowStart);
+        Assert.Equal(400, data.Candles.Count);
+        Assert.Equal(5, data.Candles[^1].TotalNet);     // 三大法人重新填入
+        Assert.NotNull(data.Candles[^1].Ma120);
+    }
+
+    [Theory]
+    [InlineData(370, 250, 250)]   // 倒數第 30 根：一年就看得到 (30 + 前面多留 30 根 ≤ 250)
+    [InlineData(200, 250, 250)]   // 倒數第 200 根：200 + 30 ≤ 250
+    [InlineData(100, 250, 750)]   // 倒數第 300 根：一年不夠，改三年
+    [InlineData(100, 120, 750)]   // 原本半年也一樣，挑最小夠用的
+    [InlineData(5, 250, 750)]     // 從第 5 根開始要 425 根：三年夠用
+    [InlineData(100, 0, 0)]       // 原本就是全部
+    public void 標示日期不在範圍內_自動加大筆數(int focusIndex, int preferred, int expected)
+    {
+        var full = Candles(400);
+        var options = new[] { 120, 250, 750, 0 };
+        int count = StockChartService.CountToInclude(full, full[focusIndex].Date, options, preferred);
+        Assert.Equal(expected, count);
+    }
+
+    [Fact]
+    public void 比三年還舊_改全部()
+    {
+        var full = Candles(1000);
+        Assert.Equal(0, StockChartService.CountToInclude(full, full[50].Date, new[] { 120, 250, 750, 0 }, 250));
+    }
 }

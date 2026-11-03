@@ -6,9 +6,11 @@ namespace StockDashboard.Components.Pages
 {
     public partial class StockChart : ComponentBase, IAsyncDisposable
     {
-        // K 線圖顯示的最近交易日筆數 (均線與指標仍以完整歷史計算)
-        private const int CandleCount = 220;
         private const string ContainerId = "chart-container";
+
+        // 從型態掃描小卡開啟：/stock-chart?id=2330&date=2026-03-30
+        [SupplyParameterFromQuery(Name = "id")] public string? QueryStockId { get; set; }
+        [SupplyParameterFromQuery(Name = "date")] public string? QueryDate { get; set; }
 
         [Inject] private IStockChartService ChartService { get; set; } = default!;
         [Inject] private StockChartState State { get; set; } = default!;
@@ -19,13 +21,32 @@ namespace StockDashboard.Components.Pages
         private bool _chartNeedsRender;
         private IJSObjectReference? _jsModule;
 
-        protected override void OnInitialized()
+        protected override async Task OnInitializedAsync()
         {
+            if (!string.IsNullOrWhiteSpace(QueryStockId))
+            {
+                State.TargetStockId = QueryStockId.Trim();
+                await LoadAsync(QueryDate);
+                return;
+            }
             // 從其他頁面切回來時，重畫上次的圖表
             _chartNeedsRender = State.Data != null;
         }
 
-        public async Task LoadChartData()
+        // 按「繪製圖表」：手動查詢，不再標示型態日
+        public Task LoadChartData() => LoadAsync(null);
+
+        // 改顯示筆數：用已載入的完整日線重切範圍，不查資料庫
+        protected void OnCountChanged(ChangeEventArgs e)
+        {
+            if (!int.TryParse(e.Value?.ToString(), out int count)) return;
+            State.CandleCount = count;
+            if (State.Data == null) return;
+            StockChartService.SetWindow(State.Data, count, State.Display.Indicators);
+            _chartNeedsRender = true;
+        }
+
+        private async Task LoadAsync(string? focusDate)
         {
             if (string.IsNullOrWhiteSpace(State.TargetStockId))
             {
@@ -40,11 +61,24 @@ namespace StockDashboard.Components.Pages
                 Message = "資料載入中...";
 
                 string stockId = State.TargetStockId.Trim();
-                var data = await ChartService.LoadAsync(stockId, CandleCount, State.Display.Indicators);
+                var data = await ChartService.LoadAsync(stockId, State.CandleCount, State.Display.Indicators);
                 if (data == null)
                 {
                     Message = $"找不到代號 {stockId} 的股票資料。";
                     return;
+                }
+
+                // 標示的日期若不在顯示範圍內，自動改用能包含它的筆數選項
+                State.FocusDate = focusDate;
+                if (focusDate != null)
+                {
+                    int count = StockChartService.CountToInclude(data.FullCandles, focusDate,
+                        StockChartState.CountOptions.Select(o => o.Value), State.CandleCount);
+                    if (count != State.CandleCount)
+                    {
+                        State.CandleCount = count;
+                        StockChartService.SetWindow(data, count, State.Display.Indicators);
+                    }
                 }
 
                 Message = string.Empty;
@@ -79,7 +113,7 @@ namespace StockDashboard.Components.Pages
                 _jsModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>(
                     "import", AssetVersion.Module("./Components/Pages/StockChart.razor.js"));
                 await _jsModule.InvokeVoidAsync("renderStockChart", ContainerId, State.Data.Label, State.Data.Candles,
-                    State.Display.VisibleMaNames, State.Display.OrderedSubCharts, State.Display.Indicators);
+                    State.Display.VisibleMaNames, State.Display.OrderedSubCharts, State.Display.Indicators, State.FocusDate);
             }
             catch (JSDisconnectedException)
             {

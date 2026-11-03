@@ -14,12 +14,18 @@
             <input type="text" @bind="State.TargetStockId" placeholder="輸入股票代號 (如: 2330)" class="dark-input" list="stock-id-options" />
             <StockIdDataList Id="stock-id-options" />
         </div>
+        <select class="dark-input count-select" value="@State.CandleCount" @onchange="OnCountChanged" title="顯示最近幾根 K 線（均線與指標都以完整歷史計算）">
+            @foreach (var (value, label) in StockDashboard.Services.StockChartState.CountOptions)
+            {
+                <option value="@value">@label</option>
+            }
+        </select>
         <button @onclick="LoadChartData" class="action-btn">繪製圖表</button>
     </div>
 
     @* 附圖、指標參數、均線：與型態掃描頁同一個元件 *@
     <div class="chart-options">
-        <ChartDisplayOptions Settings="State.Display" OnChanged="OnDisplayChanged" />
+        <ChartDisplayOptions Settings="State.Display" OnChanged="OnDisplayChanged" Framed="true" />
     </div>
 
     @if (!string.IsNullOrEmpty(Message))
@@ -27,5 +33,5 @@
         <div class="alert-box">⚠️ @Message</div>
     }
 
-    <div id="chart-container" style="width: 800px; height: 500px; background-color: #1e222d; margin-top: 20px;"></div>
+    <div id="chart-container" style="width: 100%; height: 500px; background-color: #1e222d; margin-top: 20px;"></div>
 </div>

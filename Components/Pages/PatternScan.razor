@@ -155,7 +155,11 @@
                 <div class="pattern-card">
                     <div class="card-head">
                         <span class="card-stock">@match.StockId @match.StockName</span>
-                        <span class="card-date">@match.SignalDate</span>
+                        <span class="card-head-right">
+                            <span class="card-date">@match.SignalDate</span>
+                            @* 開啟技術圖表，並標示型態成立日 *@
+                            <a class="link-btn chart-link" href="@ChartLink(match)" title="在 K線技術指標圖表 開啟，並標示型態成立日">📈 技術圖表</a>
+                        </span>
                     </div>
                     <div id="@($"pattern-chart-{i}")" class="card-chart"></div>
                     <div class="card-returns">

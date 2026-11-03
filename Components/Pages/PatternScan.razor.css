@@ -291,6 +291,18 @@
     font-family: monospace;
 }
 
+.card-head-right {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+/* 小卡標題列的「技術圖表」連結：沿用 .link-btn 外觀 */
+.chart-link {
+    text-decoration: none;
+    font-size: 0.72rem;
+}
+
 .card-chart {
     width: 100%;
     height: 260px;

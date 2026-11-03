@@ -14,35 +14,65 @@ const LAYOUT = {
     left: 60,
     right: 40
 };
-const DEFAULT_ZOOM = { start: 80, end: 100 };   // 預設顯示最後 20% (約最近 40 幾天)
+const VISIBLE_BARS = 60;                 // 預設縮放：顯示最近約 60 根 (不論載入半年或全部)
+const FOCUS_BEFORE = 30, FOCUS_AFTER = 60;   // 有標示日期時：顯示該日前 30 根、後 60 根
+const FOCUS_COLOR = '#ffd54f';           // 標示日期 (同型態掃描小卡的型態成立日)
+
+// 預設縮放範圍 (百分比)
+function defaultZoom(candles, focusDate) {
+    const n = candles.length;
+    if (n === 0) return { start: 0, end: 100 };
+    const focus = focusDate ? candles.findIndex(c => c.date >= focusDate) : -1;
+    if (focus >= 0) {
+        const from = Math.max(0, focus - FOCUS_BEFORE), to = Math.min(n - 1, focus + FOCUS_AFTER);
+        return { start: from / n * 100, end: (to + 1) / n * 100 };
+    }
+    return { start: Math.max(0, 100 - VISIBLE_BARS / n * 100), end: 100 };
+}
+
+// 圖表寬度跟著容器 (視窗大小改變、側邊欄收合) 自動調整
+function bindResize(dom, chart) {
+    if (dom.__resizeObserver) return;
+    dom.__resizeObserver = new ResizeObserver(() => chart.resize());
+    dom.__resizeObserver.observe(dom);
+}
 
 // candles：PatternCandle 陣列 (camelCase)；visibleMas：預設顯示的均線名稱；subCharts：附圖 (依序)；settings：指標參數
-export function renderStockChart(containerId, stockLabel, candles, visibleMas, subCharts, settings) {
+// focusDate：要標示的日期 (從型態掃描小卡開啟時)，沒有則為 null
+export function renderStockChart(containerId, stockLabel, candles, visibleMas, subCharts, settings, focusDate) {
     const dom = document.getElementById(containerId);
     if (!dom) return;
     const subs = (subCharts || []).filter(s => SUB_CHARTS[s]);
     dom.style.height = (LAYOUT.top + LAYOUT.candleHeight + subs.length * (LAYOUT.subLegend + LAYOUT.subHeight) + LAYOUT.bottom) + 'px';
 
     // ECharts 由 App.razor 的 <script> 全域載入；重繪時沿用同一個圖表實例，並保留使用者目前的縮放範圍
+    // 換股票、換顯示筆數或標示日期時，縮放範圍回到預設；只換附圖 / 參數時保留目前縮放
+    const viewKey = `${stockLabel}|${candles.length}|${candles[0]?.date}|${focusDate ?? ''}`;
     let chart = echarts.getInstanceByDom(dom);
-    let zoom = DEFAULT_ZOOM;
+    let zoom = defaultZoom(candles, focusDate);
     if (chart) {
         const current = chart.getOption()?.dataZoom?.[0];
-        if (current && chart.__stockLabel === stockLabel) zoom = { start: current.start, end: current.end };
+        if (current && chart.__viewKey === viewKey) zoom = { start: current.start, end: current.end };
         chart.resize();
     } else {
         chart = echarts.init(dom);
     }
-    chart.__stockLabel = stockLabel;   // 換股票時縮放範圍回到預設
+    chart.__viewKey = viewKey;
+    bindResize(dom, chart);
 
     const option = buildStackedOption({
         candles, subs, settings: settings || {}, layout: LAYOUT,
         mainSeries: {
             type: 'candlestick',
             data: candles.map(c => [c.open, c.close, c.low, c.high]),
-            itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN }
+            itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN },
+            markLine: focusDate && candles.some(c => c.date === focusDate) ? {
+                silent: true, symbol: 'none', lineStyle: { color: FOCUS_COLOR, type: 'dashed', width: 1 },
+                label: { show: true, formatter: '型態成立', position: 'end', color: FOCUS_COLOR, fontSize: 10 },
+                data: [{ xAxis: focusDate }]
+            } : undefined
         },
-        tooltipTitle: c => `日期：${c.date}`,
+        tooltipTitle: c => `日期：${c.date}${c.date === focusDate ? '（型態成立）' : ''}`,
         dateFormatter: d => d,
         maLegend: { top: 30, right: LAYOUT.right }
     });
@@ -61,6 +91,7 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
 
 export function disposeChart(containerId) {
     const dom = document.getElementById(containerId);
+    if (dom?.__resizeObserver) { dom.__resizeObserver.disconnect(); dom.__resizeObserver = null; }
     const chart = dom && echarts.getInstanceByDom(dom);
     if (chart) chart.dispose();
 }

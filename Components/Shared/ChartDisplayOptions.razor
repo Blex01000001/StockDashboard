@@ -2,7 +2,7 @@
 @using StockDashboard.Services
 @* 附圖勾選、指標參數 (收折)、顯示均線：型態掃描與技術圖表共用。改動後呼叫 OnChanged，由頁面重畫圖表 *@
 
-<div class="ctl-field">
+<div class="ctl-field @(Framed ? "framed" : "")">
     <span>附圖（可複選，依序疊在 K 線下方）</span>
     <div class="ma-toggles">
         @foreach (var (value, label) in ChartDisplaySettings.SubChartOptions)
@@ -35,7 +35,7 @@
         </div>
     </details>
 }
-<div class="ctl-field">
+<div class="ctl-field @(Framed ? "framed" : "")">
     <span>顯示均線</span>
     <div class="ma-toggles">
         @foreach (var period in ChartDisplaySettings.MovingAveragePeriods)
@@ -50,6 +50,9 @@
 
 @code {
     [Parameter, EditorRequired] public ChartDisplaySettings Settings { get; set; } = default!;
+
+    // true：附圖、均線各自用框線圍成一組 (技術圖表頁)；型態掃描頁的控制框已有外框，不需要
+    [Parameter] public bool Framed { get; set; }
 
     // 參數 = 指標參數是否改變 (true 時頁面需重算指標再重畫；false 只需重畫)
     [Parameter] public EventCallback<bool> OnChanged { get; set; }
