@@ -28,10 +28,12 @@ builder.Services.AddHttpClient<ITwseApiClient, TwseApiClient>(client =>
 // ── 資料存取層 (Repository) ──
 builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
 builder.Services.AddScoped<IStockNameRepository, StockNameRepository>();
+builder.Services.AddScoped<IInstitutionalRepository, InstitutionalRepository>();
 
 // ── 商業邏輯層 (Service) ──
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
 builder.Services.AddScoped<IPatternScanService, PatternScanService>();
+builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
 
 // ── K 線型態：新增型態時在這裡註冊，型態掃描頁會自動列出 (顯示順序 = 註冊順序) ──
 builder.Services.AddSingleton<ICandlePattern, BullishEngulfingPattern>();

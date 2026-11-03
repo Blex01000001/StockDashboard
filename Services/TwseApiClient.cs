@@ -17,11 +17,17 @@ namespace StockDashboard.Services
         // 證交所 OpenAPI「上市個股日成交資訊」：一次回傳最近一個交易日的所有上市證券
         public const string DefaultStockDayAllUrl = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
 
+        // 證交所網站「三大法人買賣超日報」與「外資及陸資投資持股統計」：一次回傳某一天的所有上市股票
+        public const string DefaultT86Url = "https://www.twse.com.tw/fund/T86";
+        public const string DefaultQfiisUrl = "https://www.twse.com.tw/fund/MI_QFIIS";
+
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         private readonly HttpClient _http;
         private readonly string _stockDayUrl;
         private readonly string _stockDayAllUrl;
+        private readonly string _t86Url;
+        private readonly string _qfiisUrl;
 
         // HttpClient 由 Program.cs 的 AddHttpClient<ITwseApiClient, TwseApiClient>() 注入
         public TwseApiClient(HttpClient http, IConfiguration? configuration = null)
@@ -29,6 +35,8 @@ namespace StockDashboard.Services
             _http = http;
             _stockDayUrl = configuration?["Twse:StockDayUrl"] ?? DefaultStockDayUrl;
             _stockDayAllUrl = configuration?["Twse:StockDayAllUrl"] ?? DefaultStockDayAllUrl;
+            _t86Url = configuration?["Twse:T86Url"] ?? DefaultT86Url;
+            _qfiisUrl = configuration?["Twse:QfiisUrl"] ?? DefaultQfiisUrl;
         }
 
         public async Task<List<StockDailyPriceEntity>> GetMonthlyPricesAsync(string stockId, DateTime month, CancellationToken cancellationToken = default)
@@ -66,6 +74,101 @@ namespace StockDashboard.Services
                 })
                 .ToList();
         }
+
+        public async Task<List<InstitutionalDailyEntity>> GetInstitutionalTradingAsync(DateTime date, CancellationToken cancellationToken = default)
+        {
+            var table = await GetFieldTableAsync(_t86Url, date, cancellationToken);
+            if (table == null) return new List<InstitutionalDailyEntity>();
+
+            // 欄位依名稱尋找 (證交所曾改版：2014 年自營商拆成自行買賣 / 避險，2017 年外資拆出外資自營商)
+            int code = table.Find("證券代號");
+            int foreign = table.Find("外陸資買賣超股數(不含外資自營商)", "外資買賣超股數");
+            int foreignDealer = table.Find("外資自營商買賣超股數");
+            int trust = table.Find("投信買賣超股數");
+            int dealer = table.Find("自營商買賣超股數");
+            int dealerSelf = table.Find("自營商買賣超股數(自行買賣)");
+            int dealerHedge = table.Find("自營商買賣超股數(避險)");
+            int total = table.Find("三大法人買賣超股數");
+            if (code < 0 || total < 0) throw new InvalidOperationException("三大法人買賣超日報的欄位格式無法辨識");
+
+            string tradeDate = date.ToString("yyyy-MM-dd");
+            return table.Response.Data.Select(row => new InstitutionalDailyEntity
+            {
+                StockId = Cell(row, code)?.Trim() ?? string.Empty,
+                TradeDate = tradeDate,
+                ForeignNet = LongCell(row, foreign),
+                ForeignDealerNet = LongCell(row, foreignDealer),
+                TrustNet = LongCell(row, trust),
+                // 舊格式沒有自營商合計欄位時，以自行買賣 + 避險加總
+                DealerNet = dealer >= 0 ? LongCell(row, dealer)
+                          : dealerSelf >= 0 || dealerHedge >= 0 ? (LongCell(row, dealerSelf) ?? 0) + (LongCell(row, dealerHedge) ?? 0) : null,
+                TotalNet = LongCell(row, total)
+            }).Where(e => e.StockId.Length > 0).ToList();
+        }
+
+        public async Task<List<InstitutionalDailyEntity>> GetForeignHoldingAsync(DateTime date, CancellationToken cancellationToken = default)
+        {
+            var table = await GetFieldTableAsync(_qfiisUrl, date, cancellationToken);
+            if (table == null) return new List<InstitutionalDailyEntity>();
+
+            int code = table.Find("證券代號");
+            int issued = table.Find("發行股數");
+            int held = table.Find("全體外資及陸資持有股數");
+            int pct = table.Find("全體外資及陸資持股比率");
+            if (code < 0 || pct < 0) throw new InvalidOperationException("外資持股統計的欄位格式無法辨識");
+
+            string tradeDate = date.ToString("yyyy-MM-dd");
+            return table.Response.Data.Select(row => new InstitutionalDailyEntity
+            {
+                StockId = Cell(row, code)?.Trim() ?? string.Empty,
+                TradeDate = tradeDate,
+                IssuedShares = LongCell(row, issued),
+                ForeignShares = LongCell(row, held),
+                ForeignHoldingPct = DoubleCell(row, pct)
+            }).Where(e => e.StockId.Length > 0).ToList();
+        }
+
+        // 下載某一天的 fields + data 表格；非交易日 (stat 不是 OK) 回傳 null
+        private async Task<FieldTable?> GetFieldTableAsync(string baseUrl, DateTime date, CancellationToken cancellationToken)
+        {
+            string url = $"{baseUrl}?response=json&date={date:yyyyMMdd}&selectType=ALLBUT0999";
+            var response = await GetJsonAsync<TwseFieldTableResponse>(url, cancellationToken);
+            if (response == null || response.Stat != "OK" || response.Data == null || response.Data.Count == 0) return null;
+            return new FieldTable(response);
+        }
+
+        private sealed class FieldTable
+        {
+            public TwseFieldTableResponse Response { get; }
+            private readonly List<string> _normalized;
+
+            public FieldTable(TwseFieldTableResponse response)
+            {
+                Response = response;
+                _normalized = response.Fields.Select(f => string.Concat(f.Where(c => !char.IsWhiteSpace(c)))).ToList();
+            }
+
+            // 依序嘗試多個可能的欄位名稱 (完全相符，忽略空白)；找不到回傳 -1
+            public int Find(params string[] names)
+            {
+                foreach (var name in names)
+                {
+                    int i = _normalized.IndexOf(name);
+                    if (i >= 0) return i;
+                }
+                return -1;
+            }
+        }
+
+        private static string? Cell(List<JsonElement> row, int index)
+        {
+            if (index < 0 || index >= row.Count) return null;
+            var e = row[index];
+            return e.ValueKind == JsonValueKind.String ? e.GetString() : e.ValueKind == JsonValueKind.Number ? e.GetRawText() : null;
+        }
+
+        private static long? LongCell(List<JsonElement> row, int index) => Cell(row, index) is string s ? ParseLong(s) : null;
+        private static double? DoubleCell(List<JsonElement> row, int index) => Cell(row, index) is string s ? ParseDouble(s) : null;
 
         /// <summary>
         /// 下載並解析 JSON。失敗時拋出「看得懂原因」的例外訊息，方便在畫面上直接顯示。

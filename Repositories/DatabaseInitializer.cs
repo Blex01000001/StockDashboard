@@ -27,6 +27,30 @@ namespace StockDashboard.Repositories
 
             -- 證交所同步的股票代號清單 (含 ETF)。
             -- 注意：StockList 是使用者既有的「上市公司基本資料」表 (中文欄位)，本程式只讀取、不建立也不修改。
+            -- 個股每日三大法人 (T86 買賣超 + MI_QFIIS 外資持股)，單位：股
+            CREATE TABLE IF NOT EXISTS InstitutionalDaily (
+                StockId           TEXT NOT NULL,
+                TradeDate         TEXT NOT NULL,      -- yyyy-MM-dd
+                ForeignNet        INTEGER,            -- 外陸資買賣超 (不含外資自營商)
+                ForeignDealerNet  INTEGER,            -- 外資自營商買賣超
+                TrustNet          INTEGER,            -- 投信買賣超
+                DealerNet         INTEGER,            -- 自營商買賣超
+                TotalNet          INTEGER,            -- 三大法人買賣超
+                IssuedShares      INTEGER,            -- 發行股數
+                ForeignShares     INTEGER,            -- 外資及陸資持有股數
+                ForeignHoldingPct REAL,               -- 外資及陸資持股比率 (%)
+                PRIMARY KEY (StockId, TradeDate)
+            );
+
+            -- 三大法人同步紀錄：哪一天、哪個來源已查過 (含非交易日)，避免重複請求證交所
+            CREATE TABLE IF NOT EXISTS InstitutionalSyncLog (
+                TradeDate TEXT NOT NULL,              -- yyyy-MM-dd
+                Source    TEXT NOT NULL,              -- T86 / MI_QFIIS
+                HasData   INTEGER NOT NULL,           -- 1 = 有資料，0 = 當天無資料 (假日或尚未公布)
+                CheckedAt TEXT NOT NULL,              -- yyyy-MM-dd HH:mm:ss
+                PRIMARY KEY (TradeDate, Source)
+            );
+
             CREATE TABLE IF NOT EXISTS StockNameList (
                 StockId   TEXT NOT NULL PRIMARY KEY,
                 StockName TEXT NOT NULL,

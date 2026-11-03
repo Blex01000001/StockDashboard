@@ -17,5 +17,15 @@ namespace StockDashboard.Services
         /// 下載所有上市股票 (含 ETF) 的代號與名稱。
         /// </summary>
         Task<List<StockNameEntity>> GetListedStocksAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 下載某一天所有上市股票的三大法人買賣超 (T86)。非交易日回傳空清單。
+        /// </summary>
+        Task<List<InstitutionalDailyEntity>> GetInstitutionalTradingAsync(DateTime date, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 下載某一天所有上市股票的外資持股 (MI_QFIIS)。非交易日回傳空清單。
+        /// </summary>
+        Task<List<InstitutionalDailyEntity>> GetForeignHoldingAsync(DateTime date, CancellationToken cancellationToken = default);
     }
 }
