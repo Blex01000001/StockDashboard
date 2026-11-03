@@ -23,7 +23,10 @@ namespace StockDashboard.Services
 
         // 小卡附圖：值 → 顯示名稱 (值也是傳給 JS 的識別字)。可複選，依此順序疊在 K 線下方；預設只有成交量 (使用者指定)
         public static readonly (string Value, string Label)[] SubChartOptions =
-            { ("volume", "成交量"), ("macd", "MACD"), ("kd", "KD"), ("rsi", "RSI") };
+            {
+                ("volume", "成交量"), ("macd", "MACD"), ("kd", "KD"), ("rsi", "RSI"),
+                ("inst", "三大法人"), ("foreign", "外資"), ("trust", "投信"), ("dealer", "自營商"),
+            };
         public HashSet<string> SubCharts { get; } = new() { "volume" };
 
         // 依 SubChartOptions 的順序排列已勾選的附圖

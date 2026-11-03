@@ -4,6 +4,7 @@ using StockDashboard.Models.Entities;
 using StockDashboard.Repositories;
 using StockDashboard.Repositories.Implements;
 using StockDashboard.Services;
+using StockDashboard.Models.Patterns;
 
 namespace StockDashboard.Tests;
 
@@ -253,5 +254,57 @@ public class InstitutionalSyncServiceTests : IDisposable
     private sealed class SyncProgress(Action<InstitutionalSyncProgress> onReport) : IProgress<InstitutionalSyncProgress>
     {
         public void Report(InstitutionalSyncProgress value) => onReport(value);
+    }
+}
+
+public class ApplyInstitutionalTests
+{
+    [Fact]
+    public void FillsCandlesByDate_AndLeavesMissingDatesNull()
+    {
+        var match = new PatternMatch
+        {
+            Candles =
+            {
+                new PatternCandle { Date = "2026-10-29" },
+                new PatternCandle { Date = "2026-10-30" },
+            }
+        };
+        var rows = new[]
+        {
+            new InstitutionalDailyEntity
+            {
+                StockId = "2609", TradeDate = "2026-10-30",
+                ForeignNet = 16_598_249, ForeignDealerNet = 0, TrustNet = -30_000, DealerNet = 284_025, TotalNet = 16_852_274,
+                ForeignHoldingPct = 12.34
+            },
+            new InstitutionalDailyEntity { StockId = "2609", TradeDate = "2026-10-01", TotalNet = 1 },   // 不在小卡範圍
+        };
+
+        PatternScanService.ApplyInstitutional(new[] { match }, rows);
+
+        var missing = match.Candles[0];
+        Assert.Null(missing.TotalNet);
+        Assert.Null(missing.ForeignNet);
+        Assert.Null(missing.ForeignHoldingPct);
+
+        var day = match.Candles[1];
+        Assert.Equal(16_852_274, day.TotalNet);
+        Assert.Equal(16_598_249, day.ForeignNet);     // 外資 = 外陸資 + 外資自營商
+        Assert.Equal(-30_000, day.TrustNet);
+        Assert.Equal(284_025, day.DealerNet);
+        Assert.Equal(12.34, day.ForeignHoldingPct);
+        Assert.Equal(day.TotalNet, day.ForeignNet + day.TrustNet + day.DealerNet);
+    }
+
+    [Fact]
+    public void HoldingOnlyRow_LeavesNetNull()
+    {
+        var match = new PatternMatch { Candles = { new PatternCandle { Date = "2026-10-30" } } };
+        PatternScanService.ApplyInstitutional(new[] { match },
+            new[] { new InstitutionalDailyEntity { StockId = "2330", TradeDate = "2026-10-30", ForeignHoldingPct = 70.1 } });
+
+        Assert.Null(match.Candles[0].ForeignNet);
+        Assert.Equal(70.1, match.Candles[0].ForeignHoldingPct);
     }
 }

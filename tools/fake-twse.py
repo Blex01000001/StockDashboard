@@ -5,7 +5,10 @@
 用法：python3 tools/fake-twse.py [port，預設 9999]
 接著在 appsettings.json 加入：
   "Twse": { "StockDayUrl":    "http://127.0.0.1:9999/exchangeReport/STOCK_DAY",
-            "StockDayAllUrl": "http://127.0.0.1:9999/v1/exchangeReport/STOCK_DAY_ALL" }
+            "StockDayAllUrl": "http://127.0.0.1:9999/v1/exchangeReport/STOCK_DAY_ALL",
+            "T86Url":         "http://127.0.0.1:9999/fund/T86",
+            "QfiisUrl":       "http://127.0.0.1:9999/fund/MI_QFIIS",
+            "RequestDelayMs": "200" }
 （雲端沙盒有 HTTP proxy，啟動網站時要加環境變數 NO_PROXY=127.0.0.1,localhost）
 
 STOCK_DAY 的回應依 stockNo 決定：
@@ -14,8 +17,13 @@ STOCK_DAY 的回應依 stockNo 決定：
   E403                → HTTP 403
   其他                → 「很抱歉，沒有符合條件的資料!」
 STOCK_DAY_ALL → tests/StockDashboard.Tests/Fixtures/stock_day_all.json
+T86 / MI_QFIIS (三大法人) 依 date 決定：
+  週一～週五 → t86_20261030.json / mi_qfiis_20261030.json (證交所實際回應，日期欄改成請求的日期)
+  週末       → t86_no_data.json (證交所實際的「沒有符合條件的資料」回應)
+  20000101  → HTML 網頁 (模擬被封鎖)
 每個請求都會印出 stockNo、date 與 User-Agent。
 """
+import datetime
 import http.server
 import json
 import os
@@ -40,6 +48,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if url.path.endswith("STOCK_DAY_ALL"):
             return self.reply(fixture("stock_day_all.json"))
+        if url.path.endswith("T86") or url.path.endswith("MI_QFIIS"):
+            return self.institutional(url.path, date)
         if stock == "E403":
             return self.reply("", status=403, content_type="text/plain")
         if stock == "BLOCK":
@@ -47,6 +57,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if stock == "2330" and date == "20261001":
             return self.reply(fixture("stock_day_2330_202610.json"))
         return self.reply(NO_DATA)
+
+    def institutional(self, path, date):
+        if date == "20000101":
+            return self.reply("<html><body>系統忙碌</body></html>", content_type="text/html")
+        try:
+            day = datetime.datetime.strptime(date, "%Y%m%d")
+        except ValueError:
+            return self.reply(fixture("t86_no_data.json"))
+        if day.weekday() > 4:
+            return self.reply(fixture("t86_no_data.json"))
+        body = json.loads(fixture("t86_20261030.json" if path.endswith("T86") else "mi_qfiis_20261030.json"))
+        body["date"] = date
+        return self.reply(json.dumps(body, ensure_ascii=False))
 
     def reply(self, body, status=200, content_type="application/json"):
         data = body.encode("utf-8")

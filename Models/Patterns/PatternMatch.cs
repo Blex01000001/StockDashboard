@@ -64,6 +64,15 @@ namespace StockDashboard.Models.Patterns
         public double? D { get; set; }
         public double? RsiFast { get; set; }
         public double? RsiSlow { get; set; }
+
+        // 三大法人買賣超 (股；正為買超)。外資 = 外陸資 + 外資自營商；尚未同步或當天無資料為 null
+        public long? TotalNet { get; set; }
+        public long? ForeignNet { get; set; }
+        public long? TrustNet { get; set; }
+        public long? DealerNet { get; set; }
+
+        // 全體外資及陸資持股比率 (%)
+        public double? ForeignHoldingPct { get; set; }
     }
 
     /// <summary>

@@ -126,3 +126,15 @@
         padding: 10px 20px;
         flex-shrink: 0;
     }
+
+/* 三大法人同步：範圍選單與按鈕同一列 */
+.inst-sync-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+    .card-box .inst-sync-actions .inst-range {
+        width: auto;
+    }

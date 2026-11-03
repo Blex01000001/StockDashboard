@@ -7,17 +7,20 @@ using StockDashboard.Services;
 
 namespace StockDashboard.Components.Pages
 {
-    public partial class StockUpdate : ComponentBase
+    public partial class StockUpdate : ComponentBase, IDisposable
     {
         // 連續幾個月沒有資料就停止往前追溯 (通常代表已超過上市日期，或被證交所限流)
         private const int MaxConsecutiveEmpty = 3;
 
-        // 每次請求證交所之間的間隔：證交所對短時間大量請求會暫時封鎖 IP
-        private const int RequestDelayMs = 2500;
+        // 每次請求證交所之間的間隔 (Twse:RequestDelayMs，預設 2500 毫秒)：證交所對短時間大量請求會暫時封鎖 IP
+        private int RequestDelayMs => int.TryParse(Configuration["Twse:RequestDelayMs"], out int ms) ? ms : 2500;
 
+        [Inject] private IConfiguration Configuration { get; set; } = default!;
         [Inject] private ITwseApiClient TwseApi { get; set; } = default!;
         [Inject] private IStockPriceRepository PriceRepository { get; set; } = default!;
         [Inject] private IStockNameRepository StockNameRepository { get; set; } = default!;
+        [Inject] private IInstitutionalRepository InstitutionalRepository { get; set; } = default!;
+        [Inject] private IInstitutionalSyncService InstitutionalSync { get; set; } = default!;
 
         public StockDailyPriceEntity InputPrice { get; set; } = new();
         public string BatchStockId { get; set; } = "2330";
@@ -33,10 +36,121 @@ namespace StockDashboard.Components.Pages
         public bool ListIsError { get; set; } = false;
         private StockIdDataList? _stockIdDataList;
 
+        // ── 三大法人同步 ──
+        public static readonly (string Value, string Label)[] InstitutionalRangeOptions =
+        {
+            ("7", "最近一週"),
+            ("3m", "近三個月"),
+            ("12m", "近一年"),
+        };
+        public string InstitutionalRange { get; set; } = "3m";
+        public (string? FirstDate, string? LastDate, int Days)? InstitutionalSummary { get; set; }
+        public bool IsSyncingInstitutional { get; set; } = false;
+        public string InstitutionalStatusMessage { get; set; } = string.Empty;
+        public bool InstitutionalIsError { get; set; } = false;
+        private CancellationTokenSource? _institutionalCts;
+
         protected override async Task OnInitializedAsync()
         {
             InputPrice.TradeDate = DateTime.Today.ToString("yyyy-MM-dd");
             await LoadNameSummaryAsync();
+            await LoadInstitutionalSummaryAsync();
+        }
+
+        public void Dispose()
+        {
+            // 離開頁面時停止同步 (同步中的頁面元件已銷毀，進度無處顯示)
+            _institutionalCts?.Cancel();
+        }
+
+        private async Task LoadInstitutionalSummaryAsync()
+        {
+            try
+            {
+                InstitutionalSummary = await InstitutionalRepository.GetSummaryAsync();
+            }
+            catch (Exception ex)
+            {
+                SetInstitutionalStatus($"讀取三大法人資料失敗: {ex.Message}", true);
+            }
+        }
+
+        /// <summary>同步範圍的起日 (含)</summary>
+        public static DateTime InstitutionalFromDate(string range, DateTime today) => range switch
+        {
+            "7" => today.AddDays(-6),
+            "12m" => today.AddYears(-1).AddDays(1),
+            _ => today.AddMonths(-3).AddDays(1),
+        };
+
+        /// <summary>
+        /// 逐日下載三大法人買賣超與外資持股 (由新到舊)，每天完成即寫入資料庫
+        /// </summary>
+        public async Task SyncInstitutional()
+        {
+            if (IsSyncingInstitutional) return;
+
+            IsSyncingInstitutional = true;
+            _institutionalCts = new CancellationTokenSource();
+            var started = DateTime.Now;
+            SetInstitutionalStatus("準備同步三大法人資料...", false);
+
+            var progress = new Progress<InstitutionalSyncProgress>(p =>
+            {
+                string eta = "";
+                if (p.Done > 0 && p.Done < p.Total)
+                {
+                    // 已略過的日期很快，估算只是參考
+                    double secondsPerDay = (DateTime.Now - started).TotalSeconds / p.Done;
+                    eta = $"，預估剩餘約 {Math.Ceiling(secondsPerDay * (p.Total - p.Done) / 60)} 分鐘";
+                }
+                SetInstitutionalStatus($"[{p.Done}/{p.Total}] {p.Message}{eta}", false);
+            });
+
+            try
+            {
+                var today = DateTime.Today;
+                var result = await InstitutionalSync.SyncAsync(InstitutionalFromDate(InstitutionalRange, today), today, progress, _institutionalCts.Token);
+                await LoadInstitutionalSummaryAsync();
+
+                string summary = $"新增 {result.DaysWithData} 個交易日、寫入 {result.RowsWritten} 筆，向證交所請求 {result.Requests} 次（略過已下載 {result.SkippedChecks} 項）。";
+                if (result.Error != null)
+                {
+                    SetInstitutionalStatus($"同步中斷：{result.Error}。已完成的日期都已存入，稍後再按一次同步即可從中斷處繼續。{summary}", true);
+                }
+                else if (result.Cancelled)
+                {
+                    SetInstitutionalStatus($"已停止。{summary}", false);
+                }
+                else
+                {
+                    SetInstitutionalStatus($"三大法人同步完成。{summary}", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                SetInstitutionalStatus($"三大法人同步失敗: {ex.Message}", true);
+            }
+            finally
+            {
+                IsSyncingInstitutional = false;
+                _institutionalCts.Dispose();
+                _institutionalCts = null;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
+        public void StopInstitutionalSync()
+        {
+            _institutionalCts?.Cancel();
+            SetInstitutionalStatus("正在停止...", false);
+        }
+
+        private void SetInstitutionalStatus(string msg, bool isError)
+        {
+            InstitutionalStatusMessage = msg;
+            InstitutionalIsError = isError;
+            InvokeAsync(StateHasChanged);
         }
 
         private async Task LoadNameSummaryAsync()

@@ -8,6 +8,7 @@
 - StockDailyPrice：2330、0050 的日線 (固定亂數種子)
 - StockList      ：模擬使用者的「上市公司基本資料」表 (中文欄位)，含 1101 台泥、1102 亞泥、2330 台積電
 - StockNameList  ：0050 元大台灣50 (模擬「更新股票清單」同步過)
+- InstitutionalDaily：只有 2330 有三大法人資料 (0050 沒有，用來檢查附圖的「無資料」提示)
 """
 import datetime
 import os
@@ -31,6 +32,10 @@ CREATE TABLE StockDailyPrice (
 CREATE TABLE StockNameList (
     StockId TEXT NOT NULL PRIMARY KEY, StockName TEXT NOT NULL,
     Market TEXT NOT NULL DEFAULT 'TWSE', UpdatedAt TEXT NOT NULL);
+CREATE TABLE InstitutionalDaily (
+    StockId TEXT NOT NULL, TradeDate TEXT NOT NULL, ForeignNet INTEGER, ForeignDealerNet INTEGER,
+    TrustNet INTEGER, DealerNet INTEGER, TotalNet INTEGER, IssuedShares INTEGER, ForeignShares INTEGER,
+    ForeignHoldingPct REAL, PRIMARY KEY (StockId, TradeDate));
 CREATE TABLE StockList ("出表日期" TEXT, "公司代號" TEXT, "公司名稱" TEXT, "公司簡稱" TEXT, "產業別" TEXT);
 """)
 
@@ -48,6 +53,23 @@ for offset in range(401):
         db.execute("INSERT INTO StockDailyPrice VALUES (?,?,?,?,?,?,?,?,?,?,NULL)",
                    (stock_id, day.isoformat(), 1000, 100000, prev, max(prev, close) * 1.005,
                     min(prev, close) * 0.995, close, round(close - prev, 2), 10))
+
+# 三大法人：另用獨立亂數種子，不影響上面的日線資料
+inst_rng = random.Random(7)
+issued = 25_930_380_458
+holding = 18_500_000_000
+for offset in range(401):
+    day = start + datetime.timedelta(days=offset)
+    if day.weekday() > 4:
+        continue
+    foreign = inst_rng.randint(-20_000, 20_000) * 1000
+    foreign_dealer = inst_rng.randint(-50, 50) * 1000
+    trust = inst_rng.randint(-3_000, 3_000) * 1000
+    dealer = inst_rng.randint(-2_000, 2_000) * 1000
+    holding += foreign + foreign_dealer
+    db.execute("INSERT INTO InstitutionalDaily VALUES (?,?,?,?,?,?,?,?,?,?)",
+               ("2330", day.isoformat(), foreign, foreign_dealer, trust, dealer,
+                foreign + foreign_dealer + trust + dealer, issued, holding, round(holding * 100 / issued, 2)))
 
 db.executemany("INSERT INTO StockList VALUES (?,?,?,?,?)", [
     ("1150120", "1101", "臺灣水泥股份有限公司", "台泥", "01"),

@@ -1,5 +1,5 @@
 // PatternScan.razor.js：繪製型態掃描的小卡與參數旁的型態範例
-// 小卡 = K 線區 (固定高度) + 0 ~ 多個附圖 (成交量 / MACD / KD / RSI) 依序疊在下方
+// 小卡 = K 線區 (固定高度) + 0 ~ 多個附圖 (成交量 / MACD / KD / RSI / 三大法人 / 外資 / 投信 / 自營商) 依序疊在下方
 
 const UP = '#ef5350';     // 漲：紅 (台股配色)
 const DOWN = '#26a69a';   // 跌：綠
@@ -19,7 +19,26 @@ const MA_LINES = [
     { key: 'ma120', name: 'MA120', color: '#bdbdbd' }
 ];
 
-// 附圖定義：bars = 柱狀 (可無)、lines = 線 (依指標參數命名)、levels = 0~100 擺盪指標的參考線
+const HOLDING_COLOR = '#ab47bc';  // 外資持股比例線
+
+// 股 → 張 (千股)，四捨五入
+const toLots = v => v == null ? null : Math.round(v / 1000);
+const signed = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toLocaleString();
+
+// 三大法人類附圖：買賣超柱狀 (張，正紅負綠)，柱狀也列在圖例
+function netChart(key, label, extraLines, extraTooltip) {
+    return {
+        bars: c => ({ value: toLots(c[key]), itemStyle: { color: (c[key] ?? 0) >= 0 ? UP : DOWN } }),
+        barName: `${label}買賣超(張)`,
+        lines: () => extraLines || [],
+        hasData: c => c[key] != null,
+        tooltip: c => `${label} ${signed(toLots(c[key]))} 張${extraTooltip ? extraTooltip(c) : ''}`
+    };
+}
+
+// 附圖定義：bars = 柱狀 (可無)、barName = 柱狀的圖例名稱 (有才列入圖例)、lines = 線 (依指標參數命名；
+// ownAxis = 用自己的 Y 軸，例如持股比例 % 與買賣超張數單位不同)、levels = 0~100 擺盪指標的參考線、
+// hasData = 判斷該 K 棒有無資料 (整張小卡都沒有時顯示提示)
 // settings 為 C# IndicatorSettings (camelCase)
 const SUB_CHARTS = {
     volume: {
@@ -42,8 +61,16 @@ const SUB_CHARTS = {
         lines: s => [{ key: 'rsiFast', name: `RSI${s.rsiFast}`, color: LINE_A }, { key: 'rsiSlow', name: `RSI${s.rsiSlow}`, color: LINE_B }],
         levels: [70, 30],
         tooltip: (c, s) => `RSI${s.rsiFast} ${c.rsiFast ?? '-'}　RSI${s.rsiSlow} ${c.rsiSlow ?? '-'}`
-    }
+    },
+    // 三大法人：只畫合計買賣超；外資另畫持股比例；投信、自營商只畫買賣超 (使用者指定)
+    inst: netChart('totalNet', '三大法人'),
+    foreign: netChart('foreignNet', '外資',
+        [{ key: 'foreignHoldingPct', name: '持股%', color: HOLDING_COLOR, ownAxis: true }],
+        c => `　持股 ${c.foreignHoldingPct != null ? c.foreignHoldingPct + '%' : '-'}`),
+    trust: netChart('trustNet', '投信'),
+    dealer: netChart('dealerNet', '自營商')
 };
+const NO_DATA_TEXT = '尚無三大法人資料（請到「資料更新」頁同步）';
 
 // 小卡版面 (像素)：K 線區高度固定，每多一個附圖，小卡就增高 SUB_ROW
 const LAYOUT = {
@@ -163,6 +190,8 @@ function buildCardOption(candles, signalIndex, barCount, horizons, subs, setting
     const yAxes = [{ scale: true, axisLine, axisLabel: { color: AXIS_COLOR, fontSize: 10 }, splitLine: { lineStyle: { color: '#2d3139' } } }];
     const legends = [legendStyle({ data: MA_LINES.map(m => m.name), top: 0, right: 8 })];
     const series = [candleSeries(candles, signalIndex, barCount, horizons)];
+    const extraYAxes = [];   // 附圖自己的第二個 Y 軸，排在每個 grid 的主 Y 軸之後 (索引才不會錯位)
+    const graphics = [];     // 附圖無資料時的提示文字
 
     for (const m of MA_LINES) {
         series.push({ name: m.name, type: 'line', data: candles.map(c => c[m.key]), showSymbol: false,
@@ -181,12 +210,18 @@ function buildCardOption(candles, signalIndex, barCount, horizons, subs, setting
                      ...(def.levels ? { min: 0, max: 100 } : {}) });
 
         if (def.bars) {
-            series.push({ name: sub === 'macd' ? 'OSC' : undefined, type: 'bar', xAxisIndex: g, yAxisIndex: g, data: candles.map(def.bars) });
+            series.push({ name: def.barName ?? (sub === 'macd' ? 'OSC' : undefined), type: 'bar', xAxisIndex: g, yAxisIndex: g,
+                          data: candles.map(def.bars), ...(def.barName ? { itemStyle: { color: AXIS_COLOR } } : {}) });
         }
         const lines = def.lines(settings);
         lines.forEach((l, j) => {
+            let yAxisIndex = g;
+            if (l.ownAxis) {
+                yAxisIndex = subs.length + 1 + extraYAxes.length;
+                extraYAxes.push({ gridIndex: g, scale: true, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false } });
+            }
             series.push({
-                name: l.name, type: 'line', xAxisIndex: g, yAxisIndex: g, data: candles.map(c => c[l.key]),
+                name: l.name, type: 'line', xAxisIndex: g, yAxisIndex, data: candles.map(c => c[l.key]), connectNulls: !!l.ownAxis,
                 showSymbol: false, lineStyle: { width: 1, color: l.color }, itemStyle: { color: l.color },
                 // 超買 / 超賣參考線 (掛在第一條線上即可)
                 markLine: def.levels && j === 0 ? {
@@ -197,8 +232,13 @@ function buildCardOption(candles, signalIndex, barCount, horizons, subs, setting
             });
         });
         // 附圖圖例：放在該附圖左上方
-        legends.push(legendStyle({ data: lines.map(l => l.name), top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
+        legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
+        if (def.hasData && !candles.some(def.hasData)) {
+            graphics.push({ type: 'text', left: 'center', top: top + LAYOUT.subHeight / 2 - 6,
+                            style: { text: NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
+        }
     });
+    yAxes.push(...extraYAxes);
 
     return {
         animation: false,
@@ -219,6 +259,7 @@ function buildCardOption(candles, signalIndex, barCount, horizons, subs, setting
             }
         },
         axisPointer: { link: [{ xAxisIndex: 'all' }] },
+        graphic: graphics,
         grid: grids,
         xAxis: xAxes,
         yAxis: yAxes,

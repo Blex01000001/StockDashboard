@@ -1,4 +1,5 @@
 using StockDashboard.Models;
+using StockDashboard.Models.Entities;
 using StockDashboard.Models.Patterns;
 using StockDashboard.Repositories;
 using StockDashboard.Repositories.Interfaces;
@@ -42,11 +43,13 @@ namespace StockDashboard.Services
 
         private readonly IStockPriceRepository _priceRepository;
         private readonly IStockNameRepository _stockNameRepository;
+        private readonly IInstitutionalRepository _institutionalRepository;
 
-        public PatternScanService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository)
+        public PatternScanService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository, IInstitutionalRepository institutionalRepository)
         {
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
+            _institutionalRepository = institutionalRepository;
         }
 
         public async Task<PatternScanResult> ScanAsync(
@@ -78,6 +81,7 @@ namespace StockDashboard.Services
                 if (matches.Count > 0) result.FullCandles[stockId] = candles;
                 names.TryGetValue(stockId, out var name);
                 matches.ForEach(m => m.StockName = name);
+                if (matches.Count > 0) ApplyInstitutional(matches, await GetInstitutionalOrEmptyAsync(stockId));
                 result.Matches.AddRange(matches);
             }
 
@@ -88,6 +92,38 @@ namespace StockDashboard.Services
                 .ToList();
             result.WinRates = ComputeWinRates(result.Matches, pattern.Direction, days);
             return result;
+        }
+
+        // 三大法人只是附圖：讀取失敗 (例如舊資料庫) 不影響掃描，附圖顯示「無資料」
+        private async Task<IEnumerable<InstitutionalDailyEntity>> GetInstitutionalOrEmptyAsync(string stockId)
+        {
+            try
+            {
+                return await _institutionalRepository.GetByStockAsync(stockId);
+            }
+            catch
+            {
+                return Enumerable.Empty<InstitutionalDailyEntity>();
+            }
+        }
+
+        /// <summary>
+        /// 依日期把單檔股票的三大法人資料填入小卡 K 棒；沒有對應日期的維持 null (圖上留空)。
+        /// </summary>
+        public static void ApplyInstitutional(IEnumerable<PatternMatch> matchesOfStock, IEnumerable<InstitutionalDailyEntity> rows)
+        {
+            var byDate = new Dictionary<string, InstitutionalDailyEntity>();
+            foreach (var row in rows) byDate[row.TradeDate] = row;
+
+            foreach (var candle in matchesOfStock.SelectMany(m => m.Candles))
+            {
+                if (!byDate.TryGetValue(candle.Date, out var row)) continue;
+                candle.TotalNet = row.TotalNet;
+                candle.ForeignNet = row.ForeignTotalNet;
+                candle.TrustNet = row.TrustNet;
+                candle.DealerNet = row.DealerNet;
+                candle.ForeignHoldingPct = row.ForeignHoldingPct;
+            }
         }
 
         /// <summary>

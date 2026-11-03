@@ -119,6 +119,51 @@
             }
         </div>
 
+        <div class="card-box card-wide">
+            <h3 class="card-title">🏦 三大法人資料同步</h3>
+            <p class="description">
+                從證交所下載每日「三大法人買賣超」(T86) 與「外資持股」(MI_QFIIS)，存入 <code class="code-tag">InstitutionalDaily</code>，
+                供型態掃描的三大法人附圖使用。證交所一次回傳一天、全部上市股票，因此逐日下載（每次間隔約 2.5 秒，一天兩個請求）；
+                已下載的日期與確認過的休市日會自動略過，中途停止也會保留已下載的部分。
+            </p>
+
+            <div class="list-sync-row">
+                <span class="description list-summary">
+                    @if (InstitutionalSummary is { Days: > 0 } summary)
+                    {
+                        <span>已有資料：<b>@summary.FirstDate</b> ～ <b>@summary.LastDate</b>，共 <b>@summary.Days</b> 個交易日</span>
+                    }
+                    else
+                    {
+                        <span>尚未下載任何三大法人資料</span>
+                    }
+                </span>
+                <div class="inst-sync-actions">
+                    <select @bind="InstitutionalRange" class="dark-input inst-range" disabled="@IsSyncingInstitutional">
+                        @foreach (var option in InstitutionalRangeOptions)
+                        {
+                            <option value="@option.Value">@option.Label</option>
+                        }
+                    </select>
+                    @if (IsSyncingInstitutional)
+                    {
+                        <button @onclick="StopInstitutionalSync" class="action-btn">⏹ 停止</button>
+                    }
+                    else
+                    {
+                        <button @onclick="SyncInstitutional" class="action-btn">🔄 同步三大法人</button>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(InstitutionalStatusMessage))
+            {
+                <div class="status-box @(InstitutionalIsError ? "error" : "success")">
+                    @InstitutionalStatusMessage
+                </div>
+            }
+        </div>
+
     </div>
 
     <StockIdDataList Id="stock-id-options" @ref="_stockIdDataList" />

@@ -63,6 +63,12 @@ const STATES = [
   ['p_macd', async p => { await p.locator('.sub-toggle', { hasText: 'MACD' }).locator('input').check(); await p.waitForTimeout(1000); }],
   ['p_kd', async p => { await p.locator('.sub-toggle', { hasText: 'KD' }).locator('input').check(); await p.waitForTimeout(1000); }],
   ['p_rsi', async p => { await p.locator('.sub-toggle', { hasText: 'RSI' }).locator('input').check(); await p.waitForTimeout(1000); }],
+  // 三大法人附圖：2330 有資料、0050 沒有 (顯示提示)；先關掉 MACD/KD/RSI 讓小卡不會太高
+  ['p_inst', async p => {
+    for (const name of ['MACD', 'KD', 'RSI']) await p.locator('.sub-toggle', { hasText: name }).locator('input').uncheck();
+    for (const name of ['三大法人', '外資', '投信', '自營商']) await p.locator('.sub-toggle', { hasText: name }).locator('input').check();
+    await p.waitForTimeout(1200);
+  }],
   ['x_404', async p => { await go(p, 'not-exist-page'); }],
 ];
 
