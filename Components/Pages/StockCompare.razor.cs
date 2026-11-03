@@ -59,7 +59,7 @@ namespace StockDashboard.Components.Pages
 
                 // 3. 呼叫專屬 JavaScript 渲染多線圖
                 _jsModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>(
-                    "import", "./Components/Pages/StockCompare.razor.js");
+                    "import", AssetVersion.Module("./Components/Pages/StockCompare.razor.js"));
 
                 await _jsModule.InvokeVoidAsync("renderCompareChart", "compare-chart-container", chartData);
             }

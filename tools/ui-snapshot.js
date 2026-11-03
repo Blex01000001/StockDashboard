@@ -40,8 +40,14 @@ const STATES = [
   ['q_navhover', async p => { await p.hover('a[href="stock-chart"]'); }],
   ['q_collapsed', async p => { await p.click('.toggle-btn'); await p.waitForTimeout(500); }],
   ['c_init', async p => { await p.click('.toggle-btn'); await p.waitForTimeout(500); await go(p, 'stock-chart'); }],
-  ['c_alert', async p => { await p.fill('.dashboard-panel input', 'NOPE'); await clickMain(p); }],
-  ['c_drawn', async p => { await p.fill('.dashboard-panel input', '2330'); await clickMain(p, 1500); }],
+  ['c_alert', async p => { await p.fill('.search-input-wrapper input', 'NOPE'); await clickMain(p); }],
+  ['c_drawn', async p => { await p.fill('.search-input-wrapper input', '2330'); await clickMain(p, 1500); }],
+  ['c_subs', async p => {
+    for (const name of ['MACD', '外資']) await p.locator('.sub-toggle', { hasText: name }).locator('input').check();
+    await p.check('.ma-toggle:has-text("120") input'); await p.waitForTimeout(1200);
+  }],
+  // 切到別頁再回來：代號、附圖設定與圖表都保留
+  ['c_kept', async p => { await p.click('a[href="stock-query"]'); await p.waitForTimeout(800); await p.click('a[href="stock-chart"]'); await p.waitForTimeout(1500); }],
   ['m_init', async p => { await go(p, 'stock-compare'); }],
   ['m_alert', async p => { await p.fill('.dashboard-panel input', ''); await clickMain(p); }],
   ['m_drawn', async p => { await p.fill('.dashboard-panel input', '2330,0050'); await clickMain(p, 1500); }],

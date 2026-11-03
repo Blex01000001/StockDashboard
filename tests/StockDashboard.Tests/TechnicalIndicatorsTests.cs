@@ -120,8 +120,9 @@ public class TechnicalIndicatorsTests
     [Fact]
     public void 附圖依固定順序疊加()
     {
-        var state = new PatternScanState();
+        var state = new ChartDisplaySettings();
         Assert.Equal(new[] { "volume" }, state.OrderedSubCharts);          // 預設只有成交量
+        Assert.Equal(new[] { "MA5", "MA10", "MA20", "MA60" }, state.VisibleMaNames);
         state.SubCharts.Add("rsi");
         state.SubCharts.Add("macd");
         state.SubCharts.Remove("volume");

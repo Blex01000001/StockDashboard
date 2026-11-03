@@ -1,0 +1,13 @@
+/* 附圖、指標參數、均線勾選：橫向排列在搜尋列下方 */
+.chart-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 28px;
+    margin-top: 12px;
+    max-width: 800px;
+}
+
+    .chart-options ::deep details {
+        min-width: 220px;
+    }

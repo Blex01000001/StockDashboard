@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using StockDashboard.Models.Patterns;
@@ -106,7 +106,7 @@ namespace StockDashboard.Components.Pages
             {
                 var horizons = Horizons;
                 var result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore,
-                    ScanService.CardDaysAfter(horizons), horizons, State.Indicators.Clone());
+                    ScanService.CardDaysAfter(horizons), horizons, State.Display.Indicators.Clone());
 
                 int remaining = MinLoadingMs - (int)stopwatch.ElapsedMilliseconds;
                 if (remaining > 0) await Task.Delay(remaining);
@@ -131,90 +131,13 @@ namespace StockDashboard.Components.Pages
             }
         }
 
-        // ── 附圖與指標參數 ──
+        // ── 附圖、均線、指標參數 (ChartDisplayOptions 元件) ──
 
-        protected void OnSubChartToggled(string value, ChangeEventArgs e)
+        // 指標參數改變時，用掃描時保留的完整日線立即重算小卡上的指標 (不查資料庫)
+        protected void OnDisplayChanged(bool indicatorsChanged)
         {
-            if (e.Value is true) State.SubCharts.Add(value);
-            else State.SubCharts.Remove(value);
-            _cardsNeedRender = true;
-        }
-
-        // 各附圖的可調參數：新增指標時在這裡加一組即可 (畫面自動產生收合的輸入框)
-        protected record IndicatorParam(string Label, string CssClass, Func<IndicatorSettings, int> Get, Action<IndicatorSettings, int> Set);
-        protected record IndicatorGroup(string SubChart, string Title, IndicatorParam[] Params);
-
-        protected static readonly IndicatorGroup[] IndicatorGroups =
-        {
-            new("macd", "MACD", new IndicatorParam[]
-            {
-                new("快線", "macd-fast", s => s.MacdFast, (s, v) => s.MacdFast = v),
-                new("慢線", "macd-slow", s => s.MacdSlow, (s, v) => s.MacdSlow = v),
-                new("訊號", "macd-signal", s => s.MacdSignal, (s, v) => s.MacdSignal = v),
-            }),
-            new("kd", "KD", new IndicatorParam[]
-            {
-                new("RSV天數", "kd-period", s => s.KdPeriod, (s, v) => s.KdPeriod = v),
-                new("K平滑", "kd-k", s => s.KdKSmooth, (s, v) => s.KdKSmooth = v),
-                new("D平滑", "kd-d", s => s.KdDSmooth, (s, v) => s.KdDSmooth = v),
-            }),
-            new("rsi", "RSI", new IndicatorParam[]
-            {
-                new("短週期", "rsi-fast", s => s.RsiFast, (s, v) => s.RsiFast = v),
-                new("長週期", "rsi-slow", s => s.RsiSlow, (s, v) => s.RsiSlow = v),
-            }),
-        };
-
-        protected static readonly IndicatorSettings DefaultIndicators = new();
-
-        // 各附圖參數的錯誤訊息 (Key = 附圖識別字)
-        protected Dictionary<string, string> IndicatorErrors { get; } = new();
-
-        protected void OnIndicatorChanged(IndicatorGroup group, IndicatorParam param, ChangeEventArgs e)
-        {
-            if (!int.TryParse(e.Value?.ToString(), out int value))
-            {
-                IndicatorErrors[group.SubChart] = "請輸入整數";
-                return;
-            }
-
-            var settings = State.Indicators.Clone();
-            param.Set(settings, value);
-
-            // 不合理的組合 (例如快線 ≥ 慢線) 不套用，只顯示原因
-            string? error = settings.Validate(group.SubChart);
-            if (error != null)
-            {
-                IndicatorErrors[group.SubChart] = error;
-                return;
-            }
-            IndicatorErrors.Remove(group.SubChart);
-            ApplyIndicatorSettings(settings);
-        }
-
-        protected void ResetIndicator(IndicatorGroup group)
-        {
-            var settings = State.Indicators.Clone();
-            foreach (var p in group.Params) p.Set(settings, p.Get(DefaultIndicators));
-            IndicatorErrors.Remove(group.SubChart);
-            ApplyIndicatorSettings(settings);
-        }
-
-        // 套用指標參數：已有掃描結果時，用保留的完整日線立即重算小卡上的指標
-        private void ApplyIndicatorSettings(IndicatorSettings settings)
-        {
-            State.Indicators = settings;
-            if (State.Result != null)
-            {
-                ScanService.RecomputeIndicators(State.Result, settings);
-                _cardsNeedRender = true;
-            }
-        }
-
-        protected void OnMovingAverageToggled(int period, ChangeEventArgs e)
-        {
-            if (e.Value is true) State.VisibleMovingAverages.Add(period);
-            else State.VisibleMovingAverages.Remove(period);
+            if (State.Result == null) return;
+            if (indicatorsChanged) ScanService.RecomputeIndicators(State.Result, State.Display.Indicators);
             _cardsNeedRender = true;
         }
 
@@ -257,7 +180,7 @@ namespace StockDashboard.Components.Pages
             try
             {
                 _jsModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>(
-                    "import", "./Components/Pages/PatternScan.razor.js");
+                    "import", AssetVersion.Module("./Components/Pages/PatternScan.razor.js"));
 
                 if (_previewNeedsRender)
                 {
@@ -276,8 +199,8 @@ namespace StockDashboard.Components.Pages
                         barCount = m.PatternBarCount,
                         candles = m.Candles
                     });
-                    var visibleMas = State.VisibleMovingAverages.Select(p => $"MA{p}").ToArray();
-                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, visibleMas, State.Result!.Horizons, State.OrderedSubCharts, State.Indicators);
+                    await _jsModule.InvokeVoidAsync("renderPatternCards", cards, State.Display.VisibleMaNames, State.Result!.Horizons,
+                        State.Display.OrderedSubCharts, State.Display.Indicators);
                 }
             }
             catch (JSDisconnectedException)

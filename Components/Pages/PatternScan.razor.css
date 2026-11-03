@@ -67,60 +67,6 @@
     gap: 8px;
 }
 
-/* 指標參數 (MACD / KD / RSI)：平常收折 */
-.indicator-params {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    padding: 4px 8px;
-}
-
-    .indicator-params summary {
-        cursor: pointer;
-        color: var(--text-main);
-    }
-
-.indicator-grid {
-    display: grid;
-    gap: 6px;
-    margin-top: 6px;
-}
-
-    .indicator-grid label {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-.indicator-foot {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-}
-
-.indicator-error {
-    color: #ff4a5a;
-}
-
-/* 顯示均線：一排小勾選 */
-.ma-toggles {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px 10px;
-}
-
-.ma-toggle {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 0.78rem;
-    color: var(--text-main);
-    cursor: pointer;
-}
-
 /* 掃描中的過場 */
 .scan-loading {
     display: flex;

@@ -1,0 +1,132 @@
+@using StockDashboard.Models.Patterns
+@using StockDashboard.Services
+@* 附圖勾選、指標參數 (收折)、顯示均線：型態掃描與技術圖表共用。改動後呼叫 OnChanged，由頁面重畫圖表 *@
+
+<div class="ctl-field">
+    <span>附圖（可複選，依序疊在 K 線下方）</span>
+    <div class="ma-toggles">
+        @foreach (var (value, label) in ChartDisplaySettings.SubChartOptions)
+        {
+            <label class="ma-toggle sub-toggle">
+                <input type="checkbox" checked="@Settings.SubCharts.Contains(value)" @onchange="e => OnSubChartToggled(value, e)" />
+                <span>@label</span>
+            </label>
+        }
+    </div>
+</div>
+@foreach (var group in IndicatorGroups.Where(g => Settings.SubCharts.Contains(g.SubChart)))
+{
+    @* 指標參數平常收折；調整後立即用已載入的日線重算 *@
+    <details class="indicator-params" data-indicator="@group.SubChart">
+        <summary>@group.Title 參數（@string.Join(", ", group.Params.Select(p => p.Get(Settings.Indicators)))）</summary>
+        <div class="indicator-grid" style="grid-template-columns: repeat(@group.Params.Length, 1fr)">
+            @foreach (var param in group.Params)
+            {
+                <label>@param.Label<input type="number" min="1" max="@IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
+                                         value="@param.Get(Settings.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" /></label>
+            }
+        </div>
+        <div class="indicator-foot">
+            @if (IndicatorErrors.TryGetValue(group.SubChart, out var error))
+            {
+                <span class="indicator-error">@error</span>
+            }
+            <button class="link-btn" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
+        </div>
+    </details>
+}
+<div class="ctl-field">
+    <span>顯示均線</span>
+    <div class="ma-toggles">
+        @foreach (var period in ChartDisplaySettings.MovingAveragePeriods)
+        {
+            <label class="ma-toggle">
+                <input type="checkbox" checked="@Settings.VisibleMovingAverages.Contains(period)" @onchange="e => OnMovingAverageToggled(period, e)" />
+                <span>@period</span>
+            </label>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ChartDisplaySettings Settings { get; set; } = default!;
+
+    // 參數 = 指標參數是否改變 (true 時頁面需重算指標再重畫；false 只需重畫)
+    [Parameter] public EventCallback<bool> OnChanged { get; set; }
+
+    // 各附圖的可調參數：新增指標時在這裡加一組即可 (畫面自動產生收合的輸入框)
+    public record IndicatorParam(string Label, string CssClass, Func<IndicatorSettings, int> Get, Action<IndicatorSettings, int> Set);
+    public record IndicatorGroup(string SubChart, string Title, IndicatorParam[] Params);
+
+    public static readonly IndicatorGroup[] IndicatorGroups =
+    {
+        new("macd", "MACD", new IndicatorParam[]
+        {
+            new("快線", "macd-fast", s => s.MacdFast, (s, v) => s.MacdFast = v),
+            new("慢線", "macd-slow", s => s.MacdSlow, (s, v) => s.MacdSlow = v),
+            new("訊號", "macd-signal", s => s.MacdSignal, (s, v) => s.MacdSignal = v),
+        }),
+        new("kd", "KD", new IndicatorParam[]
+        {
+            new("RSV天數", "kd-period", s => s.KdPeriod, (s, v) => s.KdPeriod = v),
+            new("K平滑", "kd-k", s => s.KdKSmooth, (s, v) => s.KdKSmooth = v),
+            new("D平滑", "kd-d", s => s.KdDSmooth, (s, v) => s.KdDSmooth = v),
+        }),
+        new("rsi", "RSI", new IndicatorParam[]
+        {
+            new("短週期", "rsi-fast", s => s.RsiFast, (s, v) => s.RsiFast = v),
+            new("長週期", "rsi-slow", s => s.RsiSlow, (s, v) => s.RsiSlow = v),
+        }),
+    };
+
+    private static readonly IndicatorSettings DefaultIndicators = new();
+
+    // 各附圖參數的錯誤訊息 (Key = 附圖識別字)
+    private Dictionary<string, string> IndicatorErrors { get; } = new();
+
+    private Task OnSubChartToggled(string value, ChangeEventArgs e)
+    {
+        if (e.Value is true) Settings.SubCharts.Add(value);
+        else Settings.SubCharts.Remove(value);
+        return OnChanged.InvokeAsync(false);
+    }
+
+    private Task OnMovingAverageToggled(int period, ChangeEventArgs e)
+    {
+        if (e.Value is true) Settings.VisibleMovingAverages.Add(period);
+        else Settings.VisibleMovingAverages.Remove(period);
+        return OnChanged.InvokeAsync(false);
+    }
+
+    private Task OnIndicatorChanged(IndicatorGroup group, IndicatorParam param, ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out int value))
+        {
+            IndicatorErrors[group.SubChart] = "請輸入整數";
+            return Task.CompletedTask;
+        }
+
+        var settings = Settings.Indicators.Clone();
+        param.Set(settings, value);
+
+        // 不合理的組合 (例如快線 ≥ 慢線) 不套用，只顯示原因
+        string? error = settings.Validate(group.SubChart);
+        if (error != null)
+        {
+            IndicatorErrors[group.SubChart] = error;
+            return Task.CompletedTask;
+        }
+        IndicatorErrors.Remove(group.SubChart);
+        Settings.Indicators = settings;
+        return OnChanged.InvokeAsync(true);
+    }
+
+    private Task ResetIndicator(IndicatorGroup group)
+    {
+        var settings = Settings.Indicators.Clone();
+        foreach (var p in group.Params) p.Set(settings, p.Get(DefaultIndicators));
+        IndicatorErrors.Remove(group.SubChart);
+        Settings.Indicators = settings;
+        return OnChanged.InvokeAsync(true);
+    }
+}

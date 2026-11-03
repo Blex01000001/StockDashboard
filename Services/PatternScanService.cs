@@ -81,7 +81,7 @@ namespace StockDashboard.Services
                 if (matches.Count > 0) result.FullCandles[stockId] = candles;
                 names.TryGetValue(stockId, out var name);
                 matches.ForEach(m => m.StockName = name);
-                if (matches.Count > 0) ApplyInstitutional(matches, await GetInstitutionalOrEmptyAsync(stockId));
+                if (matches.Count > 0) ApplyInstitutional(matches, await _institutionalRepository.GetByStockOrEmptyAsync(stockId));
                 result.Matches.AddRange(matches);
             }
 
@@ -94,28 +94,18 @@ namespace StockDashboard.Services
             return result;
         }
 
-        // 三大法人只是附圖：讀取失敗 (例如舊資料庫) 不影響掃描，附圖顯示「無資料」
-        private async Task<IEnumerable<InstitutionalDailyEntity>> GetInstitutionalOrEmptyAsync(string stockId)
-        {
-            try
-            {
-                return await _institutionalRepository.GetByStockAsync(stockId);
-            }
-            catch
-            {
-                return Enumerable.Empty<InstitutionalDailyEntity>();
-            }
-        }
-
         /// <summary>
         /// 依日期把單檔股票的三大法人資料填入小卡 K 棒；沒有對應日期的維持 null (圖上留空)。
         /// </summary>
-        public static void ApplyInstitutional(IEnumerable<PatternMatch> matchesOfStock, IEnumerable<InstitutionalDailyEntity> rows)
+        public static void ApplyInstitutional(IEnumerable<PatternMatch> matchesOfStock, IEnumerable<InstitutionalDailyEntity> rows) =>
+            ApplyInstitutional(matchesOfStock.SelectMany(m => m.Candles), rows);
+
+        public static void ApplyInstitutional(IEnumerable<PatternCandle> candles, IEnumerable<InstitutionalDailyEntity> rows)
         {
             var byDate = new Dictionary<string, InstitutionalDailyEntity>();
             foreach (var row in rows) byDate[row.TradeDate] = row;
 
-            foreach (var candle in matchesOfStock.SelectMany(m => m.Candles))
+            foreach (var candle in candles)
             {
                 if (!byDate.TryGetValue(candle.Date, out var row)) continue;
                 candle.TotalNet = row.TotalNet;
@@ -148,10 +138,7 @@ namespace StockDashboard.Services
                 for (int k = start; k <= end; k++)
                 {
                     var c = candles[k];
-                    window.Add(new PatternCandle
-                    {
-                        Date = c.Date, Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume
-                    });
+                    window.Add(PatternCandle.From(c));
                 }
 
                 matches.Add(new PatternMatch
@@ -175,7 +162,13 @@ namespace StockDashboard.Services
         /// 以完整日線計算技術指標 (均線、量均線、MACD、KD、RSI)，填入同一檔股票各小卡的 K 棒。
         /// 用完整歷史計算，小卡最左邊的數值才會正確。
         /// </summary>
-        public static void ApplyIndicators(IEnumerable<PatternMatch> matchesOfStock, IReadOnlyList<StockDataPoint> candles, IndicatorSettings s)
+        public static void ApplyIndicators(IEnumerable<PatternMatch> matchesOfStock, IReadOnlyList<StockDataPoint> candles, IndicatorSettings s) =>
+            ApplyIndicators(matchesOfStock.Select(m => (m.WindowStart, (IReadOnlyList<PatternCandle>)m.Candles)), candles, s);
+
+        /// <summary>
+        /// 同上，對任意顯示範圍：Start = 範圍第一根在完整日線中的位置 (技術圖表頁也用這個)。
+        /// </summary>
+        public static void ApplyIndicators(IEnumerable<(int Start, IReadOnlyList<PatternCandle> Candles)> windows, IReadOnlyList<StockDataPoint> candles, IndicatorSettings s)
         {
             var closes = candles.Select(c => c.Close).ToList();
             var volumes = candles.Select(c => (double)c.Volume).ToList();
@@ -192,12 +185,12 @@ namespace StockDashboard.Services
             double?[] rsiFast = TechnicalIndicators.Rsi(closes, s.RsiFast);
             double?[] rsiSlow = TechnicalIndicators.Rsi(closes, s.RsiSlow);
 
-            foreach (var match in matchesOfStock)
+            foreach (var (start, window) in windows)
             {
-                for (int j = 0; j < match.Candles.Count; j++)
+                for (int j = 0; j < window.Count; j++)
                 {
-                    int k = match.WindowStart + j;
-                    var c = match.Candles[j];
+                    int k = start + j;
+                    var c = window[j];
                     c.Ma5 = ma5[k]; c.Ma10 = ma10[k]; c.Ma20 = ma20[k]; c.Ma60 = ma60[k]; c.Ma120 = ma120[k];
                     c.VolMa5 = volMa5[k]; c.VolMa10 = volMa10[k];
                     c.Dif = dif[k]; c.Macd = macd[k]; c.Osc = osc[k];

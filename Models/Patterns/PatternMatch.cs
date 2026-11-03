@@ -36,6 +36,9 @@ namespace StockDashboard.Models.Patterns
     /// </summary>
     public class PatternCandle
     {
+        public static PatternCandle From(StockDataPoint c) =>
+            new() { Date = c.Date, Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume };
+
         public string Date { get; set; } = string.Empty;
         public double Open { get; set; }
         public double High { get; set; }

@@ -7,14 +7,17 @@
 | 檔案 | 負責 | 常見修改 |
 |---|---|---|
 | `Program.cs` | DI 註冊、HttpClient 設定、啟動流程 | 新增 Service / Repository 註冊 |
-| `Components/App.razor` | HTML 外殼、CSS/JS 載入 | 新增全域 CSS（要加 `?v=@AssetVersion`） |
+| `Components/App.razor` | HTML 外殼、CSS/JS 載入 | 新增全域 CSS（要加 `?v=@AssetVersion.Value`） |
+| `Components/AssetVersion.cs` | 靜態檔版本號（MVID）；頁面 JS 模組用 `AssetVersion.Module(path)` 載入 | |
 | `Components/Layout/NavMenu.razor` | 側邊欄連結 | 新增頁面時加連結 |
 | `Components/Pages/StockQuery.*` | `/stock-query` 單檔最新日線＋名稱 | |
-| `Components/Pages/StockChart.*` | `/stock-chart` K 線圖（`.razor.js` 畫 ECharts） | 圖表設定改 `.razor.js` |
+| `Components/Pages/StockChart.*` | `/stock-chart` 技術圖表：最近 220 根 K 線＋均線＋附圖（同型態掃描），可縮放；狀態在 Scoped `StockChartState` | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
 | `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`） | 小卡與預覽圖改 `.razor.js` |
 | `Components/Pages/StockUpdate.*` | `/stock-update` 依來源分框（`.source-group`）：證交所（日線逐月、三大法人逐日、股票清單）、FinMind（個股多年三大法人）；卡片標題下列 API 簡短網址 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
+| `Components/Shared/ChartDisplayOptions.razor` | 附圖勾選、指標參數（收折，`IndicatorGroups`）、均線勾選；型態掃描與技術圖表共用，改動後 `OnChanged(指標是否改變)` | 新增附圖／指標參數 |
+| `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
 | `Services/InstitutionalSyncService.cs` | 三大法人逐日同步（T86 買賣超＋MI_QFIIS 外資持股），寫入 `InstitutionalDaily`、記錄 `InstitutionalSyncLog` | |
 | `Services/FinMindApiClient.cs` | FinMind API（匿名、無 Token）：個股三大法人買賣超（每日多列合併）、外資持股；`ip banned`／402 丟 `FinMindBlockedException` | FinMind 格式改變時 |
@@ -25,7 +28,9 @@
 | `Services/Patterns/PatternFilters.cs` | 共用條件（先下跌／先上漲、量增）與範例 K 線輔助 | |
 | `Services/Patterns/TechnicalIndicators.cs` | 技術指標（SMA、MACD、KD、RSI）純計算 | 新增指標時（補測試） |
 | `Services/PatternScanService.cs` | 掃描：讀完整日線 → 判斷 → 切小卡範圍、均線、三大法人（`ApplyInstitutional`）、之後報酬、勝率 | |
-| `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped） | 新增要保留的輸入時 |
+| `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped）；附圖／均線／指標設定在 `Display`（`ChartDisplaySettings`） | 新增要保留的輸入時 |
+| `Services/ChartDisplaySettings.cs` | 附圖選項與順序、均線選項與預設、指標參數 | 新增附圖時加到 `SubChartOptions` |
+| `Services/StockChartService.cs` | 技術圖表資料：完整日線算指標，取最近 N 根，填三大法人（共用 `PatternScanService` 靜態方法） | |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
 | `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`） | |
 | `Repositories/Implements/InstitutionalRepository.cs` | `InstitutionalDaily`／`InstitutionalSyncLog`／`FinMindSyncLog` 讀寫 | |
@@ -82,7 +87,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 
 | 做法 | 原因 |
 |---|---|
-| `App.razor` 的 CSS 網址加 `?v=<組件 MVID>` | .NET 8 無靜態檔指紋，瀏覽器會沿用舊 CSS 造成版面全亂（使用者實際遇過） |
+| `App.razor` 的 CSS 網址、頁面 JS 模組都加 `?v=<組件 MVID>`（`AssetVersion`）；共用 JS 由模組沿用自己的 `?v=` 動態 import | .NET 8 無靜態檔指紋，瀏覽器會沿用舊 CSS／JS 造成版面全亂（使用者實際遇過） |
 | `Program.cs` 呼叫 `UseStaticWebAssets()` | 使用者可能直接執行 `bin/` 下的 exe（Production 環境），沒有它 CSS 全部 404 |
 | 頁面樣式用 scoped `.razor.css`，不用 `<style>` | `<style>` 是全域且只在當頁存在，曾導致 StockUpdate 完全沒樣式 |
 | scoped CSS 不用 `:root`，頁面變數定義在最外層元素 | scoped 會變成 `:root[b-xxx]` 而失效 |
@@ -108,7 +113,8 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
 - 型態掃描：小卡為型態成立日前 10 天、後 max(20, 最長觀察天數) 天；均線 MA5／10／20／60／120 用完整歷史計算，預設顯示 5／10／20／60（使用者指定）；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
 - 小卡附圖可複選、依 成交量→MACD→KD→RSI→三大法人→外資→投信→自營商 疊在 K 線下方；**K 線區高度固定 150px**，每多一個附圖小卡增高一列（版面數值在 `.razor.js` 的 `LAYOUT`）。預設只有成交量（使用者指定；含量 MA5／MA10）。
-- 指標預設：MACD 12,26,9（DIF − 訊號線 = OSC 柱狀，正紅負綠；EMA 以第一筆收盤為起始值）、KD 9,3,3（K/D 起始 50，參考線 80/20）、RSI 6 與 12（Wilder 平滑，參考線 70/30）。三者參數都可在頁面調整（定義在 `PatternScan.razor.cs` 的 `IndicatorGroups`，新增指標時加一組）。
+- 技術圖表頁與型態掃描用同一套附圖、均線、指標（使用者要求）：K 線區固定 340px、每個附圖 88px；均線與指標用完整歷史計算，只畫最近 220 根；預設縮放顯示最後 20%，換附圖時保留目前縮放範圍。
+- 指標預設：MACD 12,26,9（DIF − 訊號線 = OSC 柱狀，正紅負綠；EMA 以第一筆收盤為起始值）、KD 9,3,3（K/D 起始 50，參考線 80/20）、RSI 6 與 12（Wilder 平滑，參考線 70/30）。三者參數都可在頁面調整（定義在 `ChartDisplayOptions.razor` 的 `IndicatorGroups`，新增指標時加一組）。
 - 指標用 `PatternScanService.ApplyIndicators` 以完整日線計算；掃描結果保留各股完整日線（`FullCandles`），調整指標參數時 `RecomputeIndicators` 即時重算，不重新查資料庫。
 - 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者輸入的「額外觀察天數」（可多組，如 `60,120`，1～250 天；以完整歷史計算，可超過小卡的後 20 天）。
 - 三大法人附圖（使用者指定）：單位「張」（股 ÷ 1000），正紅負綠。「三大法人」只畫合計買賣超柱狀；「外資」= 外陸資（不含外資自營商）＋ 外資自營商，另畫「全體外資及陸資持股比率」線（自己的 Y 軸）；投信、自營商（自行買賣＋避險）只畫買賣超。整張小卡無資料時顯示提示。證交所同步範圍：最近一週（預設）／最近一個月（使用者指定）。FinMind 分類換算：外資 = `Foreign_Investor`、外資自營商 = `Foreign_Dealer_Self`（2017-12-18 前無此列，留 null）、投信 = `Investment_Trust`、自營商 = `Dealer` + `Dealer_self` + `Dealer_Hedging`（2014-12-01 前後擇一有值）；持股比例 = `TaiwanStockShareholding.ForeignInvestmentSharesRatio`。

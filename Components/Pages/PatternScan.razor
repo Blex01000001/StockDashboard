@@ -1,4 +1,4 @@
-@page "/pattern-scan"
+﻿@page "/pattern-scan"
 
 <PageTitle>QUANT STACK | K線型態掃描</PageTitle>
 
@@ -40,51 +40,7 @@
                     <input type="text" placeholder="例如 60,120" class="dark-input extra-horizon-input" @bind="State.ExtraHorizonsInput" />
                 </label>
             </div>
-            <div class="ctl-field">
-                <span>附圖（可複選，依序疊在 K 線下方）</span>
-                <div class="ma-toggles">
-                    @foreach (var (value, label) in StockDashboard.Services.PatternScanState.SubChartOptions)
-                    {
-                        <label class="ma-toggle sub-toggle">
-                            <input type="checkbox" checked="@State.SubCharts.Contains(value)" @onchange="e => OnSubChartToggled(value, e)" />
-                            <span>@label</span>
-                        </label>
-                    }
-                </div>
-            </div>
-            @foreach (var group in IndicatorGroups.Where(g => State.SubCharts.Contains(g.SubChart)))
-            {
-                @* 指標參數平常收折；調整後立即用已載入的日線重算，不必重新掃描 *@
-                <details class="indicator-params" data-indicator="@group.SubChart">
-                    <summary>@group.Title 參數（@string.Join(", ", group.Params.Select(p => p.Get(State.Indicators)))）</summary>
-                    <div class="indicator-grid" style="grid-template-columns: repeat(@group.Params.Length, 1fr)">
-                        @foreach (var param in group.Params)
-                        {
-                            <label>@param.Label<input type="number" min="1" max="@Models.Patterns.IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
-                                                     value="@param.Get(State.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" /></label>
-                        }
-                    </div>
-                    <div class="indicator-foot">
-                        @if (IndicatorErrors.TryGetValue(group.SubChart, out var error))
-                        {
-                            <span class="indicator-error">@error</span>
-                        }
-                        <button class="link-btn" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
-                    </div>
-                </details>
-            }
-            <div class="ctl-field">
-                <span>顯示均線</span>
-                <div class="ma-toggles">
-                    @foreach (var period in StockDashboard.Services.PatternScanState.MovingAveragePeriods)
-                    {
-                        <label class="ma-toggle">
-                            <input type="checkbox" checked="@State.VisibleMovingAverages.Contains(period)" @onchange="e => OnMovingAverageToggled(period, e)" />
-                            <span>@period</span>
-                        </label>
-                    }
-                </div>
-            </div>
+            <ChartDisplayOptions Settings="State.Display" OnChanged="OnDisplayChanged" />
         </div>
 
         @* ── 型態參數 (依型態的參數定義自動產生) ── *@

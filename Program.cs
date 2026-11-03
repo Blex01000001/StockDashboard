@@ -40,6 +40,7 @@ builder.Services.AddScoped<IInstitutionalRepository, InstitutionalRepository>();
 // ── 商業邏輯層 (Service) ──
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
 builder.Services.AddScoped<IPatternScanService, PatternScanService>();
+builder.Services.AddScoped<IStockChartService, StockChartService>();
 builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
 builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 
@@ -51,6 +52,7 @@ builder.Services.AddSingleton<ICandlePattern, ThreeBlackCrowsPattern>();
 
 // 型態掃描頁的畫面狀態 (每個瀏覽器分頁一份，切換頁面後保留)
 builder.Services.AddScoped<PatternScanState>();
+builder.Services.AddScoped<StockChartState>();
 
 var app = builder.Build();
 
