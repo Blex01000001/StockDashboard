@@ -95,7 +95,8 @@ namespace StockDashboard.Components.Pages
             var started = DateTime.Now;
             SetInstitutionalStatus("準備同步三大法人資料...", false);
 
-            var progress = new Progress<InstitutionalSyncProgress>(p =>
+            // 不用 Progress<T>：它的回呼是非同步排入的，可能在同步結束後才執行，蓋掉最後的結果訊息
+            var progress = new SyncProgress(p =>
             {
                 string eta = "";
                 if (p.Done > 0 && p.Done < p.Total)
@@ -138,6 +139,11 @@ namespace StockDashboard.Components.Pages
                 _institutionalCts = null;
                 await InvokeAsync(StateHasChanged);
             }
+        }
+
+        private sealed class SyncProgress(Action<InstitutionalSyncProgress> onReport) : IProgress<InstitutionalSyncProgress>
+        {
+            public void Report(InstitutionalSyncProgress value) => onReport(value);
         }
 
         public void StopInstitutionalSync()

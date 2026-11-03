@@ -8,7 +8,7 @@ namespace StockDashboard.Services
     /// <summary>同步結果</summary>
     public class InstitutionalSyncResult
     {
-        public int DaysWithData { get; set; }      // 這次實際抓到資料的交易日數
+        public int DaysWithData { get; set; }      // 這次新抓到資料的交易日數 (略過的已下載日期不算)
         public int RowsWritten { get; set; }       // 寫入的資料筆數 (兩個來源合計)
         public int Requests { get; set; }          // 向證交所發出的請求數
         public int SkippedChecks { get; set; }     // 因為已查過而略過的「日期 × 來源」數
@@ -94,7 +94,6 @@ namespace StockDashboard.Services
                     if (!NeedsCheck(day, checkedDates))
                     {
                         result.SkippedChecks++;
-                        if (checkedDates[date].HasData) dayHasData = true;
                         continue;
                     }
 

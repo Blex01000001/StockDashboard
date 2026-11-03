@@ -203,7 +203,7 @@ public class InstitutionalSyncServiceTests : IDisposable
         Assert.Empty(twse.Calls);
         Assert.Equal(0, result.Requests);
         Assert.Equal(10, result.SkippedChecks);
-        Assert.Equal(4, result.DaysWithData);
+        Assert.Equal(0, result.DaysWithData);   // 只算這次新抓到的
     }
 
     [Fact]
