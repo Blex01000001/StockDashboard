@@ -2,7 +2,7 @@
 // 附圖定義與組圖程式在 wwwroot/js/candle-chart.js (與型態掃描小卡共用)
 
 // 版本參數沿用本檔網址的 ?v=，讓共用檔也跟著更新 (避免瀏覽器沿用快取中的舊版)
-const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
+const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, infoTexts, infoRich } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
 
 // 版面 (像素)：K 線區高度固定，每多一個附圖，圖表就增高 subLegend + subHeight
 const LAYOUT = {
@@ -74,7 +74,8 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
         },
         tooltipTitle: c => `日期：${c.date}${c.date === focusDate ? '（型態成立）' : ''}`,
         dateFormatter: d => d,
-        maLegend: { top: 30, right: LAYOUT.right }
+        maLegend: { top: 32, right: LAYOUT.right },
+        headerInfo: true
     });
     option.title = { text: `${stockLabel} 技術分析圖`, textStyle: { color: '#fff' } };
     option.legend[0].selected = Object.fromEntries(MA_LINES.map(m => [m.name, (visibleMas || []).includes(m.name)]));
@@ -86,7 +87,25 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
             borderColor: '#2d3139', textStyle: { color: '#8392A5' }, handleStyle: { color: '#8392A5' }
         }
     ];
+    // 當天數值顯示在各圖上方：預設最新一天（或標示日），滑鼠移動時跟著十字線，移開後回到預設
+    const defaultIndex = Math.max(0, focusDate ? candles.findIndex(c => c.date === focusDate) : candles.length - 1);
+    chart.__info = { candles, subs, settings: settings || {}, visibleMas: visibleMas || [], defaultIndex };
+    const rich = infoRich();
+    const showInfo = index => {
+        const i = chart.__info;
+        const texts = infoTexts(i.candles, i.subs, i.settings, i.visibleMas, index);
+        chart.setOption({ graphic: Object.entries(texts).map(([id, text]) => ({ id, type: 'text', style: { text, rich } })) });
+    };
     chart.setOption(option, true);
+    showInfo(defaultIndex);
+    chart.off('updateAxisPointer');
+    chart.off('globalout');
+    chart.on('updateAxisPointer', e => {
+        const v = e.axesInfo?.[0]?.value;
+        const idx = typeof v === 'number' ? v : candles.findIndex(c => c.date === v);
+        if (idx >= 0 && idx < candles.length) showInfo(idx);
+    });
+    chart.on('globalout', () => showInfo(chart.__info.defaultIndex));
 }
 
 export function disposeChart(containerId) {

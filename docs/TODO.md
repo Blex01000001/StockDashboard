@@ -10,7 +10,7 @@
 3. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
 4. 【使用者】在自己的電腦實際測試「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
 5. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
-6. 【直接做】`tools/make-test-db.py` 的最高／最低價沒有四捨五入（提示框出現 `872.1892499999`）：改為 2 位小數；會改變 UI 快照基準，改完重新擷取 before。
+6. 【直接做】`tools/make-test-db.py` 的最高／最低價沒有四捨五入（技術圖表上方資訊列出現 `889.0029`）：改為 2 位小數；會改變 UI 快照基準，改完重新擷取 before。
 7. 【直接做】`IStockPriceRepository.GetLatestCandlesAsync` 網站已不再使用（技術圖表改用 `GetAllCandlesAsync`），只剩測試：刪除介面／實作與對應測試，或保留並註明用途。
 8. 【先討論】還原股價：實作 `StockPriceService.ApplyDividendAdjustment`（未註冊 DI），需除權息資料來源、資料表與 `IStockDividendRepository` 實作；`StockCorporateAction*`、`StockCombinationDto` 也是規劃中的空殼。
 
@@ -25,6 +25,7 @@
 - FinMind 匿名請求額度未查證（印象約每小時 300 次）；每檔 2 個請求，一次同步太多檔可能達上限而自動停止。
 - 型態掃描頁與技術圖表頁的附圖／均線／指標設定各自獨立，不會互相帶入（小卡連結開啟技術圖表時也不帶）。
 - 技術圖表從小卡開啟後網址帶 `?id=&date=`，在該頁按 F5 會重新標示同一個型態日。
+- 技術圖表沒有提示框與圖例：當天數值顯示在各圖上方，均線只能用上方勾選開關，附圖線不能再點圖例隱藏；型態掃描小卡仍用提示框與圖例。
 - 附圖全部勾選時小卡與技術圖表會很高（每個附圖固定一列，刻意的設計）。
 
 ## 想法

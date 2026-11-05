@@ -30,6 +30,7 @@ function netChart(key, label, extraLines, extraTooltip) {
         barName: `${label}買賣超(張)`,
         lines: () => extraLines || [],
         hasData: c => c[key] != null,
+        barText: c => `${label} ${signed(toLots(c[key]))} 張`,
         tooltip: c => `${label} ${signed(toLots(c[key]))} 張${extraTooltip ? extraTooltip(c) : ''}`
     };
 }
@@ -41,13 +42,16 @@ function netChart(key, label, extraLines, extraTooltip) {
 export const SUB_CHARTS = {
     volume: {
         bars: c => ({ value: c.volume, itemStyle: { color: c.close >= c.open ? UP : DOWN } }),
-        lines: () => [{ key: 'volMa5', name: '量MA5', color: LINE_A }, { key: 'volMa10', name: '量MA10', color: '#ab47bc' }],
+        lines: () => [{ key: 'volMa5', name: '量MA5', color: LINE_A, fmt: v => v.toLocaleString() },
+                      { key: 'volMa10', name: '量MA10', color: '#ab47bc', fmt: v => v.toLocaleString() }],
+        barText: c => `量 ${c.volume.toLocaleString()}`,
         tooltip: c => `量 ${c.volume.toLocaleString()}　量MA5 ${c.volMa5?.toLocaleString() ?? '-'}　量MA10 ${c.volMa10?.toLocaleString() ?? '-'}`
     },
     macd: {
         // OSC 柱狀：正紅負綠
         bars: c => ({ value: c.osc, itemStyle: { color: (c.osc ?? 0) >= 0 ? UP : DOWN } }),
         lines: () => [{ key: 'dif', name: 'DIF', color: LINE_A }, { key: 'macd', name: 'MACD', color: LINE_B }],
+        barText: c => `OSC ${c.osc ?? '-'}`,
         tooltip: c => `DIF ${c.dif ?? '-'}　MACD ${c.macd ?? '-'}　OSC ${c.osc ?? '-'}`
     },
     kd: {
@@ -63,7 +67,7 @@ export const SUB_CHARTS = {
     // 三大法人：只畫合計買賣超；外資另畫持股比例；投信、自營商只畫買賣超 (使用者指定)
     inst: netChart('totalNet', '三大法人'),
     foreign: netChart('foreignNet', '外資',
-        [{ key: 'foreignHoldingPct', name: '持股%', color: HOLDING_COLOR, ownAxis: true }],
+        [{ key: 'foreignHoldingPct', name: '持股%', label: '持股', color: HOLDING_COLOR, ownAxis: true, fmt: v => v + '%' }],
         c => `　持股 ${c.foreignHoldingPct != null ? c.foreignHoldingPct + '%' : '-'}`),
     trust: netChart('trustNet', '投信'),
     dealer: netChart('dealerNet', '自營商')
@@ -80,10 +84,40 @@ export function legendStyle(extra) {
 }
 
 
+// 資訊列 (滑鼠所在那一天的數值，顯示在各圖上方；headerInfo 模式用，取代提示框與圖例)
+// 文字用 ECharts rich text：{色碼key|文字}，色碼 key 在 RICH 登記
+const RICH = { w: { fill: '#fff', fontWeight: 'bold' }, n: { fill: '#d1d4dc' } };
+const rc = (color, text) => {
+    const key = 'c' + color.replace('#', '');
+    RICH[key] = { fill: color };
+    return `{${key}|${text}}`;
+};
+const val = (v, fmt) => v == null ? '-' : (fmt ? fmt(v) : v);
+
+// 回傳 { id: 文字 }：'info-main' = K 線上方；'info-<附圖代號>' = 各附圖上方
+export function infoTexts(candles, subs, settings, visibleMas, index) {
+    const c = candles[index];
+    if (!c) return {};
+    const color = c.close >= c.open ? UP : DOWN;
+    const main = [`{w|${c.date}}`,
+        rc(color, `開 ${c.open}　高 ${c.high}　低 ${c.low}　收 ${c.close}`),
+        ...MA_LINES.filter(m => (visibleMas || []).includes(m.name)).map(m => rc(m.color, `${m.name} ${val(c[m.key])}`))].join('　');
+    const texts = { 'info-main': main };
+    for (const sub of subs) {
+        const def = SUB_CHARTS[sub];
+        const parts = [];
+        if (def.barText) parts.push(`{n|${def.barText(c)}}`);
+        for (const l of def.lines(settings)) parts.push(rc(l.color, `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`));
+        texts['info-' + sub] = parts.join('　');
+    }
+    return texts;
+}
+export const infoRich = () => RICH;
+
 // K 線區 (高度固定) + 附圖依序疊在下方，所有 grid 共用同一條時間軸
 // layout：{ top, candleHeight, subLegend, subHeight, left, right }；mainSeries：K 線 series (可帶頁面自己的標記)
 // tooltipTitle(c)：提示框標題；dateFormatter：最下方日期標籤格式；maLegend：均線圖例的位置
-export function buildStackedOption({ candles, subs, settings, layout, mainSeries, tooltipTitle, dateFormatter, maLegend }) {
+export function buildStackedOption({ candles, subs, settings, layout, mainSeries, tooltipTitle, dateFormatter, maLegend, headerInfo }) {
     const dates = candles.map(c => c.date);
     const LAYOUT = layout;
     const SUB_ROW = layout.subLegend + layout.subHeight;
@@ -139,6 +173,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         });
         // 附圖圖例：放在該附圖左上方
         legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
+        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
         if (def.hasData && !candles.some(def.hasData)) {
             graphics.push({ type: 'text', left: 'center', top: top + LAYOUT.subHeight / 2 - 6,
                             style: { text: NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
@@ -146,11 +181,19 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
     });
     yAxes.push(...extraYAxes);
 
+    if (headerInfo) {
+        // 改在各圖上方顯示當天數值：不用提示框 (只留十字線)，圖例隱藏 (仍保留均線的顯示狀態)，日期只在 K 線上方出現一次
+        graphics.push({ id: 'info-main', type: 'text', left: LAYOUT.left, top: maLegend.top, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
+        legends.forEach(l => { l.show = false; });
+        xAxes.forEach(x => { x.axisPointer = { label: { show: false } }; });
+    }
+
     return {
         animation: false,
         legend: legends,
         tooltip: {
             trigger: 'axis',
+            showContent: !headerInfo,
             axisPointer: { type: 'cross' },
             backgroundColor: 'rgba(30, 34, 45, 0.9)',
             borderColor: '#434651',
