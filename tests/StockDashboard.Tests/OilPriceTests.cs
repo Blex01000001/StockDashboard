@@ -220,3 +220,51 @@ public class OilPriceApplyTests
         Assert.Equal(new[] { "volume", "dealer", "oil" }, state.OrderedSubCharts);
     }
 }
+
+public class LocalPathOpenerTests
+{
+    [Fact]
+    public void 各系統的開啟指令()
+    {
+        var winFile = LocalPathOpener.BuildStartInfo(@"C:\app\appsettings.json", false, isWindows: true, isMac: false);
+        Assert.Equal(("notepad.exe", @"C:\app\appsettings.json"), (winFile.FileName, Assert.Single(winFile.ArgumentList)));
+
+        var winFolder = LocalPathOpener.BuildStartInfo(@"C:\app", true, isWindows: true, isMac: false);
+        Assert.Equal("explorer.exe", winFolder.FileName);
+
+        var macFile = LocalPathOpener.BuildStartInfo("/app/appsettings.json", false, isWindows: false, isMac: true);
+        Assert.Equal("open", macFile.FileName);
+        Assert.Equal(new[] { "-t", "/app/appsettings.json" }, macFile.ArgumentList.ToArray());
+
+        var linux = LocalPathOpener.BuildStartInfo("/app", true, isWindows: false, isMac: false);
+        Assert.Equal("xdg-open", linux.FileName);
+    }
+
+    [Fact]
+    public void 路徑含空白時當成單一參數_不經過命令列字串()
+    {
+        var info = LocalPathOpener.BuildStartInfo(@"C:\My Apps\Stock Dashboard\appsettings.json", false, true, false);
+        Assert.Single(info.ArgumentList);
+        Assert.True(string.IsNullOrEmpty(info.Arguments));
+    }
+
+    [Fact]
+    public void 設定檔不存在時提示複製範本()
+    {
+        var env = new FakeEnv(Path.Combine(Path.GetTempPath(), $"no-settings-{Guid.NewGuid():N}"));
+        var opener = new LocalPathOpener(env);
+        Assert.False(opener.SettingsFileExists);
+        var ex = Assert.Throws<FileNotFoundException>(opener.OpenSettingsFile);
+        Assert.Contains("appsettings.Example.json", ex.Message);
+    }
+
+    private sealed class FakeEnv(string root) : Microsoft.AspNetCore.Hosting.IWebHostEnvironment
+    {
+        public string ContentRootPath { get; set; } = root;
+        public string WebRootPath { get; set; } = root;
+        public string ApplicationName { get; set; } = "t";
+        public string EnvironmentName { get; set; } = "Test";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
+        public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = null!;
+    }
+}
