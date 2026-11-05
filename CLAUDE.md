@@ -2,6 +2,8 @@
 
 台股報酬可視化工具：.NET 8 Blazor Web App（**Interactive Server**，C# 全在伺服器端）＋ SQLite（Dapper，無 EF Core）＋ ECharts（CDN）。個人專案，使用者非資訊本科。**聊天回覆與程式註解用繁體中文；commit 訊息用英文。** 細節以程式碼與註解為準。
 
+**開始新工作前先讀 `docs/TODO.md`**（待辦、已知問題、想法）。
+
 ## 檔案地圖
 
 | 檔案 | 負責 | 常見修改 |
@@ -39,6 +41,7 @@
 | `wwwroot/app.css` | 全域：色彩變數、版面、側邊欄、共用面板 `.panel-standard` | |
 | `Components/Layout/NavMenu.razor.css` | 側邊欄連結實際生效的樣式（權重高於 `app.css`） | |
 | `Components/Pages/*.razor.css` | 各頁 scoped CSS | |
+| `docs/TODO.md` | 目前狀態：待辦（有編號與標記）、已知問題／限制、想法；**每次 commit 時同步更新** | 每次 commit |
 | `appsettings.Example.json` | 設定範本（`appsettings.json` 被 gitignore） | 新增設定鍵時同步更新 |
 | `tests/StockDashboard.Tests/` | xUnit：`TwseApiClient` 解析、報酬率計算、Repository（暫存 SQLite） | 改這些類別時補測試 |
 | `tests/.../Fixtures/` | 證交所實際回應範例（測試與 `fake-twse.py` 共用） | 證交所格式改變時更新 |
@@ -139,11 +142,13 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 需要了解過去的修改時，用 git log 查詢
 - commit 訊息使用英文
 
-## PROGRESS.md
-- 記錄已知限制與待辦，需要時再讀，不必每次 commit 都讀
-- 只在以下情況更新：完成待辦項目、發現新的已知限制或問題
-- 完成的待辦直接刪除，不要搬到「已完成」
-- 發現限制或問題解除時直接刪除
+## TODO 維護規則
+（原 `PROGRESS.md` 已併入 `docs/TODO.md`）
+- 每次 commit 時一併更新 `docs/TODO.md`：做完的刪掉、新發現的加進去、不適用的刪掉或改寫成新的形式
+- 只記現況、不寫完成紀錄（不要搬到「已完成」；歷史看 `git log`）；每項以一行為主，保持精簡
+- 限制或問題解除時直接刪除
+- 使用者說「做待辦 N」時，以 `docs/TODO.md` 的編號為準；整理時可以重新編號
+- 「完成任務後的回覆」中的尚待改善／已知問題、建議改善方向，要和 `docs/TODO.md` 的內容一致
 
 ## 完成任務後的回覆
 簡短列出：
