@@ -24,6 +24,9 @@
 | `Services/InstitutionalSyncService.cs` | 三大法人逐日同步（T86 買賣超＋MI_QFIIS 外資持股），寫入 `InstitutionalDaily`、記錄 `InstitutionalSyncLog` | |
 | `Services/FinMindApiClient.cs` | FinMind API（匿名、無 Token）：個股三大法人買賣超（每日多列合併）、外資持股；`ip banned`／402 丟 `FinMindBlockedException` | FinMind 格式改變時 |
 | `Services/FinMindSyncService.cs` | FinMind 逐檔同步，寫入 `InstitutionalDaily`、記錄 `FinMindSyncLog` | |
+| `Services/OilPriceApiClient.cs` | oilpriceapi.com：Brent `past_year`（每天一筆當日均價 `daily_average`）；API Key 來自 `OilPrice:ApiKey`（錯誤訊息不可含 Key） | oilpriceapi 格式改變時 |
+| `Services/OilPriceSyncService.cs` | 原油同步：一次請求寫入 `OilPriceDaily`（同日覆蓋，舊資料不刪） | |
+| `Repositories/Implements/OilPriceRepository.cs` | `OilPriceDaily` 讀寫；`OilPriceRepositoryExtensions.GetAllOrEmptyAsync` 失敗回傳空清單 | |
 | `Services/StockPerformanceService.cs` | 滾動報酬率計算 | 報酬率公式（**先問使用者**） |
 | `Services/Patterns/ICandlePattern.cs` | 型態介面：參數定義、判斷、範例 K 線 | |
 | `Services/Patterns/*Pattern.cs` | 各型態（看漲吞沒、晨星、紅三兵／黑三兵）的方向、參數、預設值、判斷、範例 | 判斷條件與預設值（**先問使用者**） |
@@ -108,6 +111,8 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 | TWSE HttpClient 帶瀏覽器 User-Agent、自行解析回應 | 被封鎖時常回 HTML／403，要顯示看得懂的原因 |
 | 數字解析用 `InvariantCulture` | 避免電腦地區設定影響 |
 | 自動開瀏覽器包 try/catch | 無桌面環境會丟例外導致程式崩潰 |
+| 原油附圖：每個交易日取「當天之前」最近一筆價格（`PatternScanService.ApplyOil`，嚴格早於當天、休市沿用前值） | 來源是 UTC 整天均價，涵蓋台股收盤之後，用當天值等於偷看未來 |
+| 原油來源用 oilpriceapi.com `past_year`（只有一年、是均價），不用 FRED／FinMind | FinMind 原油要收費；FRED 是現貨，與 TradingView UKOIL（期貨）差最多近 20 美元；oilpriceapi 實測與 UKOIL 收盤平均差約 1.8 美元 |
 | 型態掃描頁的狀態放在 Scoped 的 `PatternScanState` | 使用者要求切換頁面後保留結果；Blazor 元件離開頁面即銷毀，Scoped 服務在同一連線內持續存在（F5 重新整理才重置） |
 
 ## 核心邏輯（修改前須先與使用者確認）
@@ -122,6 +127,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者輸入的「額外觀察天數」（可多組，如 `60,120`，1～250 天；以完整歷史計算，可超過小卡的後 20 天）。
 - 三大法人附圖（使用者指定）：單位「張」（股 ÷ 1000），正紅負綠。「三大法人」只畫合計買賣超柱狀；「外資」= 外陸資（不含外資自營商）＋ 外資自營商，另畫「全體外資及陸資持股比率」線（自己的 Y 軸）；投信、自營商（自行買賣＋避險）只畫買賣超。整張小卡無資料時顯示提示。證交所同步範圍：最近一週（預設）／最近一個月（使用者指定）。FinMind 分類換算：外資 = `Foreign_Investor`、外資自營商 = `Foreign_Dealer_Self`（2017-12-18 前無此列，留 null）、投信 = `Investment_Trust`、自營商 = `Dealer` + `Dealer_self` + `Dealer_Hedging`（2014-12-01 前後擇一有值）；持股比例 = `TaiwanStockShareholding.ForeignInvestmentSharesRatio`。
 - 布林通道（使用者要求）：畫在 K 線上，只填上下軌之間的淡灰藍底色（中軌 = MA20 不重畫）；勾選在「顯示均線」那排，參數（天數 20、標準差倍數 2，母體標準差）在收折區；預設關閉，關閉時不計算；設定放在 `IndicatorSettings.Bollinger`，兩頁共用。
+- 原油附圖（使用者要求）：Brent 當日均價（美元 / 桶，不是收盤價）一條橘線、自己的 Y 軸，排在附圖最後、預設不勾；`/stock-update` 的 oilpriceapi 卡片同步最近一年（免費每天 50 次），更早的資料靠多次同步累積。
 - 勝率醒目提示：50% 起每 5 個百分點一級（共 5 級），用黃色系而非紅綠（紅綠在台股代表漲跌）。
 - 看漲吞沒的預設參數由使用者確認過；晨星、紅三兵、黑三兵的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。

@@ -80,6 +80,9 @@ namespace StockDashboard.Models.Patterns
 
         // 全體外資及陸資持股比率 (%)
         public double? ForeignHoldingPct { get; set; }
+
+        // Brent 原油價格 (美元 / 桶，附圖：原油)：當天之前最近一個交易日的當日均價；沒有資料為 null
+        public double? Oil { get; set; }
     }
 
     /// <summary>

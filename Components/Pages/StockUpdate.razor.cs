@@ -22,6 +22,8 @@ namespace StockDashboard.Components.Pages
         [Inject] private IInstitutionalRepository InstitutionalRepository { get; set; } = default!;
         [Inject] private IInstitutionalSyncService InstitutionalSync { get; set; } = default!;
         [Inject] private IFinMindSyncService FinMindSync { get; set; } = default!;
+        [Inject] private IOilPriceSyncService OilSync { get; set; } = default!;
+        [Inject] private IOilPriceRepository OilRepository { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
@@ -58,10 +60,17 @@ namespace StockDashboard.Components.Pages
         public bool FinMindIsError { get; set; } = false;
         private CancellationTokenSource? _finMindCts;
 
+        // ── 原油價格同步 ──
+        public (string? FirstDate, string? LastDate, int Days)? OilSummary { get; set; }
+        public bool IsSyncingOil { get; set; } = false;
+        public string OilStatusMessage { get; set; } = string.Empty;
+        public bool OilIsError { get; set; } = false;
+
         protected override async Task OnInitializedAsync()
         {
             await LoadNameSummaryAsync();
             await LoadInstitutionalSummaryAsync();
+            await LoadOilSummaryAsync();
         }
 
         public void Dispose()
@@ -81,6 +90,40 @@ namespace StockDashboard.Components.Pages
             catch (Exception ex)
             {
                 SetInstitutionalStatus($"讀取三大法人資料失敗: {ex.Message}", true);
+            }
+        }
+
+        // 舊資料庫沒有這張表時只是不顯示摘要，不影響其他功能
+        private async Task LoadOilSummaryAsync()
+        {
+            try { OilSummary = await OilRepository.GetSummaryAsync(OilPriceApiClient.BrentCode); }
+            catch (Exception) { OilSummary = null; }
+        }
+
+        /// <summary>下載最近一年的 Brent 每日價格 (一次請求)</summary>
+        public async Task SyncOil()
+        {
+            if (IsSyncingOil) return;
+            IsSyncingOil = true;
+            OilStatusMessage = "下載中...";
+            OilIsError = false;
+            try
+            {
+                var result = await OilSync.SyncAsync(CancellationToken.None);
+                await LoadOilSummaryAsync();
+                if (result.Error != null)
+                {
+                    OilStatusMessage = $"原油同步失敗：{result.Error}";
+                    OilIsError = true;
+                }
+                else
+                {
+                    OilStatusMessage = $"原油同步完成：寫入 {result.RowsWritten} 筆（{result.FirstDate} ~ {result.LastDate}）。";
+                }
+            }
+            finally
+            {
+                IsSyncingOil = false;
             }
         }
 

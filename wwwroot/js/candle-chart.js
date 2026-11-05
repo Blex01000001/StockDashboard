@@ -21,6 +21,7 @@ export const MA_LINES = [
 const BOLL_FILL = 'rgba(131, 146, 165, 0.18)';
 
 const HOLDING_COLOR = '#ab47bc';  // 外資持股比例線
+const OIL_COLOR = '#ff9800';      // 原油線
 
 // 股 → 張 (千股)，四捨五入
 const toLots = v => v == null ? null : Math.round(v / 1000);
@@ -73,7 +74,14 @@ export const SUB_CHARTS = {
         [{ key: 'foreignHoldingPct', name: '持股%', label: '持股', color: HOLDING_COLOR, ownAxis: true, fmt: v => v + '%' }],
         c => `　持股 ${c.foreignHoldingPct != null ? c.foreignHoldingPct + '%' : '-'}`),
     trust: netChart('trustNet', '投信'),
-    dealer: netChart('dealerNet', '自營商')
+    dealer: netChart('dealerNet', '自營商'),
+    // 原油：Brent 當日均價 (美元 / 桶；取當天之前最近一筆，見 C# PatternScanService.ApplyOil)，一條線、自己的 Y 軸
+    oil: {
+        lines: () => [{ key: 'oil', name: 'Brent', label: 'Brent 原油', color: OIL_COLOR, ownAxis: true, fmt: v => '$' + v }],
+        hasData: c => c.oil != null,
+        noDataText: '尚無原油資料（請到「資料更新」頁同步）',
+        tooltip: c => `Brent 原油 ${c.oil != null ? '$' + c.oil : '-'}`
+    }
 };
 const NO_DATA_TEXT = '尚無三大法人資料（請到「資料更新」頁同步）';
 
@@ -188,7 +196,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
         if (def.hasData && !candles.some(def.hasData)) {
             graphics.push({ type: 'text', left: 'center', top: top + LAYOUT.subHeight / 2 - 6,
-                            style: { text: NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
+                            style: { text: def.noDataText ?? NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
         }
     });
     yAxes.push(...extraYAxes);

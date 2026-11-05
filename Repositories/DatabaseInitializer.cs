@@ -60,6 +60,14 @@ namespace StockDashboard.Repositories
                 PRIMARY KEY (StockId, Dataset)
             );
 
+            -- 每日原油價格 (oilpriceapi.com Brent，當日均價，美元 / 桶)
+            CREATE TABLE IF NOT EXISTS OilPriceDaily (
+                Code      TEXT NOT NULL,              -- 例如 BRENT_CRUDE_USD
+                TradeDate TEXT NOT NULL,              -- yyyy-MM-dd (UTC 日期)
+                Price     REAL NOT NULL,
+                PRIMARY KEY (Code, TradeDate)
+            );
+
             CREATE TABLE IF NOT EXISTS StockNameList (
                 StockId   TEXT NOT NULL PRIMARY KEY,
                 StockName TEXT NOT NULL,

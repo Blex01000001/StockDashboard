@@ -44,12 +44,15 @@ namespace StockDashboard.Services
         private readonly IStockPriceRepository _priceRepository;
         private readonly IStockNameRepository _stockNameRepository;
         private readonly IInstitutionalRepository _institutionalRepository;
+        private readonly IOilPriceRepository _oilPriceRepository;
 
-        public PatternScanService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository, IInstitutionalRepository institutionalRepository)
+        public PatternScanService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository,
+            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository)
         {
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
             _institutionalRepository = institutionalRepository;
+            _oilPriceRepository = oilPriceRepository;
         }
 
         public async Task<PatternScanResult> ScanAsync(
@@ -67,6 +70,7 @@ namespace StockDashboard.Services
                 DaysAfter = daysAfter
             };
             var names = await _stockNameRepository.GetStockNamesOrEmptyAsync(ids);
+            var oil = await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode);   // 與個股無關，整次掃描只讀一次
 
             foreach (var stockId in ids)
             {
@@ -81,7 +85,11 @@ namespace StockDashboard.Services
                 if (matches.Count > 0) result.FullCandles[stockId] = candles;
                 names.TryGetValue(stockId, out var name);
                 matches.ForEach(m => m.StockName = name);
-                if (matches.Count > 0) ApplyInstitutional(matches, await _institutionalRepository.GetByStockOrEmptyAsync(stockId));
+                if (matches.Count > 0)
+                {
+                    ApplyInstitutional(matches, await _institutionalRepository.GetByStockOrEmptyAsync(stockId));
+                    ApplyOil(matches.SelectMany(m => m.Candles), oil);
+                }
                 result.Matches.AddRange(matches);
             }
 
@@ -113,6 +121,22 @@ namespace StockDashboard.Services
                 candle.TrustNet = row.TrustNet;
                 candle.DealerNet = row.DealerNet;
                 candle.ForeignHoldingPct = row.ForeignHoldingPct;
+            }
+        }
+
+        /// <summary>
+        /// 依日期填入 Brent 原油價格 (oil 由舊到新)：每根 K 棒取「當天之前」最近一筆 (嚴格早於當天)，休市日自然沿用前值。
+        /// 原因：來源是 UTC 整天的均價，涵蓋台股收盤之後，用當天的值等於偷看未來。找不到更早的資料為 null (圖上留空)。
+        /// </summary>
+        public static void ApplyOil(IEnumerable<PatternCandle> candles, IReadOnlyList<OilPriceEntity> oil)
+        {
+            if (oil.Count == 0) return;
+            var dates = oil.Select(o => o.TradeDate).ToArray();
+            foreach (var candle in candles)
+            {
+                int i = Array.BinarySearch(dates, candle.Date, StringComparer.Ordinal);
+                int previous = (i >= 0 ? i : ~i) - 1;   // 找到同一天也要往前一筆
+                candle.Oil = previous >= 0 ? oil[previous].Price : null;
             }
         }
 
