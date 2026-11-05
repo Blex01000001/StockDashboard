@@ -210,4 +210,63 @@ public class TechnicalIndicatorsTests
         Assert.Equal((dif[20], macd[20], osc[20]), (c.Dif, c.Macd, c.Osc));
         Assert.True(m.Candles[m.SignalIndex].Dif > 0);   // 型態當天大漲，DIF 轉正
     }
+
+    [Fact]
+    public void 布林通道_上下軌為均線加減母體標準差()
+    {
+        // 收盤 2, 4, 4, 4, 5, 5, 7, 9：前 8 筆平均 5、母體標準差 2
+        var closes = new double[] { 2, 4, 4, 4, 5, 5, 7, 9, 5 };
+        var (upper, lower) = TechnicalIndicators.Bollinger(closes, 8, 2);
+
+        for (int i = 0; i < 7; i++) { Assert.Null(upper[i]); Assert.Null(lower[i]); }   // 天數不足
+        Assert.Equal(9.0, upper[7]);    // 5 + 2 × 2
+        Assert.Equal(1.0, lower[7]);    // 5 − 2 × 2
+        Assert.Equal(7.0, TechnicalIndicators.Bollinger(closes, 8, 1).Upper[7]);   // 倍數 1
+    }
+
+    [Fact]
+    public void 布林通道_收盤不變時上下軌等於均線()
+    {
+        var (upper, lower) = TechnicalIndicators.Bollinger(Enumerable.Repeat(50.0, 30).ToList());
+        Assert.Equal(50.0, upper[29]);
+        Assert.Equal(50.0, lower[29]);
+    }
+
+    [Theory]
+    [InlineData(20, 2, null)]
+    [InlineData(0, 2, "天數需介於")]
+    [InlineData(300, 2, "天數需介於")]
+    [InlineData(20, 0, "倍數需介於")]
+    [InlineData(20, 11, "倍數需介於")]
+    public void 布林通道參數檢查(int period, int multiplier, string? error)
+    {
+        var message = new Models.Patterns.IndicatorSettings { BollPeriod = period, BollMultiplier = multiplier }.Validate("boll");
+        if (error == null) Assert.Null(message);
+        else Assert.Contains(error, message);
+    }
+
+    [Fact]
+    public void 布林通道_只在開啟時填入K棒_且以完整歷史計算()
+    {
+        var candles = Enumerable.Range(0, 60).Select(i =>
+        {
+            double c = 100 + Math.Sin(i / 3.0) * 5;
+            return new StockDataPoint { Date = $"d{i:000}", Open = c, Close = c, High = c, Low = c, Volume = 1000 };
+        }).ToList();
+        List<Models.Patterns.PatternCandle> Window() => Enumerable.Range(0, 10).Select(_ => new Models.Patterns.PatternCandle()).ToList();
+
+        // 預設關閉：不計算
+        var off = Window();
+        PatternScanService.ApplyIndicators(new[] { (40, (IReadOnlyList<Models.Patterns.PatternCandle>)off) }, candles, new Models.Patterns.IndicatorSettings());
+        Assert.All(off, c => { Assert.Null(c.BollUpper); Assert.Null(c.BollLower); });
+
+        // 開啟：與直接計算一致 (第一根在完整歷史的第 40 位，不是從小卡範圍重算)
+        var on = Window();
+        PatternScanService.ApplyIndicators(new[] { (40, (IReadOnlyList<Models.Patterns.PatternCandle>)on) }, candles,
+            new Models.Patterns.IndicatorSettings { Bollinger = true });
+        var (upper, lower) = TechnicalIndicators.Bollinger(candles.Select(c => c.Close).ToList(), 20, 2);
+        Assert.Equal(upper[40], on[0].BollUpper);
+        Assert.Equal(lower[49], on[9].BollLower);
+        Assert.NotNull(on[0].BollUpper);
+    }
 }

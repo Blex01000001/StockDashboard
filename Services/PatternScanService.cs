@@ -184,6 +184,9 @@ namespace StockDashboard.Services
                 candles.Select(c => c.High).ToList(), candles.Select(c => c.Low).ToList(), closes, s.KdPeriod, s.KdKSmooth, s.KdDSmooth);
             double?[] rsiFast = TechnicalIndicators.Rsi(closes, s.RsiFast);
             double?[] rsiSlow = TechnicalIndicators.Rsi(closes, s.RsiSlow);
+            var (bollUpper, bollLower) = s.Bollinger
+                ? TechnicalIndicators.Bollinger(closes, s.BollPeriod, s.BollMultiplier)
+                : (new double?[closes.Count], new double?[closes.Count]);
 
             foreach (var (start, window) in windows)
             {
@@ -196,6 +199,7 @@ namespace StockDashboard.Services
                     c.Dif = dif[k]; c.Macd = macd[k]; c.Osc = osc[k];
                     c.K = kLine[k]; c.D = dLine[k];
                     c.RsiFast = rsiFast[k]; c.RsiSlow = rsiSlow[k];
+                    c.BollUpper = bollUpper[k]; c.BollLower = bollLower[k];
                 }
             }
         }

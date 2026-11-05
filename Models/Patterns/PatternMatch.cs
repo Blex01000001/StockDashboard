@@ -62,6 +62,10 @@ namespace StockDashboard.Models.Patterns
         public double? Macd { get; set; }
         public double? Osc { get; set; }
 
+        // 布林通道上軌、下軌 (中軌 = MA20 型的均線，不另存)；未開啟布林通道時為 null
+        public double? BollUpper { get; set; }
+        public double? BollLower { get; set; }
+
         // KD (9, 3, 3) 與 RSI (6)、RSI (12)
         public double? K { get; set; }
         public double? D { get; set; }

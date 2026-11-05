@@ -17,6 +17,9 @@ export const MA_LINES = [
     { key: 'ma120', name: 'MA120', color: '#bdbdbd' }
 ];
 
+// 布林通道：上下軌之間只填淡底色 (不畫線)；中軌就是 MA20，不重畫
+const BOLL_FILL = 'rgba(131, 146, 165, 0.18)';
+
 const HOLDING_COLOR = '#ab47bc';  // 外資持股比例線
 
 // 股 → 張 (千股)，四捨五入
@@ -101,7 +104,8 @@ export function infoTexts(candles, subs, settings, visibleMas, index) {
     const color = c.close >= c.open ? UP : DOWN;
     const main = [`{w|${c.date}}`,
         rc(color, `開 ${c.open}　高 ${c.high}　低 ${c.low}　收 ${c.close}`),
-        ...MA_LINES.filter(m => (visibleMas || []).includes(m.name)).map(m => rc(m.color, `${m.name} ${val(c[m.key])}`))].join('　');
+        ...MA_LINES.filter(m => (visibleMas || []).includes(m.name)).map(m => rc(m.color, `${m.name} ${val(c[m.key])}`)),
+        ...(settings.bollinger ? [rc('#8392a5', `布林 上 ${val(c.bollUpper)} 下 ${val(c.bollLower)}`)] : [])].join('　');
     const texts = { 'info-main': main };
     for (const sub of subs) {
         const def = SUB_CHARTS[sub];
@@ -136,6 +140,14 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
     for (const m of MA_LINES) {
         series.push({ name: m.name, type: 'line', data: candles.map(c => c[m.key]), showSymbol: false,
                       lineStyle: { width: 1, color: m.color }, itemStyle: { color: m.color } });
+    }
+
+    if (settings.bollinger) {
+        // 堆疊面積：下軌透明打底，(上軌 − 下軌) 疊上去填色；z 低於 K 線與均線
+        const band = { type: 'line', stack: 'boll', showSymbol: false, silent: true, z: 1, lineStyle: { opacity: 0 }, tooltip: { show: false } };
+        series.push({ ...band, name: 'BOLL下軌', data: candles.map(c => c.bollLower) });
+        series.push({ ...band, name: 'BOLL帶寬', data: candles.map(c => c.bollUpper == null || c.bollLower == null ? null : +(c.bollUpper - c.bollLower).toFixed(4)),
+                      areaStyle: { color: BOLL_FILL } });
     }
 
     subs.forEach((sub, i) => {
@@ -204,7 +216,8 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
                 return `<div style="font-weight:bold;color:#fff;">${tooltipTitle(c)}</div>
                     <div style="color:${color}">開 ${c.open}　高 ${c.high}<br/>低 ${c.low}　收 ${c.close}</div>
                     ${subs.map(s => `<div>${SUB_CHARTS[s].tooltip(c, settings)}</div>`).join('')}
-                    ${MA_LINES.map(m => `<div style="color:${m.color}">${m.name} ${c[m.key] ?? '-'}</div>`).join('')}`;
+                    ${MA_LINES.map(m => `<div style="color:${m.color}">${m.name} ${c[m.key] ?? '-'}</div>`).join('')}
+                    ${settings.bollinger ? `<div style="color:#8392a5">布林 上 ${c.bollUpper ?? '-'}　下 ${c.bollLower ?? '-'}</div>` : ''}`;
             }
         },
         axisPointer: { link: [{ xAxisIndex: 'all' }] },

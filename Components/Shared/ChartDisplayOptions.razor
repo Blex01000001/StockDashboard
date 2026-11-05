@@ -14,7 +14,7 @@
         }
     </div>
 </div>
-@foreach (var group in IndicatorGroups.Where(g => Settings.SubCharts.Contains(g.SubChart)))
+@foreach (var group in IndicatorGroups.Where(IsGroupVisible))
 {
     @* 指標參數平常收折；調整後立即用已載入的日線重算 *@
     <details class="indicator-params" data-indicator="@group.SubChart">
@@ -45,6 +45,11 @@
                 <span>@period</span>
             </label>
         }
+        @* 布林通道畫在 K 線上，和均線放同一組；參數在上方收折區 *@
+        <label class="ma-toggle sub-toggle">
+            <input type="checkbox" checked="@Settings.Indicators.Bollinger" @onchange="OnBollingerToggled" />
+            <span>布林通道</span>
+        </label>
     </div>
 </div>
 
@@ -80,6 +85,12 @@
             new("短週期", "rsi-fast", s => s.RsiFast, (s, v) => s.RsiFast = v),
             new("長週期", "rsi-slow", s => s.RsiSlow, (s, v) => s.RsiSlow = v),
         }),
+        // 布林通道不是附圖：識別字 "boll" 只在勾選布林通道時顯示 (見 IsGroupVisible)
+        new("boll", "布林通道", new IndicatorParam[]
+        {
+            new("天數", "boll-period", s => s.BollPeriod, (s, v) => s.BollPeriod = v),
+            new("標準差倍數", "boll-mult", s => s.BollMultiplier, (s, v) => s.BollMultiplier = v),
+        }),
     };
 
     private static readonly IndicatorSettings DefaultIndicators = new();
@@ -92,6 +103,17 @@
         if (e.Value is true) Settings.SubCharts.Add(value);
         else Settings.SubCharts.Remove(value);
         return OnChanged.InvokeAsync(false);
+    }
+
+    private bool IsGroupVisible(IndicatorGroup g) =>
+        g.SubChart == "boll" ? Settings.Indicators.Bollinger : Settings.SubCharts.Contains(g.SubChart);
+
+    private Task OnBollingerToggled(ChangeEventArgs e)
+    {
+        var settings = Settings.Indicators.Clone();
+        settings.Bollinger = e.Value is true;
+        Settings.Indicators = settings;
+        return OnChanged.InvokeAsync(true);   // 需要計算 (或清掉) 上下軌
     }
 
     private Task OnMovingAverageToggled(int period, ChangeEventArgs e)

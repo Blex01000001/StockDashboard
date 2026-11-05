@@ -121,6 +121,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 指標用 `PatternScanService.ApplyIndicators` 以完整日線計算；掃描結果保留各股完整日線（`FullCandles`），調整指標參數時 `RecomputeIndicators` 即時重算，不重新查資料庫。
 - 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者輸入的「額外觀察天數」（可多組，如 `60,120`，1～250 天；以完整歷史計算，可超過小卡的後 20 天）。
 - 三大法人附圖（使用者指定）：單位「張」（股 ÷ 1000），正紅負綠。「三大法人」只畫合計買賣超柱狀；「外資」= 外陸資（不含外資自營商）＋ 外資自營商，另畫「全體外資及陸資持股比率」線（自己的 Y 軸）；投信、自營商（自行買賣＋避險）只畫買賣超。整張小卡無資料時顯示提示。證交所同步範圍：最近一週（預設）／最近一個月（使用者指定）。FinMind 分類換算：外資 = `Foreign_Investor`、外資自營商 = `Foreign_Dealer_Self`（2017-12-18 前無此列，留 null）、投信 = `Investment_Trust`、自營商 = `Dealer` + `Dealer_self` + `Dealer_Hedging`（2014-12-01 前後擇一有值）；持股比例 = `TaiwanStockShareholding.ForeignInvestmentSharesRatio`。
+- 布林通道（使用者要求）：畫在 K 線上，只填上下軌之間的淡灰藍底色（中軌 = MA20 不重畫）；勾選在「顯示均線」那排，參數（天數 20、標準差倍數 2，母體標準差）在收折區；預設關閉，關閉時不計算；設定放在 `IndicatorSettings.Bollinger`，兩頁共用。
 - 勝率醒目提示：50% 起每 5 個百分點一級（共 5 級），用黃色系而非紅綠（紅綠在台股代表漲跌）。
 - 看漲吞沒的預設參數由使用者確認過；晨星、紅三兵、黑三兵的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。
