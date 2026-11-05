@@ -215,6 +215,15 @@
                     <button @onclick="SyncOil" class="action-btn" disabled="@IsSyncingOil">🔄 同步原油價格</button>
                 </div>
 
+                @* API Key 要寫在 appsettings.json：這裡直接開啟設定檔或所在資料夾 (開在執行網站的這台電腦) *@
+                <div class="list-sync-row">
+                    <span class="description list-summary">API Key 設定檔：<code class="code-tag">@PathOpener.SettingsFilePath</code></span>
+                    <span class="btn-pair">
+                        <button @onclick="OpenSettingsFile" class="action-btn">📝 開啟 appsettings.json</button>
+                        <button @onclick="OpenSettingsFolder" class="action-btn">📂 開啟資料夾</button>
+                    </span>
+                </div>
+
                 @if (!string.IsNullOrEmpty(OilStatusMessage))
                 {
                     <div class="status-box @(OilIsError ? "error" : "success")">

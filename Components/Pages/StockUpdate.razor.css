@@ -112,6 +112,12 @@
         flex-shrink: 0;
     }
 
+.list-sync-row .btn-pair {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
 /* ── 依資料來源分組的外框 ── */
 .source-group {
     margin-top: 20px;

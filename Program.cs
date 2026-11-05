@@ -52,6 +52,7 @@ builder.Services.AddScoped<IStockChartService, StockChartService>();
 builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
 builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 builder.Services.AddScoped<IOilPriceSyncService, OilPriceSyncService>();
+builder.Services.AddSingleton<ILocalPathOpener, LocalPathOpener>();
 
 // ── K 線型態：新增型態時在這裡註冊，型態掃描頁會自動列出 (顯示順序 = 註冊順序) ──
 builder.Services.AddSingleton<ICandlePattern, BullishEngulfingPattern>();

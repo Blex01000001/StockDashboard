@@ -27,6 +27,7 @@
 | `Services/OilPriceApiClient.cs` | oilpriceapi.com：Brent `past_year`（每天一筆當日均價 `daily_average`）；API Key 來自 `OilPrice:ApiKey`（錯誤訊息不可含 Key） | oilpriceapi 格式改變時 |
 | `Services/OilPriceSyncService.cs` | 原油同步：一次請求寫入 `OilPriceDaily`（同日覆蓋，舊資料不刪） | |
 | `Repositories/Implements/OilPriceRepository.cs` | `OilPriceDaily` 讀寫；`OilPriceRepositoryExtensions.GetAllOrEmptyAsync` 失敗回傳空清單 | |
+| `Services/LocalPathOpener.cs` | 在執行網站的電腦上開啟 `appsettings.json`（Windows 用記事本、Mac `open -t`、Linux `xdg-open`）或其資料夾；只開固定路徑，不接受使用者輸入（原油卡片的按鈕用） | |
 | `Services/StockPerformanceService.cs` | 滾動報酬率計算 | 報酬率公式（**先問使用者**） |
 | `Services/Patterns/ICandlePattern.cs` | 型態介面：參數定義、判斷、範例 K 線 | |
 | `Services/Patterns/*Pattern.cs` | 各型態（看漲吞沒、晨星、紅三兵／黑三兵）的方向、參數、預設值、判斷、範例 | 判斷條件與預設值（**先問使用者**） |

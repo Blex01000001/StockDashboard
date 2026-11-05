@@ -24,6 +24,7 @@ namespace StockDashboard.Components.Pages
         [Inject] private IFinMindSyncService FinMindSync { get; set; } = default!;
         [Inject] private IOilPriceSyncService OilSync { get; set; } = default!;
         [Inject] private IOilPriceRepository OilRepository { get; set; } = default!;
+        [Inject] private ILocalPathOpener PathOpener { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
@@ -98,6 +99,25 @@ namespace StockDashboard.Components.Pages
         {
             try { OilSummary = await OilRepository.GetSummaryAsync(OilPriceApiClient.BrentCode); }
             catch (Exception) { OilSummary = null; }
+        }
+
+        public void OpenSettingsFile() => RunOpen(PathOpener.OpenSettingsFile, "已用文字編輯器開啟 appsettings.json，改好存檔後需重新啟動網站才會生效。");
+
+        public void OpenSettingsFolder() => RunOpen(PathOpener.OpenSettingsFolder, "已開啟 appsettings.json 所在資料夾。");
+
+        private void RunOpen(Action open, string successMessage)
+        {
+            try
+            {
+                open();
+                OilStatusMessage = successMessage;
+                OilIsError = false;
+            }
+            catch (Exception ex)
+            {
+                OilStatusMessage = ex.Message;
+                OilIsError = true;
+            }
         }
 
         /// <summary>下載最近一年的 Brent 每日價格 (一次請求)</summary>
