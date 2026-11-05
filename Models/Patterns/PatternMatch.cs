@@ -62,6 +62,10 @@ namespace StockDashboard.Models.Patterns
         public double? Macd { get; set; }
         public double? Osc { get; set; }
 
+        // 布林通道上軌、下軌 (中軌 = MA20 型的均線，不另存)；未開啟布林通道時為 null
+        public double? BollUpper { get; set; }
+        public double? BollLower { get; set; }
+
         // KD (9, 3, 3) 與 RSI (6)、RSI (12)
         public double? K { get; set; }
         public double? D { get; set; }
@@ -76,6 +80,9 @@ namespace StockDashboard.Models.Patterns
 
         // 全體外資及陸資持股比率 (%)
         public double? ForeignHoldingPct { get; set; }
+
+        // Brent 原油價格 (美元 / 桶，附圖：原油)：當天之前最近一個交易日的當日均價；沒有資料為 null
+        public double? Oil { get; set; }
     }
 
     /// <summary>

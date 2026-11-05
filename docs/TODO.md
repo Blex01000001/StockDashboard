@@ -5,14 +5,13 @@
 
 ## 待辦
 
-1. 【先討論】原油（UKOIL／Brent）：建議做成附圖（加到 `ChartDisplaySettings.SubChartOptions`＋`candle-chart.js` 的 `SUB_CHARTS`），需新資料表與同步卡片（建表前確認 stock.db 無同名表）。待使用者決定：附圖或主圖疊加、資料來源（FinMind `CrudeOilPrices`？需使用者貼回傳範例）、日期對齊（建議用前一個已收盤油價、休市沿用前值）。
-2. 【先討論】布林通道：畫在 K 線上、上下軌間只填淡底色（中軌 = MA20 不重畫），在 `ChartDisplayOptions` 加勾選與收折參數（`IndicatorSettings` 加 period／倍數，`TechnicalIndicators` 加計算並補測試），兩頁共用。待確認：參數 20, 2、是否也加到型態小卡、「顯示均線」群組是否改名「主圖疊加」。
-3. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
-4. 【使用者】在自己的電腦實際測試「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
-5. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
-6. 【直接做】`tools/make-test-db.py` 的最高／最低價沒有四捨五入（技術圖表上方資訊列出現 `889.0029`）：改為 2 位小數；會改變 UI 快照基準，改完重新擷取 before。
-7. 【直接做】`IStockPriceRepository.GetLatestCandlesAsync` 網站已不再使用（技術圖表改用 `GetAllCandlesAsync`），只剩測試：刪除介面／實作與對應測試，或保留並註明用途。
-8. 【先討論】還原股價：實作 `StockPriceService.ApplyDividendAdjustment`（未註冊 DI），需除權息資料來源、資料表與 `IStockDividendRepository` 實作；`StockCorporateAction*`、`StockCombinationDto` 也是規劃中的空殼。
+1. 【先討論】原油歷史只有一年（oilpriceapi 免費版）：型態掃描要多年資料需另找來源。Yahoo `BZ=F` 用 `range=max` 只回月線，待測 `period1/period2&interval=1d` 是否回日線，並對照 UKOIL 收盤；FRED 現貨與 UKOIL 差太多不採用。
+2. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
+3. 【使用者】在自己的電腦實際測試「同步原油價格」（`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `OilPriceDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
+4. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
+5. 【直接做】`tools/make-test-db.py` 的最高／最低價沒有四捨五入（技術圖表上方資訊列出現 `889.0029`）：改為 2 位小數；會改變 UI 快照基準，改完重新擷取 before。
+6. 【直接做】`IStockPriceRepository.GetLatestCandlesAsync` 網站已不再使用（技術圖表改用 `GetAllCandlesAsync`），只剩測試：刪除介面／實作與對應測試，或保留並註明用途。
+7. 【先討論】還原股價：實作 `StockPriceService.ApplyDividendAdjustment`（未註冊 DI），需除權息資料來源、資料表與 `IStockDividendRepository` 實作；`StockCorporateAction*`、`StockCombinationDto` 也是規劃中的空殼。
 
 ## 已知問題／限制
 
@@ -26,6 +25,8 @@
 - 型態掃描頁與技術圖表頁的附圖／均線／指標設定各自獨立，不會互相帶入（小卡連結開啟技術圖表時也不帶）。
 - 技術圖表從小卡開啟後網址帶 `?id=&date=`，在該頁按 F5 會重新標示同一個型態日。
 - 技術圖表沒有提示框與圖例：當天數值顯示在各圖上方，均線只能用上方勾選開關，附圖線不能再點圖例隱藏；型態掃描小卡仍用提示框與圖例。
+- 布林通道（勾「顯示均線」旁的選項）只在技術圖表頁實機驗證過外觀；型態掃描小卡共用同一段繪圖程式，但尚未實機看過。
+- 原油附圖是當日均價（非收盤價），且取「當天之前」最近一筆；同步來源只給最近一年，之前的日期附圖留空。
 - 附圖全部勾選時小卡與技術圖表會很高（每個附圖固定一列，刻意的設計）。
 
 ## 想法

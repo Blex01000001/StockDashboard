@@ -16,7 +16,13 @@ namespace StockDashboard.Models.Patterns
         public int RsiFast { get; set; } = 6;
         public int RsiSlow { get; set; } = 12;
 
+        // 布林通道 (畫在 K 線上，不是附圖；Bollinger 為是否顯示，關閉時不計算)
+        public bool Bollinger { get; set; }
+        public int BollPeriod { get; set; } = 20;
+        public int BollMultiplier { get; set; } = 2;   // 標準差倍數
+
         public const int MaxPeriod = 200;
+        public const int MaxBollMultiplier = 10;
 
         /// <summary>
         /// 檢查 MACD 參數；正確回傳 null，否則回傳說明文字。
@@ -42,6 +48,8 @@ namespace StockDashboard.Models.Patterns
                 "kd" => InRange(KdPeriod, KdKSmooth, KdDSmooth) ? null : $"KD 參數需介於 1 ~ {MaxPeriod}",
                 "rsi" => !InRange(RsiFast, RsiSlow) ? $"RSI 參數需介於 1 ~ {MaxPeriod}"
                        : RsiFast >= RsiSlow ? "RSI 短週期必須小於長週期" : null,
+                "boll" => BollPeriod < 1 || BollPeriod > MaxPeriod ? $"布林通道天數需介於 1 ~ {MaxPeriod}"
+                        : BollMultiplier < 1 || BollMultiplier > MaxBollMultiplier ? $"布林通道倍數需介於 1 ~ {MaxBollMultiplier}" : null,
                 _ => null
             };
         }

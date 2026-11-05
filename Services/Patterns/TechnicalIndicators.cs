@@ -117,6 +117,35 @@ namespace StockDashboard.Services.Patterns
             return result;
         }
 
+        /// <summary>
+        /// 布林通道 (預設 20, 2)：中軌 = period 日均線 (不重複回傳，與 MA 相同)；
+        /// 上軌 / 下軌 = 中軌 ± multiplier × 標準差。標準差用母體標準差 (除以 period)，為布林通道原版定義。
+        /// 前 period − 1 筆為 null。
+        /// </summary>
+        public static (double?[] Upper, double?[] Lower) Bollinger(
+            IReadOnlyList<double> closes, int period = 20, double multiplier = 2, int decimals = 2)
+        {
+            int n = closes.Count;
+            var upper = new double?[n];
+            var lower = new double?[n];
+            if (period < 1) return (upper, lower);
+
+            for (int i = period - 1; i < n; i++)
+            {
+                double sum = 0;
+                for (int j = i - period + 1; j <= i; j++) sum += closes[j];
+                double mean = sum / period;
+
+                double variance = 0;
+                for (int j = i - period + 1; j <= i; j++) variance += (closes[j] - mean) * (closes[j] - mean);
+                double sd = Math.Sqrt(variance / period);
+
+                upper[i] = Math.Round(mean + multiplier * sd, decimals);
+                lower[i] = Math.Round(mean - multiplier * sd, decimals);
+            }
+            return (upper, lower);
+        }
+
         private static double RsiValue(double avgGain, double avgLoss) =>
             avgLoss == 0 ? (avgGain == 0 ? 50 : 100) : 100 - 100 / (1 + avgGain / avgLoss);
     }

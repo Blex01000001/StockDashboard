@@ -25,6 +25,9 @@ T86 / MI_QFIIS (三大法人) 依 date 決定：
 FinMind /api/v4/data 依 dataset 與 data_id 決定：
   BAN   → {"msg":"ip banned","status":403} (模擬 IP 被封鎖)
   其他  → finmind_buysell_2330.json / finmind_shareholding_2330.json (使用者提供的實際回應，stock_id 改成請求的代號)
+oilpriceapi /v1/prices/past_year：
+  標頭 Authorization: Token BAD → HTTP 401；沒帶 Token → HTTP 401；其他 → oilprice_past_year.json (使用者提供的實際回應，截成 12 天)
+  設定：OilPrice:PastYearUrl = http://127.0.0.1:9999/v1/prices/past_year，OilPrice:ApiKey 隨便填 (填 BAD 可測失敗)
 每個請求都會印出 stockNo、date 與 User-Agent。
 """
 import datetime
@@ -50,6 +53,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         stock, date = query.get("stockNo", [""])[0], query.get("date", [""])[0]
         print(f"{url.path} stockNo={stock} date={date} UA={self.headers.get('User-Agent', '')[:40]}", flush=True)
 
+        if url.path.endswith("/v1/prices/past_year"):
+            return self.oilprice()
         if url.path.endswith("/api/v4/data"):
             return self.finmind(query)
         if url.path.endswith("STOCK_DAY_ALL"):
@@ -63,6 +68,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if stock == "2330" and date == "20261001":
             return self.reply(fixture("stock_day_2330_202610.json"))
         return self.reply(NO_DATA)
+
+    def oilprice(self):
+        auth = self.headers.get("Authorization", "")
+        print(f"oilpriceapi past_year auth={'Token ***' if auth.startswith('Token ') else 'none'}", flush=True)
+        if not auth.startswith("Token ") or auth == "Token BAD":
+            return self.reply(json.dumps({"status": "error", "message": "unauthorized"}), status=401)
+        return self.reply(fixture("oilprice_past_year.json"))
 
     def finmind(self, query):
         dataset, stock_id = query.get("dataset", [""])[0], query.get("data_id", [""])[0]

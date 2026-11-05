@@ -12,6 +12,7 @@ namespace StockDashboard.Services
         public string Label { get; set; } = string.Empty;              // 圖表標題，例如 "2330 台積電"
         public List<StockDataPoint> FullCandles { get; set; } = new();  // 由舊到新
         public List<InstitutionalDailyEntity> Institutional { get; set; } = new();   // 改顯示筆數時重填用
+        public List<OilPriceEntity> Oil { get; set; } = new();                       // 同上 (原油，與個股無關)
         public int WindowStart { get; set; }                            // Candles 第一根在 FullCandles 的位置
         public List<PatternCandle> Candles { get; set; } = new();
     }
@@ -31,12 +32,15 @@ namespace StockDashboard.Services
         private readonly IStockPriceRepository _priceRepository;
         private readonly IStockNameRepository _stockNameRepository;
         private readonly IInstitutionalRepository _institutionalRepository;
+        private readonly IOilPriceRepository _oilPriceRepository;
 
-        public StockChartService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository, IInstitutionalRepository institutionalRepository)
+        public StockChartService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository,
+            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository)
         {
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
             _institutionalRepository = institutionalRepository;
+            _oilPriceRepository = oilPriceRepository;
         }
 
         public async Task<StockChartData?> LoadAsync(string stockId, int count, IndicatorSettings indicators)
@@ -45,14 +49,16 @@ namespace StockDashboard.Services
             if (full.Count == 0) return null;
 
             string? name = await _stockNameRepository.GetStockNameOrNullAsync(stockId);
-            var data = Build(full, count, indicators, await _institutionalRepository.GetByStockOrEmptyAsync(stockId));
+            var data = Build(full, count, indicators, await _institutionalRepository.GetByStockOrEmptyAsync(stockId),
+                await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode));
             data.Label = name == null ? stockId : $"{stockId} {name}";
             return data;
         }
 
-        public static StockChartData Build(List<StockDataPoint> full, int count, IndicatorSettings indicators, IEnumerable<InstitutionalDailyEntity> institutional)
+        public static StockChartData Build(List<StockDataPoint> full, int count, IndicatorSettings indicators,
+            IEnumerable<InstitutionalDailyEntity> institutional, IEnumerable<OilPriceEntity>? oil = null)
         {
-            var data = new StockChartData { FullCandles = full, Institutional = institutional.ToList() };
+            var data = new StockChartData { FullCandles = full, Institutional = institutional.ToList(), Oil = oil?.ToList() ?? new() };
             SetWindow(data, count, indicators);
             return data;
         }
@@ -65,6 +71,7 @@ namespace StockDashboard.Services
             data.Candles = data.FullCandles.Skip(start).Select(PatternCandle.From).ToList();
             Recompute(data, indicators);
             PatternScanService.ApplyInstitutional(data.Candles, data.Institutional);
+            PatternScanService.ApplyOil(data.Candles, data.Oil);
         }
 
         /// <summary>
