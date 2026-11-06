@@ -27,6 +27,8 @@ const OIL_COLOR = '#ff9800';      // 原油線
 const px = v => v == null ? '-' : v;
 const soxText = c => c.soxClose == null ? '費半 -'
     : `費半 開 ${px(c.soxOpen)} 高 ${px(c.soxHigh)} 低 ${px(c.soxLow)} 收 ${px(c.soxClose)}（美股 ${c.soxDate}）`;
+// 費半均線的欄位名：MA_LINES 的 key 'ma5' → 'soxMa5' (C# PatternCandle.SoxMa5)
+const soxMaKey = m => 'sox' + m.key[0].toUpperCase() + m.key.slice(1);
 
 // 股 → 張 (千股)，四捨五入
 const toLots = v => v == null ? null : Math.round(v / 1000);
@@ -98,7 +100,9 @@ export const SUB_CHARTS = {
         hasData: c => c.soxClose != null,
         noDataText: '尚無費半資料（請到「資料更新」頁同步）',
         barText: soxText,
-        tooltip: soxText
+        // 費半也畫均線：和個股共用「顯示均線」的勾選 (同名的 series 由同一個圖例控制，見 buildStackedOption)
+        ma: true,
+        tooltip: c => `${soxText(c)}　${MA_LINES.map(m => `${m.name} ${c[soxMaKey(m)] ?? '-'}`).join('　')}`
     }
 };
 
@@ -163,6 +167,8 @@ export function infoTexts(candles, subs, settings, visibleMas, index) {
         const parts = [];
         if (def.barText) parts.push(`{n|${def.barText(c)}}`);
         for (const l of def.lines(settings)) parts.push(rc(l.color, `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`));
+        // 有均線的附圖 (費半)：只列「顯示均線」已勾選的，與 K 線上方的資訊列一致
+        if (def.ma) for (const m of MA_LINES.filter(m => (visibleMas || []).includes(m.name))) parts.push(rc(m.color, `${m.name} ${val(c[soxMaKey(m)])}`));
         texts['info-' + sub] = parts.join('　');
     }
     return texts;
@@ -219,6 +225,14 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         if (def.candle) {
             series.push({ name: def.candleName, type: 'candlestick', xAxisIndex: g, yAxisIndex: g, data: candles.map(def.candle),
                           itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN } });
+        }
+        if (def.ma) {
+            // 均線 series 與個股的均線同名 (MA5…)：ECharts 的圖例以名稱控制顯示，所以「顯示均線」勾選 (頁面設定
+            // option.legend[0].selected) 會同時開關個股與費半的均線；不放進本附圖自己的圖例，避免重複
+            for (const m of MA_LINES) {
+                series.push({ name: m.name, type: 'line', xAxisIndex: g, yAxisIndex: g, data: candles.map(c => c[soxMaKey(m)]), showSymbol: false,
+                              lineStyle: { width: 1, color: m.color }, itemStyle: { color: m.color } });
+            }
         }
 
         if (def.bars) {

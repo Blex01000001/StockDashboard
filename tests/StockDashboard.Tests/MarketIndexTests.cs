@@ -250,6 +250,69 @@ public class MarketIndexAlignmentTests
     }
 
     [Fact]
+    public void 費半均線用美股自己的交易日算_合併時取最後一個美股日的值()
+    {
+        // 台股 11-04、11-05 休市；美股連續 6 個交易日，收盤 10、20、30、40、50、60
+        var tw = new[] { "2026-11-02", "2026-11-03", "2026-11-06", "2026-11-09" };
+        var us = new[]
+        {
+            Us("2026-10-30", 10, 10, 10, 10), Us("2026-11-02", 20, 20, 20, 20), Us("2026-11-03", 30, 30, 30, 30),
+            Us("2026-11-04", 40, 40, 40, 40), Us("2026-11-05", 50, 50, 50, 50), Us("2026-11-06", 60, 60, 60, 60),
+        };
+        var candles = Candles(tw);
+
+        PatternScanService.ApplyMarketIndex(candles, tw, us);
+
+        // 美股序列的 MA5：11-05 = (10+20+30+40+50)/5 = 30、11-06 = (20+30+40+50+60)/5 = 40；更早的天數不足為 null
+        Assert.Null(candles[0].SoxMa5);                      // 11-02 ← 美股 10-30 (第 1 個交易日)
+        Assert.Null(candles[1].SoxMa5);                      // 11-03 ← 美股 11-02 (第 2 個)
+        Assert.Equal(30.0, candles[2].SoxMa5);               // 台股 11-06 合併美股 11-03 ~ 11-05 → 取最後一個 (11-05) 的 MA5
+        Assert.Equal(40.0, candles[3].SoxMa5);               // 台股 11-09 ← 美股 11-06
+        Assert.All(candles, c => { Assert.Null(c.SoxMa10); Assert.Null(c.SoxMa20); Assert.Null(c.SoxMa60); Assert.Null(c.SoxMa120); });   // 只有 6 個交易日
+    }
+
+    [Fact]
+    public void 費半均線_美股休市日留空_且各週期用各自的天數()
+    {
+        // 22 個美股交易日 (收盤 1 ~ 22)，台股每天都開
+        var us = Enumerable.Range(0, 22).Select(i => Us(new DateTime(2026, 10, 1).AddDays(i).ToString("yyyy-MM-dd"), i + 1, i + 1, i + 1, i + 1)).ToList();
+        var tw = Enumerable.Range(0, 24).Select(i => new DateTime(2026, 10, 1).AddDays(i + 1).ToString("yyyy-MM-dd")).ToList();   // 隔天對應
+        var candles = Candles(tw);
+
+        PatternScanService.ApplyMarketIndex(candles, tw, us);
+
+        // 台股日 index 20 對應美股 index 20 (收盤 21)，各週期的均線 = 最近 N 個美股收盤的平均
+        var c = candles[20];
+        Assert.Equal(21.0 - 2, c.SoxMa5);                   // (17+18+19+20+21)/5 = 19
+        Assert.Equal(21.0 - 4.5, c.SoxMa10);                // (12..21)/10 = 16.5
+        Assert.Equal(11.5, c.SoxMa20);                      // (2..21)/20 = 11.5
+        Assert.Null(c.SoxMa60);
+        // 美股只到第 22 天，台股最後兩天沒有新的美股 → 留空 (均線也是)
+        Assert.Null(candles[22].SoxClose);
+        Assert.Null(candles[22].SoxMa5);
+        Assert.Null(candles[23].SoxMa20);
+    }
+
+    [Fact]
+    public void 費半均線_只填一段窗口時與整段一致()
+    {
+        var tw = Enumerable.Range(0, 30).Select(i => new DateTime(2026, 10, 1).AddDays(i + 1).ToString("yyyy-MM-dd")).ToArray();
+        var us = Enumerable.Range(0, 30).Select(i => Us(new DateTime(2026, 10, 1).AddDays(i).ToString("yyyy-MM-dd"), 100 + i, 105 + i, 95 + i, 100 + i * 1.5)).ToList();
+        var all = Candles(tw);
+        PatternScanService.ApplyMarketIndex(all, tw, us);
+
+        var window = Candles(tw.Skip(20));
+        PatternScanService.ApplyMarketIndex(window, tw, us);
+
+        for (int i = 0; i < window.Count; i++)
+        {
+            Assert.Equal(all[20 + i].SoxMa5, window[i].SoxMa5);
+            Assert.Equal(all[20 + i].SoxMa20, window[i].SoxMa20);
+        }
+        Assert.NotNull(window[0].SoxMa20);   // 視窗第一根之前的美股也參與計算
+    }
+
+    [Fact]
     public void 沒有指數資料時不填()
     {
         var candles = Candles(new[] { "2026-11-02" });
