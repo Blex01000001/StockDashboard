@@ -45,10 +45,12 @@ namespace StockDashboard.Services
         private readonly IStockNameRepository _stockNameRepository;
         private readonly IInstitutionalRepository _institutionalRepository;
         private readonly IOilPriceRepository _oilPriceRepository;
+        private readonly IMarketIndexRepository _marketIndexRepository;
 
         public PatternScanService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository,
-            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository)
+            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository, IMarketIndexRepository marketIndexRepository)
         {
+            _marketIndexRepository = marketIndexRepository;
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
             _institutionalRepository = institutionalRepository;
@@ -71,6 +73,7 @@ namespace StockDashboard.Services
             };
             var names = await _stockNameRepository.GetStockNamesOrEmptyAsync(ids);
             var oil = await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode);   // 與個股無關，整次掃描只讀一次
+            var sox = await _marketIndexRepository.GetAllOrEmptyAsync(MarketIndexApiClient.SoxCode);
 
             foreach (var stockId in ids)
             {
@@ -89,6 +92,7 @@ namespace StockDashboard.Services
                 {
                     ApplyInstitutional(matches, await _institutionalRepository.GetByStockOrEmptyAsync(stockId));
                     ApplyOil(matches.SelectMany(m => m.Candles), oil);
+                    ApplyMarketIndex(matches.SelectMany(m => m.Candles), candles.Select(c => c.Date).ToList(), sox);
                 }
                 result.Matches.AddRange(matches);
             }
@@ -137,6 +141,50 @@ namespace StockDashboard.Services
                 int i = Array.BinarySearch(dates, candle.Date, StringComparer.Ordinal);
                 int previous = (i >= 0 ? i : ~i) - 1;   // 找到同一天也要往前一筆
                 candle.Oil = previous >= 0 ? oil[previous].Price : null;
+            }
+        }
+
+        /// <summary>
+        /// 依日期填入美股指數 (費半) K 線，對齊規則：美股交易日 D 歸屬到「該股完整日線中第一個日期 &gt; D」的台股交易日 T
+        /// (美股在台灣時間隔天清晨收盤，所以 T 開盤前看到的是 T 之前已收盤的美股)。
+        /// 同一個 T 有多個美股交易日 (台股連假) 時合併成一根：開盤取最早一天、收盤取最後一天、最高取最大、最低取最小，
+        /// 這樣不會漏掉連假期間的美股行情；T 之前沒有新的美股交易日 (美股休市) 時該日為 null，不重複顯示同一根。
+        /// tradingDates = 該股完整日線的日期 (由舊到新)；index 由舊到新；晚於最後一個台股日的美股資料忽略。
+        /// </summary>
+        public static void ApplyMarketIndex(IEnumerable<PatternCandle> candles, IReadOnlyList<string> tradingDates, IReadOnlyList<MarketIndexEntity> index)
+        {
+            if (index.Count == 0 || tradingDates.Count == 0) return;
+
+            var byTaiwanDate = new Dictionary<string, MarketIndexEntity>();
+            var dates = tradingDates as string[] ?? tradingDates.ToArray();
+            foreach (var row in index)
+            {
+                int i = Array.BinarySearch(dates, row.TradeDate, StringComparer.Ordinal);
+                int position = i >= 0 ? i + 1 : ~i;   // 第一個「大於」美股日期的台股日 (同一天也要往後一個)
+                if (position >= dates.Length) continue;
+
+                string taiwanDate = dates[position];
+                if (byTaiwanDate.TryGetValue(taiwanDate, out var merged))
+                {
+                    merged.High = Math.Max(merged.High, row.High);
+                    merged.Low = Math.Min(merged.Low, row.Low);
+                    merged.Close = row.Close;
+                    merged.TradeDate = row.TradeDate;   // 記錄合併後最後一個美股交易日
+                }
+                else
+                {
+                    byTaiwanDate[taiwanDate] = new MarketIndexEntity { Code = row.Code, TradeDate = row.TradeDate, Open = row.Open, High = row.High, Low = row.Low, Close = row.Close };
+                }
+            }
+
+            foreach (var candle in candles)
+            {
+                byTaiwanDate.TryGetValue(candle.Date, out var m);
+                candle.SoxOpen = m?.Open;
+                candle.SoxHigh = m?.High;
+                candle.SoxLow = m?.Low;
+                candle.SoxClose = m?.Close;
+                candle.SoxDate = m?.TradeDate;
             }
         }
 

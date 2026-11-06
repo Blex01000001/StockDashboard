@@ -25,6 +25,8 @@ namespace StockDashboard.Components.Pages
         [Inject] private IOilPriceSyncService OilSync { get; set; } = default!;
         [Inject] private IOilPriceRepository OilRepository { get; set; } = default!;
         [Inject] private ILocalPathOpener PathOpener { get; set; } = default!;
+        [Inject] private IMarketIndexSyncService MarketIndexSync { get; set; } = default!;
+        [Inject] private IMarketIndexRepository MarketIndexRepository { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
@@ -67,11 +69,18 @@ namespace StockDashboard.Components.Pages
         public string OilStatusMessage { get; set; } = string.Empty;
         public bool OilIsError { get; set; } = false;
 
+        // ── 費半 (SOX) 同步 ──
+        public (string? FirstDate, string? LastDate, int Days)? SoxSummary { get; set; }
+        public bool IsSyncingSox { get; set; } = false;
+        public string SoxStatusMessage { get; set; } = string.Empty;
+        public bool SoxIsError { get; set; } = false;
+
         protected override async Task OnInitializedAsync()
         {
             await LoadNameSummaryAsync();
             await LoadInstitutionalSummaryAsync();
             await LoadOilSummaryAsync();
+            await LoadSoxSummaryAsync();
         }
 
         public void Dispose()
@@ -99,6 +108,40 @@ namespace StockDashboard.Components.Pages
         {
             try { OilSummary = await OilRepository.GetSummaryAsync(OilPriceApiClient.BrentCode); }
             catch (Exception) { OilSummary = null; }
+        }
+
+        // 舊資料庫沒有這張表時只是不顯示摘要，不影響其他功能
+        private async Task LoadSoxSummaryAsync()
+        {
+            try { SoxSummary = await MarketIndexRepository.GetSummaryAsync(MarketIndexApiClient.SoxCode); }
+            catch (Exception) { SoxSummary = null; }
+        }
+
+        /// <summary>下載最近一年的費半日線 (一次請求)</summary>
+        public async Task SyncSox()
+        {
+            if (IsSyncingSox) return;
+            IsSyncingSox = true;
+            SoxStatusMessage = "下載中...";
+            SoxIsError = false;
+            try
+            {
+                var result = await MarketIndexSync.SyncSoxAsync(CancellationToken.None);
+                await LoadSoxSummaryAsync();
+                if (result.Error != null)
+                {
+                    SoxStatusMessage = $"費半同步失敗：{result.Error}";
+                    SoxIsError = true;
+                }
+                else
+                {
+                    SoxStatusMessage = $"費半同步完成：寫入 {result.RowsWritten} 筆（{result.FirstDate} ~ {result.LastDate}）。";
+                }
+            }
+            finally
+            {
+                IsSyncingSox = false;
+            }
         }
 
         public void OpenSettingsFile() => RunOpen(PathOpener.OpenSettingsFile, "已用文字編輯器開啟 appsettings.json，改好存檔後需重新啟動網站才會生效。");

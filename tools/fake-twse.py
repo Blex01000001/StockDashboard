@@ -28,6 +28,9 @@ FinMind /api/v4/data 依 dataset 與 data_id 決定：
 oilpriceapi /v1/prices/past_year：
   標頭 Authorization: Token BAD → HTTP 401；沒帶 Token → HTTP 401；其他 → oilprice_past_year.json (使用者提供的實際回應，截成 12 天)
   設定：OilPrice:PastYearUrl = http://127.0.0.1:9999/v1/prices/past_year，OilPrice:ApiKey 隨便填 (填 BAD 可測失敗)
+Yahoo Finance /v8/finance/chart/<symbol> (美股指數日線)：
+  symbol 為 BAN → HTTP 429 (模擬請求過多)；其他 → yahoo_sox_chart.json (依 Yahoo 回應結構寫的合成資料，不管請求的區間)
+  設定：MarketIndex:ChartUrl = http://127.0.0.1:9999/v8/finance/chart
 每個請求都會印出 stockNo、date 與 User-Agent。
 """
 import datetime
@@ -53,6 +56,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         stock, date = query.get("stockNo", [""])[0], query.get("date", [""])[0]
         print(f"{url.path} stockNo={stock} date={date} UA={self.headers.get('User-Agent', '')[:40]}", flush=True)
 
+        if "/v8/finance/chart/" in url.path:
+            symbol = urllib.parse.unquote(url.path.rsplit("/", 1)[-1])
+            print(f"yahoo chart {symbol} {query.get('period1', [''])[0]}~{query.get('period2', [''])[0]} interval={query.get('interval', [''])[0]}", flush=True)
+            if symbol == "BAN":
+                return self.reply("Too Many Requests", status=429, content_type="text/plain")
+            return self.reply(fixture("yahoo_sox_chart.json"))
         if url.path.endswith("/v1/prices/past_year"):
             return self.oilprice()
         if url.path.endswith("/api/v4/data"):

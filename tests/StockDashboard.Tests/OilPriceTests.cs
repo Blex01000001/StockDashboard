@@ -211,9 +211,10 @@ public class OilPriceApplyTests
     }
 
     [Fact]
-    public void 附圖選項有原油且排在最後()
+    public void 附圖選項有原油且排在三大法人之後()
     {
-        Assert.Equal("oil", ChartDisplaySettings.SubChartOptions[^1].Value);
+        var options = ChartDisplaySettings.SubChartOptions.Select(o => o.Value).ToList();
+        Assert.True(options.IndexOf("oil") > options.IndexOf("dealer"));
         var state = new ChartDisplaySettings();
         state.SubCharts.Add("oil");
         state.SubCharts.Add("dealer");

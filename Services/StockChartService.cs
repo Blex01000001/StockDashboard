@@ -13,6 +13,7 @@ namespace StockDashboard.Services
         public List<StockDataPoint> FullCandles { get; set; } = new();  // 由舊到新
         public List<InstitutionalDailyEntity> Institutional { get; set; } = new();   // 改顯示筆數時重填用
         public List<OilPriceEntity> Oil { get; set; } = new();                       // 同上 (原油，與個股無關)
+        public List<MarketIndexEntity> MarketIndex { get; set; } = new();            // 同上 (費半)
         public int WindowStart { get; set; }                            // Candles 第一根在 FullCandles 的位置
         public List<PatternCandle> Candles { get; set; } = new();
     }
@@ -33,10 +34,12 @@ namespace StockDashboard.Services
         private readonly IStockNameRepository _stockNameRepository;
         private readonly IInstitutionalRepository _institutionalRepository;
         private readonly IOilPriceRepository _oilPriceRepository;
+        private readonly IMarketIndexRepository _marketIndexRepository;
 
         public StockChartService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository,
-            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository)
+            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository, IMarketIndexRepository marketIndexRepository)
         {
+            _marketIndexRepository = marketIndexRepository;
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
             _institutionalRepository = institutionalRepository;
@@ -50,15 +53,19 @@ namespace StockDashboard.Services
 
             string? name = await _stockNameRepository.GetStockNameOrNullAsync(stockId);
             var data = Build(full, count, indicators, await _institutionalRepository.GetByStockOrEmptyAsync(stockId),
-                await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode));
+                await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode),
+                await _marketIndexRepository.GetAllOrEmptyAsync(MarketIndexApiClient.SoxCode));
             data.Label = name == null ? stockId : $"{stockId} {name}";
             return data;
         }
 
         public static StockChartData Build(List<StockDataPoint> full, int count, IndicatorSettings indicators,
-            IEnumerable<InstitutionalDailyEntity> institutional, IEnumerable<OilPriceEntity>? oil = null)
+            IEnumerable<InstitutionalDailyEntity> institutional, IEnumerable<OilPriceEntity>? oil = null, IEnumerable<MarketIndexEntity>? marketIndex = null)
         {
-            var data = new StockChartData { FullCandles = full, Institutional = institutional.ToList(), Oil = oil?.ToList() ?? new() };
+            var data = new StockChartData
+            {
+                FullCandles = full, Institutional = institutional.ToList(), Oil = oil?.ToList() ?? new(), MarketIndex = marketIndex?.ToList() ?? new()
+            };
             SetWindow(data, count, indicators);
             return data;
         }
@@ -72,6 +79,7 @@ namespace StockDashboard.Services
             Recompute(data, indicators);
             PatternScanService.ApplyInstitutional(data.Candles, data.Institutional);
             PatternScanService.ApplyOil(data.Candles, data.Oil);
+            PatternScanService.ApplyMarketIndex(data.Candles, data.FullCandles.Select(c => c.Date).ToList(), data.MarketIndex);
         }
 
         /// <summary>

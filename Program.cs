@@ -39,11 +39,20 @@ builder.Services.AddHttpClient<IOilPriceApiClient, OilPriceApiClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(60);
 });
 
+// ── 外部 API：Yahoo Finance chart (美股指數日線，例如費半 SOX；不需金鑰，要帶瀏覽器 User-Agent) ──
+builder.Services.AddHttpClient<IMarketIndexApiClient, MarketIndexApiClient>(client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // ── 資料存取層 (Repository) ──
 builder.Services.AddScoped<IStockPriceRepository, StockPriceRepository>();
 builder.Services.AddScoped<IStockNameRepository, StockNameRepository>();
 builder.Services.AddScoped<IInstitutionalRepository, InstitutionalRepository>();
 builder.Services.AddScoped<IOilPriceRepository, OilPriceRepository>();
+builder.Services.AddScoped<IMarketIndexRepository, MarketIndexRepository>();
 
 // ── 商業邏輯層 (Service) ──
 builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
@@ -52,6 +61,7 @@ builder.Services.AddScoped<IStockChartService, StockChartService>();
 builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
 builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 builder.Services.AddScoped<IOilPriceSyncService, OilPriceSyncService>();
+builder.Services.AddScoped<IMarketIndexSyncService, MarketIndexSyncService>();
 builder.Services.AddSingleton<ILocalPathOpener, LocalPathOpener>();
 
 // ── K 線型態：新增型態時在這裡註冊，型態掃描頁會自動列出 (顯示順序 = 註冊順序) ──

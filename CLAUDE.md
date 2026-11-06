@@ -27,6 +27,9 @@
 | `Services/OilPriceApiClient.cs` | oilpriceapi.com：Brent `past_year`（每天一筆當日均價 `daily_average`）；API Key 來自 `OilPrice:ApiKey`（錯誤訊息不可含 Key） | oilpriceapi 格式改變時 |
 | `Services/OilPriceSyncService.cs` | 原油同步：一次請求寫入 `OilPriceDaily`（同日覆蓋，舊資料不刪） | |
 | `Repositories/Implements/OilPriceRepository.cs` | `OilPriceDaily` 讀寫；`OilPriceRepositoryExtensions.GetAllOrEmptyAsync` 失敗回傳空清單 | |
+| `Services/MarketIndexApiClient.cs` | Yahoo Finance chart API（非官方、免金鑰）：美股指數日線 OHLC（目前只有費半 `^SOX`）；必須用 `period1/period2`（`range=max` 會降成月線）；日期取時間戳 UTC 日期，價格四捨五入到小數 2 位 | Yahoo 格式改變時 |
+| `Services/MarketIndexSyncService.cs` | 費半同步：一次請求最近 365 天寫入 `MarketIndexDaily`（同日覆蓋，舊資料不刪） | |
+| `Repositories/Implements/MarketIndexRepository.cs` | `MarketIndexDaily` 讀寫；`MarketIndexRepositoryExtensions.GetAllOrEmptyAsync` 失敗回傳空清單 | |
 | `Services/LocalPathOpener.cs` | 在執行網站的電腦上開啟 `appsettings.json`（Windows 用記事本、Mac `open -t`、Linux `xdg-open`）或其資料夾；只開固定路徑，不接受使用者輸入（原油卡片的按鈕用） | |
 | `Services/StockPerformanceService.cs` | 滾動報酬率計算 | 報酬率公式（**先問使用者**） |
 | `Services/Patterns/ICandlePattern.cs` | 型態介面：參數定義、判斷、範例 K 線 | |
@@ -114,6 +117,9 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 | 自動開瀏覽器包 try/catch | 無桌面環境會丟例外導致程式崩潰 |
 | 原油附圖：每個交易日取「當天之前」最近一筆價格（`PatternScanService.ApplyOil`，嚴格早於當天、休市沿用前值） | 來源是 UTC 整天均價，涵蓋台股收盤之後，用當天值等於偷看未來 |
 | 原油來源用 oilpriceapi.com `past_year`（只有一年、是均價），不用 FRED／FinMind | FinMind 原油要收費；FRED 是現貨，與 TradingView UKOIL（期貨）差最多近 20 美元；oilpriceapi 實測與 UKOIL 收盤平均差約 1.8 美元 |
+| 費半日期對齊（`PatternScanService.ApplyMarketIndex`）：美股交易日 D 歸屬到「該股完整日線中第一個日期 > D」的台股日；同一個台股日有多個美股交易日（台股連假）合併成一根（開取最早、收取最後、高取最大、低取最小）；美股休市日留空、不重複顯示 | 美股在台灣時間隔天清晨收盤，台股開盤前看到的是之前已收盤的美股；合併才不漏掉連假期間的行情；留空才不會把同一根畫兩次 |
+| 費半來源用 Yahoo `^SOX` 區間查詢（`period1/period2&interval=1d`） | 使用者只要一年；`range=max` 會被降成月線；非官方 API，壞了只需改 `MarketIndexApiClient.ParseResponse` |
+| 附圖列高度可個別指定（`SUB_CHARTS[x].heightScale`，費半 = 2），整張圖高度用 `stackedHeight(layout, subs)` 計算 | 費半是蠟燭，要比一般附圖高才看得清楚（使用者指定只加高這一列）；沒勾費半時高度與原本相同 |
 | 型態掃描頁的狀態放在 Scoped 的 `PatternScanState` | 使用者要求切換頁面後保留結果；Blazor 元件離開頁面即銷毀，Scoped 服務在同一連線內持續存在（F5 重新整理才重置） |
 
 ## 核心邏輯（修改前須先與使用者確認）
@@ -129,6 +135,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 三大法人附圖（使用者指定）：單位「張」（股 ÷ 1000），正紅負綠。「三大法人」只畫合計買賣超柱狀；「外資」= 外陸資（不含外資自營商）＋ 外資自營商，另畫「全體外資及陸資持股比率」線（自己的 Y 軸）；投信、自營商（自行買賣＋避險）只畫買賣超。整張小卡無資料時顯示提示。證交所同步範圍：最近一週（預設）／最近一個月（使用者指定）。FinMind 分類換算：外資 = `Foreign_Investor`、外資自營商 = `Foreign_Dealer_Self`（2017-12-18 前無此列，留 null）、投信 = `Investment_Trust`、自營商 = `Dealer` + `Dealer_self` + `Dealer_Hedging`（2014-12-01 前後擇一有值）；持股比例 = `TaiwanStockShareholding.ForeignInvestmentSharesRatio`。
 - 布林通道（使用者要求）：畫在 K 線上，只填上下軌之間的淡灰藍底色（中軌 = MA20 不重畫）；勾選在「顯示均線」那排，參數（天數 20、標準差倍數 2，母體標準差）在收折區；預設關閉，關閉時不計算；設定放在 `IndicatorSettings.Bollinger`，兩頁共用。
 - 原油附圖（使用者要求）：Brent 當日均價（美元 / 桶，不是收盤價）一條橘線、自己的 Y 軸，排在附圖最後、預設不勾；`/stock-update` 的 oilpriceapi 卡片同步最近一年（免費每天 50 次），更早的資料靠多次同步累積。
+- 費半附圖（使用者要求）：美國費城半導體指數 SOX 的紅綠蠟燭（漲紅跌綠），自己的 Y 軸並顯示價格刻度，排在附圖最後、預設不勾；**這一列比其他附圖高 2 倍**（技術圖表附圖區 70 → 140px、小卡 48 → 96px，其他附圖高度不變）。資訊列／提示框顯示「開高低收＋美股日期」。`/stock-update` 的 Yahoo Finance 卡片同步最近一年，更早的資料靠多次同步累積。
 - 勝率醒目提示：50% 起每 5 個百分點一級（共 5 級），用黃色系而非紅綠（紅綠在台股代表漲跌）。
 - 看漲吞沒的預設參數由使用者確認過；晨星、紅三兵、黑三兵的預設參數是 Claude 依常見定義訂的，尚未經使用者確認。
 - `TradeDate` 存 `yyyy-MM-dd` 字串，靠字串比較排序與篩選，**格式不可改**。
