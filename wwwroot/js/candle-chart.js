@@ -27,6 +27,8 @@ const OIL_COLOR = '#ff9800';      // 原油線
 const px = v => v == null ? '-' : v;
 const soxText = c => c.soxClose == null ? '費半 -'
     : `費半 開 ${px(c.soxOpen)} 高 ${px(c.soxHigh)} 低 ${px(c.soxLow)} 收 ${px(c.soxClose)}（美股 ${c.soxDate}）`;
+// 費半均線的欄位名：MA_LINES 的 key 'ma5' → 'soxMa5' (C# PatternCandle.SoxMa5)
+const soxMaKey = m => 'sox' + m.key[0].toUpperCase() + m.key.slice(1);
 
 // 股 → 張 (千股)，四捨五入
 const toLots = v => v == null ? null : Math.round(v / 1000);
@@ -98,12 +100,32 @@ export const SUB_CHARTS = {
         hasData: c => c.soxClose != null,
         noDataText: '尚無費半資料（請到「資料更新」頁同步）',
         barText: soxText,
-        tooltip: soxText
+        // 費半也畫均線：和個股共用「顯示均線」的勾選 (同名的 series 由同一個圖例控制，見 buildStackedOption)
+        ma: true,
+        tooltip: c => `${soxText(c)}　${MA_LINES.map(m => `${m.name} ${c[soxMaKey(m)] ?? '-'}`).join('　')}`
     }
 };
 
 // 某個附圖列的繪圖區高度 (預設 layout.subHeight；定義了 heightScale 的附圖依倍數加高)
 export const subHeightOf = (sub, layout) => layout.subHeight * (SUB_CHARTS[sub]?.heightScale ?? 1);
+
+// 各附圖列的淡底色：用容器的 CSS 背景 (線性漸層的硬邊界) 畫在圖表後面，圖表本身是透明的，
+// 所以寬度隨容器、不必隨視窗重算。每列頂端留 SUB_BG_GAP 不上色，相鄰兩列之間才看得出區隔。
+// 用半透明色，技術圖表 (#1e222d) 與小卡 (深色卡片) 的底色都適用。
+const SUB_BG = 'rgba(131, 146, 165, 0.09)';
+const SUB_BG_GAP = 3;
+export function stackedBackground(layout, subs) {
+    if (subs.length === 0) return 'none';
+    const stops = [];
+    let top = layout.top + layout.candleHeight;
+    for (const sub of subs) {
+        const bottom = top + layout.subLegend + subHeightOf(sub, layout);
+        const from = top + SUB_BG_GAP;
+        stops.push(`transparent ${from}px`, `${SUB_BG} ${from}px`, `${SUB_BG} ${bottom}px`, `transparent ${bottom}px`);
+        top = bottom;
+    }
+    return `linear-gradient(to bottom, transparent 0px, ${stops.join(', ')}, transparent 100%)`;
+}
 
 // 整張圖的高度：K 線區 + 每個附圖列 (圖例列 + 繪圖區) + 上下留白；頁面設定容器高度用
 export const stackedHeight = (layout, subs) =>
@@ -112,7 +134,7 @@ const NO_DATA_TEXT = '尚無三大法人資料（請到「資料更新」頁同�
 
 export function legendStyle(extra) {
     return {
-        itemWidth: 12, itemHeight: 7, itemGap: 8, textStyle: { color: AXIS_COLOR, fontSize: 10 },
+        itemWidth: 12, itemHeight: 7, itemGap: 8, textStyle: { color: AXIS_COLOR, fontSize: 12 },
         // 隱藏中的線在圖例上調暗 (預設淺灰色會和 MA120 的灰色混淆)
         inactiveColor: '#3a3f4b', inactiveBorderColor: '#3a3f4b',
         ...extra
@@ -145,6 +167,8 @@ export function infoTexts(candles, subs, settings, visibleMas, index) {
         const parts = [];
         if (def.barText) parts.push(`{n|${def.barText(c)}}`);
         for (const l of def.lines(settings)) parts.push(rc(l.color, `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`));
+        // 有均線的附圖 (費半)：只列「顯示均線」已勾選的，與 K 線上方的資訊列一致
+        if (def.ma) for (const m of MA_LINES.filter(m => (visibleMas || []).includes(m.name))) parts.push(rc(m.color, `${m.name} ${val(c[soxMaKey(m)])}`));
         texts['info-' + sub] = parts.join('　');
     }
     return texts;
@@ -202,6 +226,14 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
             series.push({ name: def.candleName, type: 'candlestick', xAxisIndex: g, yAxisIndex: g, data: candles.map(def.candle),
                           itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN } });
         }
+        if (def.ma) {
+            // 均線 series 與個股的均線同名 (MA5…)：ECharts 的圖例以名稱控制顯示，所以「顯示均線」勾選 (頁面設定
+            // option.legend[0].selected) 會同時開關個股與費半的均線；不放進本附圖自己的圖例，避免重複
+            for (const m of MA_LINES) {
+                series.push({ name: m.name, type: 'line', xAxisIndex: g, yAxisIndex: g, data: candles.map(c => c[soxMaKey(m)]), showSymbol: false,
+                              lineStyle: { width: 1, color: m.color }, itemStyle: { color: m.color } });
+            }
+        }
 
         if (def.bars) {
             series.push({ name: def.barName ?? (sub === 'macd' ? 'OSC' : undefined), type: 'bar', xAxisIndex: g, yAxisIndex: g,
@@ -227,7 +259,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         });
         // 附圖圖例：放在該附圖左上方
         legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...(def.candleName ? [def.candleName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
-        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
+        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
         if (def.hasData && !candles.some(def.hasData)) {
             graphics.push({ type: 'text', left: 'center', top: top + subHeight / 2 - 6,
                             style: { text: def.noDataText ?? NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
@@ -237,7 +269,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
 
     if (headerInfo) {
         // 改在各圖上方顯示當天數值：不用提示框 (只留十字線)，圖例隱藏 (仍保留均線的顯示狀態)，日期只在 K 線上方出現一次
-        graphics.push({ id: 'info-main', type: 'text', left: LAYOUT.left, top: maLegend.top, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
+        graphics.push({ id: 'info-main', type: 'text', left: LAYOUT.left, top: maLegend.top, silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
         legends.forEach(l => { l.show = false; });
         xAxes.forEach(x => { x.axisPointer = { label: { show: false } }; });
     }

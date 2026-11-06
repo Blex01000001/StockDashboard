@@ -3,14 +3,21 @@
 @* 附圖勾選、指標參數 (收折)、顯示均線：型態掃描與技術圖表共用。改動後呼叫 OnChanged，由頁面重畫圖表 *@
 
 <div class="ctl-field @(Framed ? "framed" : "")">
-    <span>附圖（可複選，依序疊在 K 線下方）</span>
+    <span>附圖（可複選，可拖曳調整順序，依序疊在 K 線下方）</span>
+    @* 拖曳：label 本身可拖；視覺效果、允許放開 (dragover 的 preventDefault，不經過伺服器) 與 Firefox 需要的 dataTransfer 由 wwwroot/js/sub-order-drag.js 處理，放開後由 OnSubChartDropped 重排 *@
     <div class="ma-toggles">
-        @foreach (var (value, label) in ChartDisplaySettings.SubChartOptions)
+        @foreach (var value in Settings.SubChartOrder)
         {
-            <label class="ma-toggle sub-toggle">
+            <label class="ma-toggle sub-toggle" draggable="true" data-sub-drag="@value"
+                   @ondragstart="() => _draggedSubChart = value"
+                   @ondrop="() => OnSubChartDropped(value)" @ondrop:preventDefault>
                 <input type="checkbox" checked="@Settings.SubCharts.Contains(value)" @onchange="e => OnSubChartToggled(value, e)" />
-                <span>@label</span>
+                <span>@SubChartLabels[value]</span>
             </label>
+        }
+        @if (!Settings.IsDefaultSubChartOrder)
+        {
+            <button class="link-btn" @onclick="ResetSubChartOrder">恢復預設順序</button>
         }
     </div>
 </div>
@@ -97,6 +104,25 @@
 
     // 各附圖參數的錯誤訊息 (Key = 附圖識別字)
     private Dictionary<string, string> IndicatorErrors { get; } = new();
+
+    private static readonly Dictionary<string, string> SubChartLabels = ChartDisplaySettings.SubChartOptions.ToDictionary(o => o.Value, o => o.Label);
+
+    // 正在拖曳的附圖 (dragstart 時記下，不影響畫面所以不會造成重繪打斷拖曳)
+    private string? _draggedSubChart;
+
+    private Task OnSubChartDropped(string target)
+    {
+        string? dragged = _draggedSubChart;
+        _draggedSubChart = null;
+        if (dragged == null || !Settings.MoveSubChart(dragged, target)) return Task.CompletedTask;
+        return OnChanged.InvokeAsync(false);   // 順序改變只需重畫，不必重算指標
+    }
+
+    private Task ResetSubChartOrder()
+    {
+        Settings.ResetSubChartOrder();
+        return OnChanged.InvokeAsync(false);
+    }
 
     private Task OnSubChartToggled(string value, ChangeEventArgs e)
     {

@@ -91,6 +91,14 @@ namespace StockDashboard.Models.Patterns
         public double? SoxLow { get; set; }
         public double? SoxClose { get; set; }
         public string? SoxDate { get; set; }
+
+        // 費半的均線 (週期同個股均線 5 / 10 / 20 / 60 / 120)：用「美股自己的交易日」算 (不是對齊後的台股日)，
+        // 對應到台股日時取那一根最後一個美股交易日的值；來源只有一年，前面天數不足為 null
+        public double? SoxMa5 { get; set; }
+        public double? SoxMa10 { get; set; }
+        public double? SoxMa20 { get; set; }
+        public double? SoxMa60 { get; set; }
+        public double? SoxMa120 { get; set; }
     }
 
     /// <summary>

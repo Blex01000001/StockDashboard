@@ -150,20 +150,33 @@ namespace StockDashboard.Services
         /// 同一個 T 有多個美股交易日 (台股連假) 時合併成一根：開盤取最早一天、收盤取最後一天、最高取最大、最低取最小，
         /// 這樣不會漏掉連假期間的美股行情；T 之前沒有新的美股交易日 (美股休市) 時該日為 null，不重複顯示同一根。
         /// tradingDates = 該股完整日線的日期 (由舊到新)；index 由舊到新；晚於最後一個台股日的美股資料忽略。
+        /// 費半均線 (SoxMa5 ~ SoxMa120) 用 index 的美股交易日序列算 (MA5 = 最近 5 個美股交易日)，不是對齊後的台股日；
+        /// 合併成一根時取最後一個美股交易日的均線值。
         /// </summary>
         public static void ApplyMarketIndex(IEnumerable<PatternCandle> candles, IReadOnlyList<string> tradingDates, IReadOnlyList<MarketIndexEntity> index)
         {
             if (index.Count == 0 || tradingDates.Count == 0) return;
 
+            // 均線用完整的美股序列算 (含這次沒對應到任何台股日的資料)，之後再依美股日期對應到台股日
+            var closes = index.Select(r => r.Close).ToList();
+            var ma5 = TechnicalIndicators.MovingAverage(closes, 5);
+            var ma10 = TechnicalIndicators.MovingAverage(closes, 10);
+            var ma20 = TechnicalIndicators.MovingAverage(closes, 20);
+            var ma60 = TechnicalIndicators.MovingAverage(closes, 60);
+            var ma120 = TechnicalIndicators.MovingAverage(closes, 120);
+
             var byTaiwanDate = new Dictionary<string, MarketIndexEntity>();
+            var lastSession = new Dictionary<string, int>();   // 台股日 → 合併後最後一個美股交易日在 index 的位置
             var dates = tradingDates as string[] ?? tradingDates.ToArray();
-            foreach (var row in index)
+            for (int r = 0; r < index.Count; r++)
             {
+                var row = index[r];
                 int i = Array.BinarySearch(dates, row.TradeDate, StringComparer.Ordinal);
                 int position = i >= 0 ? i + 1 : ~i;   // 第一個「大於」美股日期的台股日 (同一天也要往後一個)
                 if (position >= dates.Length) continue;
 
                 string taiwanDate = dates[position];
+                lastSession[taiwanDate] = r;
                 if (byTaiwanDate.TryGetValue(taiwanDate, out var merged))
                 {
                     merged.High = Math.Max(merged.High, row.High);
@@ -185,6 +198,13 @@ namespace StockDashboard.Services
                 candle.SoxLow = m?.Low;
                 candle.SoxClose = m?.Close;
                 candle.SoxDate = m?.TradeDate;
+                if (m == null)
+                {
+                    candle.SoxMa5 = candle.SoxMa10 = candle.SoxMa20 = candle.SoxMa60 = candle.SoxMa120 = null;
+                    continue;
+                }
+                int s = lastSession[candle.Date];
+                candle.SoxMa5 = ma5[s]; candle.SoxMa10 = ma10[s]; candle.SoxMa20 = ma20[s]; candle.SoxMa60 = ma60[s]; candle.SoxMa120 = ma120[s];
             }
         }
 

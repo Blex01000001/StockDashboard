@@ -20,8 +20,34 @@ namespace StockDashboard.Services
             };
         public HashSet<string> SubCharts { get; } = new() { "volume" };
 
-        // 依 SubChartOptions 的順序排列已勾選的附圖
-        public List<string> OrderedSubCharts => SubChartOptions.Select(o => o.Value).Where(SubCharts.Contains).ToList();
+        // 附圖的排列順序 (使用者可在頁面拖曳調整)：預設 = SubChartOptions 的順序；包含所有附圖，不論有沒有勾選，
+        // 這樣取消勾選再勾回來時還在原本的位置
+        public static readonly string[] DefaultSubChartOrder = SubChartOptions.Select(o => o.Value).ToArray();
+        public List<string> SubChartOrder { get; } = DefaultSubChartOrder.ToList();
+
+        // 依 SubChartOrder 排列已勾選的附圖 (由上到下疊在 K 線下方)
+        public List<string> OrderedSubCharts => SubChartOrder.Where(SubCharts.Contains).ToList();
+
+        public bool IsDefaultSubChartOrder => SubChartOrder.SequenceEqual(DefaultSubChartOrder);
+
+        /// <summary>
+        /// 把附圖 dragged 移到 target 目前的位置 (target 及其後的項目順延)，用於拖曳排序。
+        /// 往右拖會排在 target 之後、往左拖排在 target 之前。代號不認得或相同時不動，回傳是否有改變。
+        /// </summary>
+        public bool MoveSubChart(string dragged, string target)
+        {
+            int from = SubChartOrder.IndexOf(dragged), to = SubChartOrder.IndexOf(target);
+            if (from < 0 || to < 0 || from == to) return false;
+            SubChartOrder.RemoveAt(from);
+            SubChartOrder.Insert(to, dragged);
+            return true;
+        }
+
+        public void ResetSubChartOrder()
+        {
+            SubChartOrder.Clear();
+            SubChartOrder.AddRange(DefaultSubChartOrder);
+        }
 
         // 傳給 JS 的均線名稱，例如 ["MA5", "MA20"]
         public string[] VisibleMaNames => VisibleMovingAverages.OrderBy(p => p).Select(p => $"MA{p}").ToArray();

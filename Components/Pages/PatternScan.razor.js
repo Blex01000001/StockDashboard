@@ -3,7 +3,7 @@
 // 附圖定義與組圖程式在 wwwroot/js/candle-chart.js (與技術圖表頁共用)
 
 // 版本參數沿用本檔網址的 ?v=，讓共用檔也跟著更新 (避免瀏覽器沿用快取中的舊版)
-const { UP, DOWN, AXIS_COLOR, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
+const { UP, DOWN, AXIS_COLOR, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, stackedBackground } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
 
 const SIGNAL_COLOR = '#ffd54f';   // 型態標示
 const HORIZON_COLOR = '#8392A5';  // 觀察日標示
@@ -48,6 +48,7 @@ export function renderPatternCards(cards, visibleMas, horizons, subCharts, setti
         const dom = document.getElementById(card.containerId);
         if (!dom) continue;
         dom.style.height = cardHeight(subs) + 'px';   // 先設定高度再建立圖表
+        dom.style.backgroundImage = stackedBackground(LAYOUT, subs);   // 各附圖列的淡底色
         const chart = echarts.init(dom);
         const option = buildCardOption(card.candles, card.signalIndex, card.barCount, horizons || [], subs, settings || {});
         option.legend[0].selected = selected;

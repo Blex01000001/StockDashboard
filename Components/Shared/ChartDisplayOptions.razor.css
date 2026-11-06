@@ -78,6 +78,21 @@
     cursor: pointer;
 }
 
+/* 附圖可拖曳排序：游標提示；拖曳中 / 目標位置的樣式 class 由 wwwroot/js/sub-order-drag.js 加減 */
+.sub-toggle[draggable="true"] {
+    cursor: grab;
+    border-radius: 3px;
+    border-left: 2px solid transparent;
+}
+
+    .sub-toggle.dragging {
+        opacity: 0.45;
+    }
+
+    .sub-toggle.drag-over {
+        border-left-color: var(--accent-color);
+    }
+
 .link-btn {
     background: none;
     border: 1px solid var(--border-color);
