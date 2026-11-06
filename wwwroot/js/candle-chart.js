@@ -105,6 +105,24 @@ export const SUB_CHARTS = {
 // 某個附圖列的繪圖區高度 (預設 layout.subHeight；定義了 heightScale 的附圖依倍數加高)
 export const subHeightOf = (sub, layout) => layout.subHeight * (SUB_CHARTS[sub]?.heightScale ?? 1);
 
+// 各附圖列的淡底色：用容器的 CSS 背景 (線性漸層的硬邊界) 畫在圖表後面，圖表本身是透明的，
+// 所以寬度隨容器、不必隨視窗重算。每列頂端留 SUB_BG_GAP 不上色，相鄰兩列之間才看得出區隔。
+// 用半透明色，技術圖表 (#1e222d) 與小卡 (深色卡片) 的底色都適用。
+const SUB_BG = 'rgba(131, 146, 165, 0.09)';
+const SUB_BG_GAP = 3;
+export function stackedBackground(layout, subs) {
+    if (subs.length === 0) return 'none';
+    const stops = [];
+    let top = layout.top + layout.candleHeight;
+    for (const sub of subs) {
+        const bottom = top + layout.subLegend + subHeightOf(sub, layout);
+        const from = top + SUB_BG_GAP;
+        stops.push(`transparent ${from}px`, `${SUB_BG} ${from}px`, `${SUB_BG} ${bottom}px`, `transparent ${bottom}px`);
+        top = bottom;
+    }
+    return `linear-gradient(to bottom, transparent 0px, ${stops.join(', ')}, transparent 100%)`;
+}
+
 // 整張圖的高度：K 線區 + 每個附圖列 (圖例列 + 繪圖區) + 上下留白；頁面設定容器高度用
 export const stackedHeight = (layout, subs) =>
     layout.top + layout.candleHeight + subs.reduce((sum, sub) => sum + layout.subLegend + subHeightOf(sub, layout), 0) + layout.bottom;
@@ -112,7 +130,7 @@ const NO_DATA_TEXT = '尚無三大法人資料（請到「資料更新」頁同�
 
 export function legendStyle(extra) {
     return {
-        itemWidth: 12, itemHeight: 7, itemGap: 8, textStyle: { color: AXIS_COLOR, fontSize: 10 },
+        itemWidth: 12, itemHeight: 7, itemGap: 8, textStyle: { color: AXIS_COLOR, fontSize: 12 },
         // 隱藏中的線在圖例上調暗 (預設淺灰色會和 MA120 的灰色混淆)
         inactiveColor: '#3a3f4b', inactiveBorderColor: '#3a3f4b',
         ...extra
@@ -227,7 +245,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         });
         // 附圖圖例：放在該附圖左上方
         legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...(def.candleName ? [def.candleName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
-        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
+        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
         if (def.hasData && !candles.some(def.hasData)) {
             graphics.push({ type: 'text', left: 'center', top: top + subHeight / 2 - 6,
                             style: { text: def.noDataText ?? NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
@@ -237,7 +255,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
 
     if (headerInfo) {
         // 改在各圖上方顯示當天數值：不用提示框 (只留十字線)，圖例隱藏 (仍保留均線的顯示狀態)，日期只在 K 線上方出現一次
-        graphics.push({ id: 'info-main', type: 'text', left: LAYOUT.left, top: maLegend.top, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
+        graphics.push({ id: 'info-main', type: 'text', left: LAYOUT.left, top: maLegend.top, silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
         legends.forEach(l => { l.show = false; });
         xAxes.forEach(x => { x.axisPointer = { label: { show: false } }; });
     }

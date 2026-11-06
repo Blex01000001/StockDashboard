@@ -2,7 +2,7 @@
 // 附圖定義與組圖程式在 wwwroot/js/candle-chart.js (與型態掃描小卡共用)
 
 // 版本參數沿用本檔網址的 ?v=，讓共用檔也跟著更新 (避免瀏覽器沿用快取中的舊版)
-const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, infoTexts, infoRich } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
+const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, stackedBackground, infoTexts, infoRich } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
 
 // 版面 (像素)：K 線區高度固定，每多一個附圖，圖表就增高 subLegend + subHeight (費半列加高，見 candle-chart.js 的 heightScale)
 const LAYOUT = {
@@ -44,6 +44,7 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
     if (!dom) return;
     const subs = (subCharts || []).filter(s => SUB_CHARTS[s]);
     dom.style.height = stackedHeight(LAYOUT, subs) + 'px';
+    dom.style.backgroundImage = stackedBackground(LAYOUT, subs);   // 各附圖列的淡底色
 
     // ECharts 由 App.razor 的 <script> 全域載入；重繪時沿用同一個圖表實例，並保留使用者目前的縮放範圍
     // 換股票、換顯示筆數或標示日期時，縮放範圍回到預設；只換附圖 / 參數時保留目前縮放
