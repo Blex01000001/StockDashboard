@@ -17,6 +17,8 @@
     <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
     <script src="https://fastly.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    @* 附圖拖曳排序的輔助程式；?v= 同上，避免沿用快取中的舊版 *@
+    <script src="js/sub-order-drag.js?v=@AssetVersion.Value"></script>
 </body>
 
 </html>

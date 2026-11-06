@@ -19,6 +19,7 @@
 | `Components/Pages/StockUpdate.*` | `/stock-update` 依來源分框（`.source-group`）：證交所（日線逐月、三大法人逐日、股票清單）、FinMind（個股多年三大法人）；卡片標題下列 API 簡短網址 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Components/Shared/ChartDisplayOptions.razor` | 附圖勾選、指標參數（收折，`IndicatorGroups`）、均線勾選；型態掃描與技術圖表共用，改動後 `OnChanged(指標是否改變)`；`Framed` 讓附圖／均線各自加框（技術圖表頁） | 新增附圖／指標參數 |
+| `wwwroot/js/sub-order-drag.js` | 附圖勾選項拖曳排序的輔助程式（Firefox 要求的 `setData`、`dragover` 允許放開、拖曳中的樣式 class）；`App.razor` 以 `?v=` 載入；重排本身在 `ChartDisplayOptions.razor` 的 `@ondrop` | |
 | `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
 | `Services/InstitutionalSyncService.cs` | 三大法人逐日同步（T86 買賣超＋MI_QFIIS 外資持股），寫入 `InstitutionalDaily`、記錄 `InstitutionalSyncLog` | |
@@ -38,7 +39,7 @@
 | `Services/Patterns/TechnicalIndicators.cs` | 技術指標（SMA、MACD、KD、RSI）純計算 | 新增指標時（補測試） |
 | `Services/PatternScanService.cs` | 掃描：讀完整日線 → 判斷 → 切小卡範圍、均線、三大法人（`ApplyInstitutional`）、之後報酬、勝率 | |
 | `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped）；附圖／均線／指標設定在 `Display`（`ChartDisplaySettings`） | 新增要保留的輸入時 |
-| `Services/ChartDisplaySettings.cs` | 附圖選項與順序、均線選項與預設、指標參數 | 新增附圖時加到 `SubChartOptions` |
+| `Services/ChartDisplaySettings.cs` | 附圖選項、顯示順序（`SubChartOrder`，預設 = `SubChartOptions` 順序，`MoveSubChart` 拖曳重排）、均線選項與預設、指標參數 | 新增附圖時加到 `SubChartOptions` |
 | `Services/StockChartService.cs` | 技術圖表資料：完整日線算指標，取最近 N 根（`SetWindow`，0 = 全部），填三大法人；`CountToInclude` 確保標示日在範圍內 | |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
 | `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`） | |
@@ -127,7 +128,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 滾動報酬率：`(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，N 以所有股票「聯集」的時間軸計算；缺資料為 `null`（圖上斷線）。
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
 - 型態掃描：小卡為型態成立日前 10 天、後 max(20, 最長觀察天數) 天；均線 MA5／10／20／60／120 用完整歷史計算，預設顯示 5／10／20／60（使用者指定）；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
-- 小卡附圖可複選、依 成交量→MACD→KD→RSI→三大法人→外資→投信→自營商 疊在 K 線下方；**K 線區高度固定 150px**，每多一個附圖小卡增高一列（版面數值在 `.razor.js` 的 `LAYOUT`）。預設只有成交量（使用者指定；含量 MA5／MA10）。
+- 小卡附圖可複選、預設依 成交量→MACD→KD→RSI→三大法人→外資→投信→自營商→原油→費半 疊在 K 線下方，**可在勾選列拖曳調整順序**（使用者要求；兩頁各自一份、重新整理後回到預設、有「恢復預設順序」按鈕；取消勾選再勾回來維持原位）；**K 線區高度固定 150px**，每多一個附圖小卡增高一列（版面數值在 `.razor.js` 的 `LAYOUT`）。預設只有成交量（使用者指定；含量 MA5／MA10）。
 - 技術圖表頁與型態掃描用同一套附圖、均線、指標（使用者要求）：K 線區固定 340px、每個附圖 88px，寬度隨視窗；均線與指標用完整歷史計算；滑鼠所在日的數值顯示在各圖上方（`infoTexts`：K 線區放開高低收＋已勾選均線與日期，附圖各放自己的數值；無提示框、圖例隱藏；預設顯示最新日或標示日）；顯示筆數 半年 120／一年 250（預設）／三年 750／全部；預設縮放顯示最近約 60 根；換附圖時保留目前縮放範圍。從小卡開啟時標示型態日（黃色虛線）、縮放到該日前 30 後 60 根，該日不在範圍內時自動改用夠大的筆數（多留前 30 根）。
 - 附圖列各自有淡底色（使用者要求；`candle-chart.js` 的 `stackedBackground`，用容器 CSS 背景畫在透明的圖表後面，每列頂端留 3px 不上色以區隔相鄰附圖）；K 線與附圖上方的資訊文字 13px、小卡圖例 12px（使用者要求比原本大 2px）。
 - 指標預設：MACD 12,26,9（DIF − 訊號線 = OSC 柱狀，正紅負綠；EMA 以第一筆收盤為起始值）、KD 9,3,3（K/D 起始 50，參考線 80/20）、RSI 6 與 12（Wilder 平滑，參考線 70/30）。三者參數都可在頁面調整（定義在 `ChartDisplayOptions.razor` 的 `IndicatorGroups`，新增指標時加一組）。

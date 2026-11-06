@@ -287,3 +287,89 @@ public class MarketIndexAlignmentTests
         Assert.Equal(new[] { "volume", "macd", "sox" }, state.OrderedSubCharts);
     }
 }
+
+public class SubChartOrderTests
+{
+    private static ChartDisplaySettings WithAll()
+    {
+        var state = new ChartDisplaySettings();
+        foreach (var o in ChartDisplaySettings.SubChartOptions) state.SubCharts.Add(o.Value);
+        return state;
+    }
+
+    [Fact]
+    public void 預設順序就是SubChartOptions的順序()
+    {
+        var state = WithAll();
+        Assert.Equal(ChartDisplaySettings.SubChartOptions.Select(o => o.Value), state.SubChartOrder);
+        Assert.Equal(state.SubChartOrder, state.OrderedSubCharts);
+        Assert.True(state.IsDefaultSubChartOrder);
+        Assert.Equal(new[] { "volume" }, new ChartDisplaySettings().OrderedSubCharts);   // 預設只勾成交量，不變
+    }
+
+    [Fact]
+    public void 往左拖排在目標之前_往右拖排在目標之後()
+    {
+        var state = new ChartDisplaySettings();
+        // 預設：volume macd kd rsi inst foreign trust dealer oil sox
+        Assert.True(state.MoveSubChart("rsi", "macd"));       // 往左：rsi 搬到 macd 的位置
+        Assert.Equal(new[] { "volume", "rsi", "macd", "kd" }, state.SubChartOrder.Take(4));
+
+        Assert.True(state.MoveSubChart("volume", "kd"));      // 往右：volume 排到 kd 之後
+        Assert.Equal(new[] { "rsi", "macd", "kd", "volume", "inst" }, state.SubChartOrder.Take(5));
+        Assert.False(state.IsDefaultSubChartOrder);
+        Assert.Equal(ChartDisplaySettings.SubChartOptions.Length, state.SubChartOrder.Count);   // 不多不少
+        Assert.Equal(state.SubChartOrder.Count, state.SubChartOrder.Distinct().Count());
+    }
+
+    [Fact]
+    public void 顯示順序依拖曳結果_只列已勾選的_取消再勾回來維持原位()
+    {
+        var state = new ChartDisplaySettings();
+        state.SubCharts.Add("macd");
+        state.SubCharts.Add("sox");
+        Assert.Equal(new[] { "volume", "macd", "sox" }, state.OrderedSubCharts);
+
+        state.MoveSubChart("sox", "volume");                   // 費半拖到最上面
+        Assert.Equal(new[] { "sox", "volume", "macd" }, state.OrderedSubCharts);
+
+        state.SubCharts.Remove("sox");
+        Assert.Equal(new[] { "volume", "macd" }, state.OrderedSubCharts);
+        state.SubCharts.Add("sox");
+        Assert.Equal(new[] { "sox", "volume", "macd" }, state.OrderedSubCharts);   // 勾回來還在最上面
+    }
+
+    [Theory]
+    [InlineData("rsi", "rsi")]        // 拖到自己
+    [InlineData("nope", "macd")]      // 不認得的代號
+    [InlineData("macd", "nope")]
+    public void 無效的拖曳不改變順序(string dragged, string target)
+    {
+        var state = new ChartDisplaySettings();
+        Assert.False(state.MoveSubChart(dragged, target));
+        Assert.True(state.IsDefaultSubChartOrder);
+    }
+
+    [Fact]
+    public void 恢復預設順序()
+    {
+        var state = new ChartDisplaySettings();
+        state.MoveSubChart("sox", "volume");
+        state.MoveSubChart("oil", "macd");
+        Assert.False(state.IsDefaultSubChartOrder);
+
+        state.ResetSubChartOrder();
+        Assert.True(state.IsDefaultSubChartOrder);
+        Assert.Equal(ChartDisplaySettings.DefaultSubChartOrder, state.SubChartOrder);
+    }
+
+    [Fact]
+    public void 兩份設定的順序各自獨立_預設清單不被改動()
+    {
+        var a = new ChartDisplaySettings();
+        var b = new ChartDisplaySettings();
+        a.MoveSubChart("sox", "volume");
+        Assert.True(b.IsDefaultSubChartOrder);
+        Assert.Equal("volume", ChartDisplaySettings.DefaultSubChartOrder[0]);
+    }
+}
