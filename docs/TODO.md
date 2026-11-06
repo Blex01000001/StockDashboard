@@ -7,7 +7,7 @@
 
 1. 【先討論】原油歷史只有一年（oilpriceapi 免費版）：型態掃描要多年資料需另找來源。Yahoo `BZ=F` 用 `range=max` 只回月線，待測 `period1/period2&interval=1d` 是否回日線，並對照 UKOIL 收盤；FRED 現貨與 UKOIL 差太多不採用。
 2. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
-3. 【使用者】在自己的電腦實際測試「同步原油價格」與卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `OilPriceDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
+3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
 4. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
 5. 【直接做】`tools/make-test-db.py` 的最高／最低價沒有四捨五入（技術圖表上方資訊列出現 `889.0029`）：改為 2 位小數；會改變 UI 快照基準，改完重新擷取 before。
 6. 【直接做】`IStockPriceRepository.GetLatestCandlesAsync` 網站已不再使用（技術圖表改用 `GetAllCandlesAsync`），只剩測試：刪除介面／實作與對應測試，或保留並註明用途。
@@ -27,6 +27,7 @@
 - 技術圖表沒有提示框與圖例：當天數值顯示在各圖上方，均線只能用上方勾選開關，附圖線不能再點圖例隱藏；型態掃描小卡仍用提示框與圖例。
 - 布林通道（勾「顯示均線」旁的選項）只在技術圖表頁實機驗證過外觀；型態掃描小卡共用同一段繪圖程式，但尚未實機看過。
 - 原油附圖是當日均價（非收盤價），且取「當天之前」最近一筆；同步來源只給最近一年，之前的日期附圖留空。
+- 費半只有最近一年（Yahoo 同步 365 天，之後累積）；對齊以該股自己的交易日為準，停牌股會合併較多天；型態小卡的費半列只驗證過列高與「尚無費半資料」提示，有資料的小卡畫面尚未實機看過（測試資料的日期不重疊）。
 - 附圖全部勾選時小卡與技術圖表會很高（每個附圖固定一列，刻意的設計）。
 
 ## 想法

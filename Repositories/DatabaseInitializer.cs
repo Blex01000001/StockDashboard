@@ -68,6 +68,18 @@ namespace StockDashboard.Repositories
                 PRIMARY KEY (Code, TradeDate)
             );
 
+            -- 每日指數 K 線 (Yahoo Finance，例如費城半導體指數 SOX)；TradeDate 是該指數所在市場的交易日 (美股為美東日期)
+            CREATE TABLE IF NOT EXISTS MarketIndexDaily (
+                Code      TEXT NOT NULL,              -- 例如 SOX
+                TradeDate TEXT NOT NULL,              -- yyyy-MM-dd
+                Open      REAL NOT NULL,
+                High      REAL NOT NULL,
+                Low       REAL NOT NULL,
+                Close     REAL NOT NULL,
+                Volume    INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (Code, TradeDate)
+            );
+
             CREATE TABLE IF NOT EXISTS StockNameList (
                 StockId   TEXT NOT NULL PRIMARY KEY,
                 StockName TEXT NOT NULL,

@@ -23,6 +23,11 @@ const BOLL_FILL = 'rgba(131, 146, 165, 0.18)';
 const HOLDING_COLOR = '#ab47bc';  // 外資持股比例線
 const OIL_COLOR = '#ff9800';      // 原油線
 
+// 費半列的價格 (已在 C# 取到小數 2 位)；缺值顯示 -
+const px = v => v == null ? '-' : v;
+const soxText = c => c.soxClose == null ? '費半 -'
+    : `費半 開 ${px(c.soxOpen)} 高 ${px(c.soxHigh)} 低 ${px(c.soxLow)} 收 ${px(c.soxClose)}（美股 ${c.soxDate}）`;
+
 // 股 → 張 (千股)，四捨五入
 const toLots = v => v == null ? null : Math.round(v / 1000);
 const signed = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toLocaleString();
@@ -81,8 +86,28 @@ export const SUB_CHARTS = {
         hasData: c => c.oil != null,
         noDataText: '尚無原油資料（請到「資料更新」頁同步）',
         tooltip: c => `Brent 原油 ${c.oil != null ? '$' + c.oil : '-'}`
+    },
+    // 費半 (美國費城半導體指數)：完整紅綠蠟燭，自己的 Y 軸。日期已在 C# 對齊到台股交易日
+    // (PatternScanService.ApplyMarketIndex：取該日之前已收盤的美股，台股連假期間的多個美股交易日合併成一根；美股休市日留空)。
+    // heightScale：蠟燭要看得清楚，這一列比其他附圖高 (使用者指定 2 倍)
+    sox: {
+        heightScale: 2,
+        candleName: '費半',
+        candle: c => c.soxClose == null ? '-' : [c.soxOpen, c.soxClose, c.soxLow, c.soxHigh],
+        lines: () => [],
+        hasData: c => c.soxClose != null,
+        noDataText: '尚無費半資料（請到「資料更新」頁同步）',
+        barText: soxText,
+        tooltip: soxText
     }
 };
+
+// 某個附圖列的繪圖區高度 (預設 layout.subHeight；定義了 heightScale 的附圖依倍數加高)
+export const subHeightOf = (sub, layout) => layout.subHeight * (SUB_CHARTS[sub]?.heightScale ?? 1);
+
+// 整張圖的高度：K 線區 + 每個附圖列 (圖例列 + 繪圖區) + 上下留白；頁面設定容器高度用
+export const stackedHeight = (layout, subs) =>
+    layout.top + layout.candleHeight + subs.reduce((sum, sub) => sum + layout.subLegend + subHeightOf(sub, layout), 0) + layout.bottom;
 const NO_DATA_TEXT = '尚無三大法人資料（請到「資料更新」頁同步）';
 
 export function legendStyle(extra) {
@@ -132,7 +157,6 @@ export const infoRich = () => RICH;
 export function buildStackedOption({ candles, subs, settings, layout, mainSeries, tooltipTitle, dateFormatter, maLegend, headerInfo }) {
     const dates = candles.map(c => c.date);
     const LAYOUT = layout;
-    const SUB_ROW = layout.subLegend + layout.subHeight;
     const axisLine = { lineStyle: { color: AXIS_COLOR } };
     const lastGrid = subs.length;   // 最下方的 grid 才顯示日期
 
@@ -158,16 +182,26 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
                       areaStyle: { color: BOLL_FILL } });
     }
 
+    let usedHeight = 0;   // 已排掉的附圖列高度 (各列高度可不同，所以逐列累加)
     subs.forEach((sub, i) => {
         const def = SUB_CHARTS[sub];
         const g = i + 1;
-        const top = LAYOUT.top + LAYOUT.candleHeight + i * SUB_ROW + LAYOUT.subLegend;
-        grids.push({ left: LAYOUT.left, right: LAYOUT.right, top, height: LAYOUT.subHeight });
+        const subHeight = subHeightOf(sub, LAYOUT);
+        const top = LAYOUT.top + LAYOUT.candleHeight + usedHeight + LAYOUT.subLegend;
+        usedHeight += LAYOUT.subLegend + subHeight;
+        grids.push({ left: LAYOUT.left, right: LAYOUT.right, top, height: subHeight });
         xAxes.push({ type: 'category', gridIndex: g, data: dates, axisLine, axisTick: { show: false },
                      axisLabel: { show: g === lastGrid, color: AXIS_COLOR, fontSize: 10, formatter: dateFormatter } });
         // KD、RSI 固定 0~100，參考線位置才有意義
         yAxes.push({ gridIndex: g, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false },
-                     ...(def.levels ? { min: 0, max: 100 } : {}) });
+                     ...(def.levels ? { min: 0, max: 100 } : {}),
+                     // 蠟燭附圖：Y 軸貼合價格範圍並顯示價格刻度
+                     ...(def.candle ? { scale: true, axisLabel: { show: true, color: AXIS_COLOR, fontSize: 9 }, splitLine: { show: true, lineStyle: { color: '#2d3139' } } } : {}) });
+
+        if (def.candle) {
+            series.push({ name: def.candleName, type: 'candlestick', xAxisIndex: g, yAxisIndex: g, data: candles.map(def.candle),
+                          itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN } });
+        }
 
         if (def.bars) {
             series.push({ name: def.barName ?? (sub === 'macd' ? 'OSC' : undefined), type: 'bar', xAxisIndex: g, yAxisIndex: g,
@@ -192,10 +226,10 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
             });
         });
         // 附圖圖例：放在該附圖左上方
-        legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
+        legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...(def.candleName ? [def.candleName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
         if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 11, fill: '#d1d4dc' } });
         if (def.hasData && !candles.some(def.hasData)) {
-            graphics.push({ type: 'text', left: 'center', top: top + LAYOUT.subHeight / 2 - 6,
+            graphics.push({ type: 'text', left: 'center', top: top + subHeight / 2 - 6,
                             style: { text: def.noDataText ?? NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
         }
     });

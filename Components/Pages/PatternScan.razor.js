@@ -3,12 +3,12 @@
 // 附圖定義與組圖程式在 wwwroot/js/candle-chart.js (與技術圖表頁共用)
 
 // 版本參數沿用本檔網址的 ?v=，讓共用檔也跟著更新 (避免瀏覽器沿用快取中的舊版)
-const { UP, DOWN, AXIS_COLOR, MA_LINES, SUB_CHARTS, buildStackedOption } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
+const { UP, DOWN, AXIS_COLOR, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
 
 const SIGNAL_COLOR = '#ffd54f';   // 型態標示
 const HORIZON_COLOR = '#8392A5';  // 觀察日標示
 
-// 小卡版面 (像素)：K 線區高度固定，每多一個附圖，小卡就增高 SUB_ROW
+// 小卡版面 (像素)：K 線區高度固定，每多一個附圖，小卡就增高一列
 const LAYOUT = {
     top: 36,          // 上方留給均線圖例與觀察日標籤
     candleHeight: 150,
@@ -18,10 +18,10 @@ const LAYOUT = {
     left: 48,
     right: 12
 };
-const SUB_ROW = LAYOUT.subLegend + LAYOUT.subHeight;
 
-export function cardHeight(subCount) {
-    return LAYOUT.top + LAYOUT.candleHeight + subCount * SUB_ROW + LAYOUT.bottom;
+// 小卡高度：K 線區 + 每個附圖列 (費半列加高，見 candle-chart.js 的 heightScale)
+export function cardHeight(subs) {
+    return stackedHeight(LAYOUT, subs);
 }
 
 let cardCharts = [];
@@ -47,7 +47,7 @@ export function renderPatternCards(cards, visibleMas, horizons, subCharts, setti
     for (const card of cards) {
         const dom = document.getElementById(card.containerId);
         if (!dom) continue;
-        dom.style.height = cardHeight(subs.length) + 'px';   // 先設定高度再建立圖表
+        dom.style.height = cardHeight(subs) + 'px';   // 先設定高度再建立圖表
         const chart = echarts.init(dom);
         const option = buildCardOption(card.candles, card.signalIndex, card.barCount, horizons || [], subs, settings || {});
         option.legend[0].selected = selected;
