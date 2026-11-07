@@ -10,7 +10,7 @@
             <span class="opt-label">附圖</span>
             <div class="opt-body">
                 @SubChartToggles()
-                <span class="opt-hint">可複選、可拖曳調整順序，依序疊在 K 線下方</span>
+                <span class="opt-hint">可複選；要調整順序，請拖曳圖上的附圖標題。依序疊在 K 線下方</span>
             </div>
         </div>
         <div class="opt-row">
@@ -91,7 +91,8 @@ else
     private RenderFragment SubChartToggles() => @<text>
         @foreach (var value in Settings.SubChartOrder)
         {
-            <label class="ma-toggle sub-toggle" draggable="true" data-sub-drag="@value"
+            @* 勾選列只有型態掃描頁 (非 Framed) 可拖曳；技術圖表頁改拖圖上的附圖標題 (draggable / data-sub-drag 為 null 時屬性不輸出) *@
+            <label class="ma-toggle sub-toggle" draggable="@(Framed ? null : "true")" data-sub-drag="@(Framed ? null : value)"
                    @ondragstart="() => _draggedSubChart = value"
                    @ondrop="() => OnSubChartDropped(value)" @ondrop:preventDefault>
                 <input type="checkbox" checked="@Settings.SubCharts.Contains(value)" @onchange="e => OnSubChartToggled(value, e)" />
