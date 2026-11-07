@@ -76,9 +76,10 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
         tooltipTitle: c => `日期：${c.date}${c.date === focusDate ? '（型態成立）' : ''}`,
         dateFormatter: d => d,
         maLegend: { top: 32, right: LAYOUT.right },
-        headerInfo: true
+        headerInfo: true,
+        subAxes: true      // 每個附圖都顯示 Y 軸刻度
     });
-    option.title = { text: `${stockLabel} 技術分析圖`, textStyle: { color: '#fff' } };
+    option.title = { text: `${stockLabel} 技術分析圖`, left: 'center', textStyle: { color: '#fff' } };
     option.legend[0].selected = Object.fromEntries(MA_LINES.map(m => [m.name, (visibleMas || []).includes(m.name)]));
     // 縮放與拖曳：滑鼠滾輪 / 拖曳 (inside) 與下方滑桿 (slider)，所有附圖一起連動
     option.dataZoom = [
