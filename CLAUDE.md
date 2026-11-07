@@ -56,7 +56,7 @@
 | `tools/ui-snapshot.js` | UI 快照：擷取／比對 computed style 與截圖 | 新增頁面或互動狀態時加到 `STATES` |
 | `tools/fake-twse.py`、`tools/make-test-db.py` | 假證交所（含 FinMind 端點）伺服器、確定性測試資料庫 | |
 
-未完成的空殼：`StockPriceService`（還原股價，未註冊 DI）、`StockDividend*`、`StockCorporateAction*`、`StockCombinationDto`。
+還原股價（未完成，未註冊 DI）：`Services/PriceAdjuster.cs`（比例還原純計算：係數 = 參考價 / 前收盤，除權息日之前的 OHLC 與漲跌價差連乘）、`StockPriceService`（`isAdjusted` 才套用）、`StockCorporateAction` 表與 `StockCorporateActionRepository`；缺資料來源與同步。
 主專案 `StockDashboard.csproj` 在 repo 根目錄，**已排除 `tests/**`、`tools/**`**（否則會把測試碼編進網站）；新增資料夾若不屬於網站也要排除。
 
 ## 修改後的驗證

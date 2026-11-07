@@ -7,11 +7,11 @@
 
 1. 【先討論】原油歷史只有一年（oilpriceapi 免費版）：型態掃描要多年資料需另找來源。Yahoo `BZ=F` 用 `range=max` 只回月線，待測 `period1/period2&interval=1d` 是否回日線，並對照 UKOIL 收盤；FRED 現貨與 UKOIL 差太多不採用。
 2. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
-3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
+3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `StockCorporateAction`／`OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
 4. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
 5. 【直接做】`tools/make-test-db.py` 的最高／最低價沒有四捨五入（技術圖表上方資訊列出現 `889.0029`）：改為 2 位小數；會改變 UI 快照基準，改完重新擷取 before。
 6. 【直接做】`IStockPriceRepository.GetLatestCandlesAsync` 網站已不再使用（技術圖表改用 `GetAllCandlesAsync`），只剩測試：刪除介面／實作與對應測試，或保留並註明用途。
-7. 【先討論】還原股價：實作 `StockPriceService.ApplyDividendAdjustment`（未註冊 DI），需除權息資料來源、資料表與 `IStockDividendRepository` 實作；`StockCorporateAction*`、`StockCombinationDto` 也是規劃中的空殼。
+7. 【先討論】還原股價：演算法（`PriceAdjuster`）、`StockCorporateAction` 表與 Repository 已完成；缺除權息資料來源與同步（證交所 TWT49U 或 FinMind `TaiwanStockDividendResult`，格式待你確認；產生 `StockCorporateActionEntity` 的 `StockId／ExDate／PreClose／RefPrice` 即可）、`/stock-update` 同步卡片、`StockPriceService` 註冊 DI，以及各頁「還原股價」開關（外觀變更需你同意；預設用原始價或還原價待定）。
 
 ## 已知問題／限制
 
