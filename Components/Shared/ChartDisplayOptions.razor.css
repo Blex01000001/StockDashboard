@@ -150,48 +150,50 @@
     font-size: 0.72rem;
 }
 
-/* 指標參數小卡：等寬欄位對齊，標題＋各參數＋預設鈕在同一行 */
+/* 指標參數小卡：等寬欄位，上緣「標題 ＋ 預設鈕」、下方各參數並排 */
 .indicator-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
     gap: 8px;
     align-items: stretch;
 }
 
 .indicator-card {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 10px;
+    flex-direction: column;
+    gap: 6px;
     border: 1px solid var(--border-color);
     border-radius: 5px;
-    padding: 6px 10px;
+    padding: 6px 10px 8px;
+}
+
+.indicator-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
 }
 
 .indicator-title {
-    min-width: 52px;
     color: var(--text-main);
     font-weight: 600;
 }
 
+.indicator-fields {
+    display: grid;
+    gap: 6px;
+}
+
 .indicator-field {
     display: flex;
-    align-items: center;
-    gap: 5px;
+    flex-direction: column;
+    gap: 2px;
 }
 
     .indicator-field .dark-input {
-        width: 58px;
+        width: 100%;
         box-sizing: border-box;
         padding: 4px 6px;
         font-size: 0.85rem;
         color-scheme: dark;
     }
-
-.indicator-card .link-btn {
-    margin-left: auto;
-}
-
-.indicator-card .indicator-error {
-    flex-basis: 100%;
-}

@@ -25,16 +25,20 @@
                     @foreach (var group in IndicatorGroups.Where(IsGroupVisible))
                     {
                         <div class="indicator-card" data-indicator="@group.SubChart">
-                            <span class="indicator-title">@group.Title</span>
-                            @foreach (var param in group.Params)
-                            {
-                                <label class="indicator-field">
-                                    <span>@param.Label</span>
-                                    <input type="number" min="1" max="@IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
-                                           value="@param.Get(Settings.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" />
-                                </label>
-                            }
-                            <button class="link-btn" title="恢復預設" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
+                            <div class="indicator-head">
+                                <span class="indicator-title">@group.Title</span>
+                                <button class="link-btn" title="恢復預設" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
+                            </div>
+                            <div class="indicator-fields" style="grid-template-columns: repeat(@group.Params.Length, 1fr)">
+                                @foreach (var param in group.Params)
+                                {
+                                    <label class="indicator-field">
+                                        <span>@param.Label</span>
+                                        <input type="number" min="1" max="@IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
+                                               value="@param.Get(Settings.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" />
+                                    </label>
+                                }
+                            </div>
                             @if (IndicatorErrors.TryGetValue(group.SubChart, out var error))
                             {
                                 <span class="indicator-error">@error</span>
