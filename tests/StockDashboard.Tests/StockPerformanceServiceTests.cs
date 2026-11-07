@@ -13,7 +13,6 @@ public class StockPerformanceServiceTests
             Task.FromResult(rows.Where(r => stockIds.Contains(r.StockId)));
 
         public Task<IEnumerable<StockDailyPriceEntity>> GetHistoricalPricesAsync(string stockId, string startDate, string endDate) => throw new NotSupportedException();
-        public Task<IEnumerable<StockDataPoint>> GetLatestCandlesAsync(string stockId, int count) => throw new NotSupportedException();
         public Task<IEnumerable<StockDataPoint>> GetAllCandlesAsync(string stockId) => throw new NotSupportedException();
         public Task<StockDailyPriceEntity?> GetLatestPriceAsync(string stockId) => throw new NotSupportedException();
         public Task<int> UpsertPricesAsync(IEnumerable<StockDailyPriceEntity> prices) => throw new NotSupportedException();

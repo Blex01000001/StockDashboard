@@ -151,18 +151,6 @@ public class StockPriceRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task K線取最新N筆且由舊到新排序()
-    {
-        var repo = await InitAsync();
-        await repo.UpsertPricesAsync(new[] { P("2026-10-01", 1), P("2026-10-02", 2), P("2026-10-05", 3), P("2026-10-06", 4) });
-
-        var candles = (await repo.GetLatestCandlesAsync("2330", 3)).ToList();
-
-        Assert.Equal(new[] { "2026-10-02", "2026-10-05", "2026-10-06" }, candles.Select(c => c.Date));
-        Assert.Equal(4, candles[^1].Close);
-    }
-
-    [Fact]
     public async Task 查無資料回傳Null()
     {
         var repo = await InitAsync();

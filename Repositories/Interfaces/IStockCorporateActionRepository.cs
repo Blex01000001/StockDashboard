@@ -1,13 +1,16 @@
-﻿using StockDashboard.Models.Entities;
+using StockDashboard.Models.Entities;
 
 namespace StockDashboard.Repositories.Interfaces
 {
     public interface IStockCorporateActionRepository
     {
-        // 取得單一股票的歷史重大事件
-        Task<IEnumerable<StockCorporateActionEntity>> GetCorporateActionsAsync(string stockId);
+        // 寫入 (同股票同除權息日覆蓋)，回傳寫入筆數
+        Task<int> UpsertAsync(IEnumerable<StockCorporateActionEntity> rows);
 
-        // 依據事件類型 (ActionType) 過濾
-        Task<IEnumerable<StockCorporateActionEntity>> GetCorporateActionsByTypeAsync(string stockId, string actionType);
+        // 單一股票全部除權息事件 (由舊到新)
+        Task<IEnumerable<StockCorporateActionEntity>> GetByStockIdAsync(string stockId);
+
+        // 已有資料的股票數與事件筆數 (資料更新頁顯示)
+        Task<(int Stocks, int Events)> GetSummaryAsync();
     }
 }

@@ -51,8 +51,8 @@ for offset in range(401):
         close = round(prev * (1 + rng.uniform(-0.02, 0.02)), 2)
         prices[stock_id] = close
         db.execute("INSERT INTO StockDailyPrice VALUES (?,?,?,?,?,?,?,?,?,?,NULL)",
-                   (stock_id, day.isoformat(), 1000, 100000, prev, max(prev, close) * 1.005,
-                    min(prev, close) * 0.995, close, round(close - prev, 2), 10))
+                   (stock_id, day.isoformat(), 1000, 100000, prev, round(max(prev, close) * 1.005, 2),
+                    round(min(prev, close) * 0.995, 2), close, round(close - prev, 2), 10))
 
 # 三大法人：另用獨立亂數種子，不影響上面的日線資料
 inst_rng = random.Random(7)

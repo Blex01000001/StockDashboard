@@ -137,7 +137,7 @@
     <section class="source-group">
         <div class="source-header">
             <span class="source-name">📦 FinMind</span>
-            <span class="source-note">一次一檔、整段期間（2012-05-02 起）；匿名使用，IP 被封鎖時立即停止</span>
+            <span class="source-note">一次一檔、整段期間（三大法人 2012-05-02 起、除權息 2003 年起）；匿名使用，IP 被封鎖時立即停止</span>
         </div>
 
         <div class="update-grid">
@@ -178,6 +178,44 @@
                 {
                     <div class="status-box @(FinMindIsError ? "error" : "success")">
                         @FinMindStatusMessage
+                    </div>
+                }
+            </div>
+
+            <div class="card-box card-wide">
+                <h3 class="card-title">✂️ 除權除息（還原股價用）</h3>
+                <div class="api-url">
+                    <code>api.finmindtrade.com/api/v4/data?dataset=TaiwanStockDividendResult</code>
+                </div>
+                <p class="description">
+                    每檔股票一個請求，取回 2003 年起的除權息前收盤與參考價，存入 <code class="code-tag">StockCorporateAction</code>。
+                    目前只存資料，圖表與型態掃描尚未使用。
+                </p>
+
+                <div class="form-group">
+                    <label>股票代號（可多檔，以逗號分隔）</label>
+                    <div class="search-box-container">
+                        <input type="text" @bind="ActionStockIds" placeholder="例如: 2330,0050" class="dark-input" list="stock-id-options" disabled="@IsSyncingAction" />
+                        @if (IsSyncingAction)
+                        {
+                            <button @onclick="StopActionSync" class="action-btn">⏹ 停止</button>
+                        }
+                        else
+                        {
+                            <button @onclick="SyncActions" class="action-btn">🔄 同步除權除息</button>
+                        }
+                    </div>
+                </div>
+
+                @if (ActionSummary is { Events: > 0 })
+                {
+                    <p class="description summary-line">已有 <b>@ActionSummary.Value.Stocks</b> 檔、<b>@ActionSummary.Value.Events</b> 筆除權息事件</p>
+                }
+
+                @if (!string.IsNullOrEmpty(ActionStatusMessage))
+                {
+                    <div class="status-box @(ActionIsError ? "error" : "success")">
+                        @ActionStatusMessage
                     </div>
                 }
             </div>

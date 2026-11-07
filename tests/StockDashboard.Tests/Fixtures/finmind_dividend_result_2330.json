@@ -1,0 +1,42 @@
+{
+  "msg": "success",
+  "status": 200,
+  "data": [
+    {
+      "date": "2020-03-19",
+      "stock_id": "2330",
+      "before_price": 260,
+      "after_price": 257.5,
+      "stock_and_cache_dividend": 2.5,
+      "stock_or_cache_dividend": "息",
+      "max_price": 283,
+      "min_price": 232,
+      "open_price": 257.5,
+      "reference_price": 257.5
+    },
+    {
+      "date": "2020-06-18",
+      "stock_id": "2330",
+      "before_price": 315,
+      "after_price": 312.5,
+      "stock_and_cache_dividend": 2.5,
+      "stock_or_cache_dividend": "息",
+      "max_price": 343.5,
+      "min_price": 281.5,
+      "open_price": 312.5,
+      "reference_price": 312.5
+    },
+    {
+      "date": "2026-09-16",
+      "stock_id": "2330",
+      "before_price": 2385,
+      "after_price": 2377.99,
+      "stock_and_cache_dividend": 7.000001,
+      "stock_or_cache_dividend": "息",
+      "max_price": 2615,
+      "min_price": 2145,
+      "open_price": 2380,
+      "reference_price": 2377.99
+    }
+  ]
+}
