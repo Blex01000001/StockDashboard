@@ -1,11 +1,94 @@
 @using StockDashboard.Models.Patterns
 @using StockDashboard.Services
-@* 附圖勾選、指標參數 (收折)、顯示均線：型態掃描與技術圖表共用。改動後呼叫 OnChanged，由頁面重畫圖表 *@
+@* 附圖勾選、指標參數、顯示均線：型態掃描與技術圖表共用 (Framed = 技術圖表頁用面板版面，否則為型態掃描頁的收折版面)。改動後呼叫 OnChanged，由頁面重畫圖表 *@
 
-<div class="ctl-field @(Framed ? "framed" : "")">
-    <span>附圖（可複選，可拖曳調整順序，依序疊在 K 線下方）</span>
-    @* 拖曳：label 本身可拖；視覺效果、允許放開 (dragover 的 preventDefault，不經過伺服器) 與 Firefox 需要的 dataTransfer 由 wwwroot/js/sub-order-drag.js 處理，放開後由 OnSubChartDropped 重排 *@
-    <div class="ma-toggles">
+@if (Framed)
+{
+    @* 技術圖表頁：一個設定面板，每列「標籤 ＋ 內容」對齊；指標參數用等寬小卡，一行放完 *@
+    <div class="options-panel">
+        <div class="opt-row">
+            <span class="opt-label">附圖</span>
+            <div class="opt-body">
+                @SubChartToggles()
+                <span class="opt-hint">可複選、可拖曳調整順序，依序疊在 K 線下方</span>
+            </div>
+        </div>
+        <div class="opt-row">
+            <span class="opt-label">均線</span>
+            <div class="opt-body">@MovingAverageToggles()</div>
+        </div>
+        @if (IndicatorGroups.Any(IsGroupVisible))
+        {
+            <div class="opt-row">
+                <span class="opt-label">指標參數</span>
+                <div class="opt-body indicator-cards">
+                    @foreach (var group in IndicatorGroups.Where(IsGroupVisible))
+                    {
+                        <div class="indicator-card" data-indicator="@group.SubChart">
+                            <div class="indicator-head">
+                                <span class="indicator-title">@group.Title</span>
+                                <button class="link-btn" title="恢復預設" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
+                            </div>
+                            <div class="indicator-fields" style="grid-template-columns: repeat(@group.Params.Length, 1fr)">
+                                @foreach (var param in group.Params)
+                                {
+                                    <label class="indicator-field">
+                                        <span>@param.Label</span>
+                                        <input type="number" min="1" max="@IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
+                                               value="@param.Get(Settings.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" />
+                                    </label>
+                                }
+                            </div>
+                            @if (IndicatorErrors.TryGetValue(group.SubChart, out var error))
+                            {
+                                <span class="indicator-error">@error</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="ctl-field">
+        <span>附圖（可複選，可拖曳調整順序，依序疊在 K 線下方）</span>
+        <div class="ma-toggles">@SubChartToggles()</div>
+    </div>
+    @foreach (var group in IndicatorGroups.Where(IsGroupVisible))
+    {
+        @* 指標參數平常收折；調整後立即用已載入的日線重算 *@
+        <details class="indicator-params" data-indicator="@group.SubChart">
+            <summary>@group.Title 參數（@string.Join(", ", group.Params.Select(p => p.Get(Settings.Indicators)))）</summary>
+            <div class="indicator-grid" style="grid-template-columns: repeat(@group.Params.Length, 1fr)">
+                @foreach (var param in group.Params)
+                {
+                    <label>@param.Label<input type="number" min="1" max="@IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
+                                             value="@param.Get(Settings.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" /></label>
+                }
+            </div>
+            <div class="indicator-foot">
+                @if (IndicatorErrors.TryGetValue(group.SubChart, out var error))
+                {
+                    <span class="indicator-error">@error</span>
+                }
+                <button class="link-btn" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
+            </div>
+        </details>
+    }
+    <div class="ctl-field">
+        <span>顯示均線</span>
+        <div class="ma-toggles">@MovingAverageToggles()</div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ChartDisplaySettings Settings { get; set; } = default!;
+
+    // 附圖勾選 (可拖曳)：label 本身可拖；視覺效果、允許放開 (dragover 的 preventDefault，不經過伺服器) 與 Firefox 需要的 dataTransfer
+    // 由 wwwroot/js/sub-order-drag.js 處理，放開後由 OnSubChartDropped 重排
+    private RenderFragment SubChartToggles() => @<text>
         @foreach (var value in Settings.SubChartOrder)
         {
             <label class="ma-toggle sub-toggle" draggable="true" data-sub-drag="@value"
@@ -19,32 +102,10 @@
         {
             <button class="link-btn" @onclick="ResetSubChartOrder">恢復預設順序</button>
         }
-    </div>
-</div>
-@foreach (var group in IndicatorGroups.Where(IsGroupVisible))
-{
-    @* 指標參數平常收折；調整後立即用已載入的日線重算 *@
-    <details class="indicator-params" data-indicator="@group.SubChart">
-        <summary>@group.Title 參數（@string.Join(", ", group.Params.Select(p => p.Get(Settings.Indicators)))）</summary>
-        <div class="indicator-grid" style="grid-template-columns: repeat(@group.Params.Length, 1fr)">
-            @foreach (var param in group.Params)
-            {
-                <label>@param.Label<input type="number" min="1" max="@IndicatorSettings.MaxPeriod" class="dark-input @param.CssClass"
-                                         value="@param.Get(Settings.Indicators)" @onchange="e => OnIndicatorChanged(group, param, e)" /></label>
-            }
-        </div>
-        <div class="indicator-foot">
-            @if (IndicatorErrors.TryGetValue(group.SubChart, out var error))
-            {
-                <span class="indicator-error">@error</span>
-            }
-            <button class="link-btn" @onclick="() => ResetIndicator(group)">預設 @string.Join(", ", group.Params.Select(p => p.Get(DefaultIndicators)))</button>
-        </div>
-    </details>
-}
-<div class="ctl-field @(Framed ? "framed" : "")">
-    <span>顯示均線</span>
-    <div class="ma-toggles">
+    </text>;
+
+    // 均線勾選；布林通道畫在 K 線上，和均線放同一組 (參數在指標參數區)
+    private RenderFragment MovingAverageToggles() => @<text>
         @foreach (var period in ChartDisplaySettings.MovingAveragePeriods)
         {
             <label class="ma-toggle">
@@ -52,16 +113,11 @@
                 <span>@period</span>
             </label>
         }
-        @* 布林通道畫在 K 線上，和均線放同一組；參數在上方收折區 *@
         <label class="ma-toggle sub-toggle">
             <input type="checkbox" checked="@Settings.Indicators.Bollinger" @onchange="OnBollingerToggled" />
             <span>布林通道</span>
         </label>
-    </div>
-</div>
-
-@code {
-    [Parameter, EditorRequired] public ChartDisplaySettings Settings { get; set; } = default!;
+    </text>;
 
     // true：附圖、均線各自用框線圍成一組 (技術圖表頁)；型態掃描頁的控制框已有外框，不需要
     [Parameter] public bool Framed { get; set; }

@@ -7,8 +7,9 @@
     margin-top: 12px;
 }
 
-    .chart-options ::deep details {
-        min-width: 220px;
+    /* 設定面板撐滿整列 */
+    .chart-options ::deep .options-panel {
+        flex: 1 1 100%;
     }
 
 /* 還原股價勾選 */
