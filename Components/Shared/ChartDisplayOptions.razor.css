@@ -107,3 +107,91 @@
         border-color: var(--accent-color);
         color: #ffffff;
     }
+
+/* ── 技術圖表頁的設定面板 (Framed)：每列「標籤 ＋ 內容」 ── */
+.options-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.opt-row {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 10px;
+    align-items: start;
+}
+
+    .opt-row + .opt-row {
+        border-top: 1px solid var(--border-color);
+        padding-top: 8px;
+    }
+
+.opt-label {
+    color: var(--text-main);
+    font-weight: 600;
+    padding-top: 1px;
+}
+
+.opt-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+}
+
+.opt-hint {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+/* 指標參數小卡：等寬欄位對齊，標題＋各參數＋預設鈕在同一行 */
+.indicator-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 8px;
+    align-items: stretch;
+}
+
+.indicator-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 6px 10px;
+}
+
+.indicator-title {
+    min-width: 52px;
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+.indicator-field {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+    .indicator-field .dark-input {
+        width: 58px;
+        box-sizing: border-box;
+        padding: 4px 6px;
+        font-size: 0.85rem;
+        color-scheme: dark;
+    }
+
+.indicator-card .link-btn {
+    margin-left: auto;
+}
+
+.indicator-card .indicator-error {
+    flex-basis: 100%;
+}
