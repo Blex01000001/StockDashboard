@@ -11,9 +11,6 @@ namespace StockDashboard.Repositories.Interfaces
         // 取得多檔股票特定區間的日線資料 (用於多檔比較服務)
         Task<IEnumerable<StockDailyPriceEntity>> GetMultipleHistoricalPricesAsync(IEnumerable<string> stockIds, string startDate, string endDate);
 
-        // 取得單檔股票「最新」N 筆 K 線資料 (依日期由舊到新排序，用於 K 線圖)
-        Task<IEnumerable<StockDataPoint>> GetLatestCandlesAsync(string stockId, int count);
-
         // 取得單檔股票全部 K 線資料 (由舊到新)，略過開高低收有缺值的日子 (用於型態掃描)
         Task<IEnumerable<StockDataPoint>> GetAllCandlesAsync(string stockId);
 
