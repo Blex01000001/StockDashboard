@@ -81,7 +81,8 @@ namespace StockDashboard.Repositories
             );
 
             -- 除權息事件 (還原股價用)；還原係數 = RefPrice / PreClose
-            CREATE TABLE IF NOT EXISTS StockCorporateAction (
+            -- 表名不用 StockCorporateAction：使用者的 stock.db 已有同名但欄位不同的表，IF NOT EXISTS 會略過建立
+            CREATE TABLE IF NOT EXISTS StockExRightEvent (
                 StockId  TEXT NOT NULL,
                 ExDate   TEXT NOT NULL,               -- yyyy-MM-dd，除權息交易日
                 PreClose REAL NOT NULL,               -- 除權息前一交易日收盤價

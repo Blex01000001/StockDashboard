@@ -1,7 +1,7 @@
 namespace StockDashboard.Models.Entities
 {
     /// <summary>
-    /// 除權息事件 (對應 SQLite StockCorporateAction 表)。
+    /// 除權息事件 (對應 SQLite StockExRightEvent 表)。
     /// 只放與資料來源無關的欄位：還原係數 = RefPrice / PreClose。
     /// 現金股利、股票股利等細節已含在參考價裡，不另存。
     /// </summary>
