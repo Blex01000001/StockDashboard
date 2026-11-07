@@ -7,7 +7,7 @@
 
 1. 【先討論】原油歷史只有一年（oilpriceapi 免費版）：型態掃描要多年資料需另找來源。Yahoo `BZ=F` 用 `range=max` 只回月線，待測 `period1/period2&interval=1d` 是否回日線，並對照 UKOIL 收盤；FRED 現貨與 UKOIL 差太多不採用。
 2. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
-3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」「除權除息同步（FinMind，先同步 2330、0050，對照幾個除息日的前收盤與參考價；`reference_price` 在含現增或配股的『權』是否為真正的參考價尚未驗證）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `StockExRightEvent`（使用者的 stock.db 已有欄位不同的 `StockCorporateAction`，所以本專案的表改名）／`OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
+3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」「除權除息同步（FinMind，先同步 2330、0050，對照幾個除息日的前收盤與參考價；`reference_price` 在含現增或配股的『權』是否為真正的參考價尚未驗證）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `StockExRightEvent`（使用者 stock.db 的舊 `StockCorporateAction` 表程式碼未使用、可自行刪除；本專案的表因此改名）／`OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
 4. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
 5. 【先討論】還原股價：演算法（`PriceAdjuster`）、`StockExRightEvent` 表、FinMind 除權除息同步（`FinMindCorporateActionApiClient`＋`StockCorporateActionSyncService`，`/stock-update` 有卡片）已完成；缺各頁「還原股價」開關與 `StockPriceService` 接進型態掃描／技術圖表（外觀變更需你同意；預設用原始價或還原價待定）。
 

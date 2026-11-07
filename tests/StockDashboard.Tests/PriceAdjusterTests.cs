@@ -107,7 +107,11 @@ public class StockCorporateActionRepositoryTests : IDisposable
     public async Task 使用者資料庫已有同名但欄位不同的StockCorporateAction表_不受影響()
     {
         // 實際發生過：使用者的 stock.db 已有 StockCorporateAction (欄位不同)，本專案的表改名為 StockExRightEvent 以避開
-        _db.Execute("CREATE TABLE StockCorporateAction (Id INTEGER, Note TEXT); INSERT INTO StockCorporateAction VALUES (1, 'mine');");
+        _db.Execute("""
+            CREATE TABLE "StockCorporateAction" ("StockId" TEXT NOT NULL, "ActionType" TEXT NOT NULL, "ExDate" TEXT NOT NULL, "Ratio" REAL, "CashAmount" INTEGER,
+                "Description" TEXT, "CreatedAt" INTEGER DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY ("StockId","ActionType","ExDate"));
+            INSERT INTO StockCorporateAction (StockId, ActionType, ExDate, Description) VALUES ('9933', 'dividend', '2026-01-05', 'mine');
+            """);
         await DatabaseInitializer.InitializeAsync(_db.Configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         var repo = new StockCorporateActionRepository(_db.Configuration);
 
@@ -117,7 +121,7 @@ public class StockCorporateActionRepositoryTests : IDisposable
         using var c = new Microsoft.Data.Sqlite.SqliteConnection(_db.ConnectionString);
         c.Open();
         using var cmd = c.CreateCommand();
-        cmd.CommandText = "SELECT Note FROM StockCorporateAction";
+        cmd.CommandText = "SELECT Description FROM StockCorporateAction";
         Assert.Equal("mine", cmd.ExecuteScalar());   // 使用者的表原封不動
     }
 
