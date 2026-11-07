@@ -37,11 +37,13 @@ const signed = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toLocaleString();
 // 三大法人類附圖：買賣超柱狀 (張，正紅負綠)，柱狀也列在圖例
 function netChart(key, label, extraLines, extraTooltip) {
     return {
+        title: label,
         bars: c => ({ value: toLots(c[key]), itemStyle: { color: (c[key] ?? 0) >= 0 ? UP : DOWN } }),
         barName: `${label}買賣超(張)`,
         lines: () => extraLines || [],
         hasData: c => c[key] != null,
         barText: c => `${label} ${signed(toLots(c[key]))} 張`,
+        infoBar: c => `${signed(toLots(c[key]))} 張`,
         tooltip: c => `${label} ${signed(toLots(c[key]))} 張${extraTooltip ? extraTooltip(c) : ''}`
     };
 }
@@ -52,6 +54,8 @@ function netChart(key, label, extraLines, extraTooltip) {
 // settings 為 C# IndicatorSettings (camelCase)
 export const SUB_CHARTS = {
     volume: {
+        title: '成交量',
+        infoBar: c => c.volume.toLocaleString(),
         bars: c => ({ value: c.volume, itemStyle: { color: c.close >= c.open ? UP : DOWN } }),
         lines: () => [{ key: 'volMa5', name: '量MA5', color: LINE_A, fmt: v => v.toLocaleString() },
                       { key: 'volMa10', name: '量MA10', color: '#ab47bc', fmt: v => v.toLocaleString() }],
@@ -59,6 +63,7 @@ export const SUB_CHARTS = {
         tooltip: c => `量 ${c.volume.toLocaleString()}　量MA5 ${c.volMa5?.toLocaleString() ?? '-'}　量MA10 ${c.volMa10?.toLocaleString() ?? '-'}`
     },
     macd: {
+        title: 'MACD',
         // OSC 柱狀：正紅負綠
         bars: c => ({ value: c.osc, itemStyle: { color: (c.osc ?? 0) >= 0 ? UP : DOWN } }),
         lines: () => [{ key: 'dif', name: 'DIF', color: LINE_A }, { key: 'macd', name: 'MACD', color: LINE_B }],
@@ -66,11 +71,13 @@ export const SUB_CHARTS = {
         tooltip: c => `DIF ${c.dif ?? '-'}　MACD ${c.macd ?? '-'}　OSC ${c.osc ?? '-'}`
     },
     kd: {
+        title: 'KD',
         lines: () => [{ key: 'k', name: 'K', color: LINE_A }, { key: 'd', name: 'D', color: LINE_B }],
         levels: [80, 20],
         tooltip: c => `K ${c.k ?? '-'}　D ${c.d ?? '-'}`
     },
     rsi: {
+        title: 'RSI',
         lines: s => [{ key: 'rsiFast', name: `RSI${s.rsiFast}`, color: LINE_A }, { key: 'rsiSlow', name: `RSI${s.rsiSlow}`, color: LINE_B }],
         levels: [70, 30],
         tooltip: (c, s) => `RSI${s.rsiFast} ${c.rsiFast ?? '-'}　RSI${s.rsiSlow} ${c.rsiSlow ?? '-'}`
@@ -84,6 +91,7 @@ export const SUB_CHARTS = {
     dealer: netChart('dealerNet', '自營商'),
     // 原油：Brent 當日均價 (美元 / 桶；取當天之前最近一筆，見 C# PatternScanService.ApplyOil)，一條線、自己的 Y 軸
     oil: {
+        title: '原油',
         lines: () => [{ key: 'oil', name: 'Brent', label: 'Brent 原油', color: OIL_COLOR, ownAxis: true, fmt: v => '$' + v }],
         hasData: c => c.oil != null,
         noDataText: '尚無原油資料（請到「資料更新」頁同步）',
@@ -93,6 +101,7 @@ export const SUB_CHARTS = {
     // (PatternScanService.ApplyMarketIndex：取該日之前已收盤的美股，台股連假期間的多個美股交易日合併成一根；美股休市日留空)。
     // heightScale：蠟燭要看得清楚，這一列比其他附圖高 (使用者指定 2 倍)
     sox: {
+        title: '費半',
         heightScale: 2,
         candleName: '費半',
         candle: c => c.soxClose == null ? '-' : [c.soxOpen, c.soxClose, c.soxLow, c.soxHigh],
@@ -100,6 +109,7 @@ export const SUB_CHARTS = {
         hasData: c => c.soxClose != null,
         noDataText: '尚無費半資料（請到「資料更新」頁同步）',
         barText: soxText,
+        infoBar: c => soxText(c).replace(/^費半 /, ''),
         // 費半也畫均線：和個股共用「顯示均線」的勾選 (同名的 series 由同一個圖例控制，見 buildStackedOption)
         ma: true,
         tooltip: c => `${soxText(c)}　${MA_LINES.map(m => `${m.name} ${c[soxMaKey(m)] ?? '-'}`).join('　')}`
@@ -130,6 +140,14 @@ export function stackedBackground(layout, subs) {
 // 整張圖的高度：K 線區 + 每個附圖列 (圖例列 + 繪圖區) + 上下留白；頁面設定容器高度用
 export const stackedHeight = (layout, subs) =>
     layout.top + layout.candleHeight + subs.reduce((sum, sub) => sum + layout.subLegend + subHeightOf(sub, layout), 0) + layout.bottom;
+// 附圖 Y 軸刻度 (圖小，只留約 3 個刻度)：萬、億縮寫，避免數字太長
+const compact = v => {
+    const a = Math.abs(v);
+    if (a >= 1e8) return +(v / 1e8).toFixed(1) + '億';
+    if (a >= 1e4) return +(v / 1e4).toFixed(1) + '萬';
+    return +v.toFixed(2);
+};
+const AXIS_SPLIT = { lineStyle: { color: '#2d3139' } };
 const NO_DATA_TEXT = '尚無三大法人資料（請到「資料更新」頁同步）';
 
 export function legendStyle(extra) {
@@ -144,7 +162,7 @@ export function legendStyle(extra) {
 
 // 資訊列 (滑鼠所在那一天的數值，顯示在各圖上方；headerInfo 模式用，取代提示框與圖例)
 // 文字用 ECharts rich text：{色碼key|文字}，色碼 key 在 RICH 登記
-const RICH = { w: { fill: '#fff', fontWeight: 'bold' }, n: { fill: '#d1d4dc' } };
+const RICH = { w: { fill: '#fff', fontWeight: 'bold' }, n: { fill: '#d1d4dc' }, g: { fill: '#8392a5' } };   // w = 粗體白字 (日期、附圖標題)；g = 拖曳把手 ≡
 const rc = (color, text) => {
     const key = 'c' + color.replace('#', '');
     RICH[key] = { fill: color };
@@ -165,7 +183,10 @@ export function infoTexts(candles, subs, settings, visibleMas, index) {
     for (const sub of subs) {
         const def = SUB_CHARTS[sub];
         const parts = [];
-        if (def.barText) parts.push(`{n|${def.barText(c)}}`);
+        // 附圖標題 (粗體)；前面的 ≡ 是拖曳把手 (實際的拖曳區在 StockChart.razor.js 的 bindSubDrag)
+        if (def.title) parts.push(`{g|≡} {w|${def.title}}`);
+        const bar = def.infoBar ?? def.barText;
+        if (bar) parts.push(`{n|${bar(c)}}`);
         for (const l of def.lines(settings)) parts.push(rc(l.color, `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`));
         // 有均線的附圖 (費半)：只列「顯示均線」已勾選的，與 K 線上方的資訊列一致
         if (def.ma) for (const m of MA_LINES.filter(m => (visibleMas || []).includes(m.name))) parts.push(rc(m.color, `${m.name} ${val(c[soxMaKey(m)])}`));
@@ -178,7 +199,8 @@ export const infoRich = () => RICH;
 // K 線區 (高度固定) + 附圖依序疊在下方，所有 grid 共用同一條時間軸
 // layout：{ top, candleHeight, subLegend, subHeight, left, right }；mainSeries：K 線 series (可帶頁面自己的標記)
 // tooltipTitle(c)：提示框標題；dateFormatter：最下方日期標籤格式；maLegend：均線圖例的位置
-export function buildStackedOption({ candles, subs, settings, layout, mainSeries, tooltipTitle, dateFormatter, maLegend, headerInfo }) {
+// subAxes：true 時每個附圖都顯示 Y 軸刻度 (技術圖表頁用；型態掃描小卡空間小，不顯示)
+export function buildStackedOption({ candles, subs, settings, layout, mainSeries, tooltipTitle, dateFormatter, maLegend, headerInfo, subAxes }) {
     const dates = candles.map(c => c.date);
     const LAYOUT = layout;
     const axisLine = { lineStyle: { color: AXIS_COLOR } };
@@ -211,6 +233,9 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         const def = SUB_CHARTS[sub];
         const g = i + 1;
         const subHeight = subHeightOf(sub, LAYOUT);
+        const lineDefs = def.lines(settings);
+        // 有柱狀或「用主 Y 軸的線」才有主 Y 軸內容；只有自己 Y 軸的線 (原油) 就把那條軸放在左側當主軸
+        const hasPrimary = !!def.bars || lineDefs.some(l => !l.ownAxis);
         const top = LAYOUT.top + LAYOUT.candleHeight + usedHeight + LAYOUT.subLegend;
         usedHeight += LAYOUT.subLegend + subHeight;
         grids.push({ left: LAYOUT.left, right: LAYOUT.right, top, height: subHeight });
@@ -220,7 +245,11 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         yAxes.push({ gridIndex: g, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false },
                      ...(def.levels ? { min: 0, max: 100 } : {}),
                      // 蠟燭附圖：Y 軸貼合價格範圍並顯示價格刻度
-                     ...(def.candle ? { scale: true, axisLabel: { show: true, color: AXIS_COLOR, fontSize: 9 }, splitLine: { show: true, lineStyle: { color: '#2d3139' } } } : {}) });
+                     ...(def.candle ? { scale: true, axisLabel: { show: true, color: AXIS_COLOR, fontSize: 9 }, splitLine: { show: true, lineStyle: { color: '#2d3139' } } } : {}),
+                     // 技術圖表頁：柱狀 / 線的附圖在左側顯示約 3 個刻度 (KD、RSI 固定 0 / 50 / 100)
+                     ...(subAxes && !def.candle && hasPrimary ? {
+                         axisLabel: { show: true, color: AXIS_COLOR, fontSize: 9, formatter: compact },
+                         splitLine: { show: true, ...AXIS_SPLIT }, splitNumber: 1, ...(def.levels ? { interval: 50 } : {}) } : {}) });
 
         if (def.candle) {
             series.push({ name: def.candleName, type: 'candlestick', xAxisIndex: g, yAxisIndex: g, data: candles.map(def.candle),
@@ -239,12 +268,17 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
             series.push({ name: def.barName ?? (sub === 'macd' ? 'OSC' : undefined), type: 'bar', xAxisIndex: g, yAxisIndex: g,
                           data: candles.map(def.bars), ...(def.barName ? { itemStyle: { color: AXIS_COLOR } } : {}) });
         }
-        const lines = def.lines(settings);
+        const lines = lineDefs;
         lines.forEach((l, j) => {
             let yAxisIndex = g;
             if (l.ownAxis) {
                 yAxisIndex = subs.length + 1 + extraYAxes.length;
-                extraYAxes.push({ gridIndex: g, scale: true, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false } });
+                extraYAxes.push({ gridIndex: g, scale: true, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false },
+                    // 技術圖表頁：自己的 Y 軸也顯示刻度 (有主軸時放右側、用線的顏色；單獨存在時放左側)
+                    ...(subAxes ? {
+                        position: hasPrimary ? 'right' : 'left', splitNumber: 1,
+                        axisLabel: { show: true, color: hasPrimary ? l.color : AXIS_COLOR, fontSize: 9, formatter: l.fmt ?? compact },
+                        ...(hasPrimary ? {} : { splitLine: { show: true, ...AXIS_SPLIT } }) } : {}) });
             }
             series.push({
                 name: l.name, type: 'line', xAxisIndex: g, yAxisIndex, data: candles.map(c => c[l.key]), connectNulls: !!l.ownAxis,

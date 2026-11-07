@@ -21,6 +21,7 @@ namespace StockDashboard.Components.Pages
         private bool _isLoading = false;
         private bool _chartNeedsRender;
         private IJSObjectReference? _jsModule;
+        private DotNetObjectReference<StockChart>? _selfRef;   // 讓 JS 在拖曳標題列重排附圖時回呼
 
         protected override async Task OnInitializedAsync()
         {
@@ -122,7 +123,7 @@ namespace StockDashboard.Components.Pages
                 _jsModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>(
                     "import", AssetVersion.Module("./Components/Pages/StockChart.razor.js"));
                 await _jsModule.InvokeVoidAsync("renderStockChart", ContainerId, State.Data.Label, State.Data.Candles,
-                    State.Display.VisibleMaNames, State.Display.OrderedSubCharts, State.Display.Indicators, State.FocusDate);
+                    State.Display.VisibleMaNames, State.Display.OrderedSubCharts, State.Display.Indicators, State.FocusDate, _selfRef ??= DotNetObjectReference.Create(this));
             }
             catch (JSDisconnectedException)
             {
@@ -135,8 +136,21 @@ namespace StockDashboard.Components.Pages
             }
         }
 
+        // 在圖表上拖曳附圖標題列：把 dragged 移到 target 的位置 (與勾選列拖曳同一套規則)，勾選列順序一併更新
+        [JSInvokable]
+        public Task OnSubChartMoved(string dragged, string target)
+        {
+            if (!State.Display.MoveSubChart(dragged, target)) return Task.CompletedTask;
+            return InvokeAsync(() =>
+            {
+                _chartNeedsRender = true;
+                StateHasChanged();
+            });
+        }
+
         public async ValueTask DisposeAsync()
         {
+            _selfRef?.Dispose();
             if (_jsModule != null)
             {
                 try
