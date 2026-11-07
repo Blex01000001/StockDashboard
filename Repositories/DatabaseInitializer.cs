@@ -80,6 +80,15 @@ namespace StockDashboard.Repositories
                 PRIMARY KEY (Code, TradeDate)
             );
 
+            -- 除權息事件 (還原股價用)；還原係數 = RefPrice / PreClose
+            CREATE TABLE IF NOT EXISTS StockCorporateAction (
+                StockId  TEXT NOT NULL,
+                ExDate   TEXT NOT NULL,               -- yyyy-MM-dd，除權息交易日
+                PreClose REAL NOT NULL,               -- 除權息前一交易日收盤價
+                RefPrice REAL NOT NULL,               -- 除權息參考價
+                PRIMARY KEY (StockId, ExDate)
+            );
+
             CREATE TABLE IF NOT EXISTS StockNameList (
                 StockId   TEXT NOT NULL PRIMARY KEY,
                 StockName TEXT NOT NULL,
