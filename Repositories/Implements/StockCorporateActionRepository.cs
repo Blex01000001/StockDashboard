@@ -38,5 +38,19 @@ namespace StockDashboard.Repositories.Implements
                 "SELECT StockId, ExDate, PreClose, RefPrice FROM StockCorporateAction WHERE StockId = @StockId ORDER BY ExDate",
                 new { StockId = stockId });
         }
+
+        public async Task<(int Stocks, int Events)> GetSummaryAsync()
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            var row = await connection.QuerySingleAsync<SummaryRow>(
+                "SELECT COUNT(DISTINCT StockId) AS Stocks, COUNT(*) AS Events FROM StockCorporateAction");
+            return ((int)row.Stocks, (int)row.Events);
+        }
+
+        private sealed class SummaryRow
+        {
+            public long Stocks { get; set; }
+            public long Events { get; set; }
+        }
     }
 }

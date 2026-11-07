@@ -131,10 +131,16 @@ public class StockCorporateActionSyncTests : IDisposable
     private readonly TempSqliteDb _db = new();
     public void Dispose() => _db.Dispose();
 
-    private sealed class FakeApi(List<StockCorporateActionEntity>? rows = null, Exception? error = null) : IStockCorporateActionApiClient
+    // 依代號回傳事件；可指定某代號丟例外
+    private sealed class FakeApi(Dictionary<string, List<StockCorporateActionEntity>> rows, Dictionary<string, Exception>? errors = null) : IStockCorporateActionApiClient
     {
-        public Task<List<StockCorporateActionEntity>> GetActionsAsync(string stockId, CancellationToken cancellationToken = default) =>
-            error != null ? throw error : Task.FromResult(rows!);
+        public List<string> Requested { get; } = new();
+        public Task<List<StockCorporateActionEntity>> GetActionsAsync(string stockId, CancellationToken cancellationToken = default)
+        {
+            Requested.Add(stockId);
+            if (errors != null && errors.TryGetValue(stockId, out var ex)) throw ex;
+            return Task.FromResult(rows.TryGetValue(stockId, out var l) ? l : new List<StockCorporateActionEntity>());
+        }
     }
 
     private static StockCorporateActionEntity A(string exDate, double pre, double reference) =>
@@ -147,38 +153,117 @@ public class StockCorporateActionSyncTests : IDisposable
     }
 
     [Fact]
-    public async Task 同步_寫入有效事件_略過壞資料_代號以要求的為準()
+    public async Task 同步_逐檔寫入有效事件_略過壞資料_沒有事件的不算錯誤()
     {
         var repo = await InitAsync();
-        var api = new FakeApi(new() { A("2026-06-10", 100, 98), A("2025-06-10", 80, 79), A("2026-01-01", 0, 5), A("", 10, 9) });
+        var api = new FakeApi(new()
+        {
+            ["2330"] = new() { A("2026-06-10", 100, 98), A("2025-06-10", 80, 79), A("2026-01-01", 0, 5), A("", 10, 9) },
+            ["0050"] = new() { A("2026-01-17", 131.65, 128.65) },
+        });
 
-        var result = await new StockCorporateActionSyncService(api, repo).SyncAsync("2330", CancellationToken.None);
+        var result = await new StockCorporateActionSyncService(api, repo, 0).SyncAsync(new[] { "2330", "9999", "0050" }, null, CancellationToken.None);
 
         Assert.Null(result.Error);
-        Assert.Equal((2, "2025-06-10", "2026-06-10"), (result.RowsWritten, result.FirstDate, result.LastDate));
-        Assert.Equal(2, (await repo.GetByStockIdAsync("2330")).Count());
+        Assert.Equal((3, 1, 3, 3), (result.StocksDone, result.StocksWithoutEvents, result.RowsWritten, result.Requests));
+        Assert.Equal(2, (await repo.GetByStockIdAsync("2330")).Count());   // 壞資料沒寫入
+        Assert.Equal(128.65, (await repo.GetByStockIdAsync("0050")).Single().RefPrice);
+        Assert.Equal((2, 3), await repo.GetSummaryAsync());
     }
 
     [Fact]
-    public async Task 同步_沒有事件或來源出錯_回報錯誤且不寫入()
+    public async Task 同步_封鎖時立即停止_已完成的保留()
     {
         var repo = await InitAsync();
+        var api = new FakeApi(new() { ["A"] = new() { A("2026-01-02", 10, 9) } }, new() { ["B"] = new FinMindBlockedException("ip banned") });
 
-        var empty = await new StockCorporateActionSyncService(new FakeApi(new()), repo).SyncAsync("2330", CancellationToken.None);
-        var failed = await new StockCorporateActionSyncService(new FakeApi(error: new InvalidOperationException("HTTP 403")), repo).SyncAsync("2330", CancellationToken.None);
+        var result = await new StockCorporateActionSyncService(api, repo, 0).SyncAsync(new[] { "A", "B", "C" }, null, CancellationToken.None);
 
-        Assert.Contains("2330", empty.Error);
-        Assert.Equal("HTTP 403", failed.Error);
-        Assert.Empty(await repo.GetByStockIdAsync("2330"));
+        Assert.True(result.Blocked);
+        Assert.Equal("ip banned", result.Error);
+        Assert.Equal(1, result.StocksDone);
+        Assert.Equal(new[] { "A", "B" }, api.Requested);                    // C 不再請求
+        Assert.Single(await repo.GetByStockIdAsync("A"));
     }
 
     [Fact]
-    public async Task 同步_取消時標記Cancelled()
+    public async Task 同步_其他錯誤停止並標示代號_不算封鎖()
+    {
+        var repo = await InitAsync();
+        var api = new FakeApi(new(), new() { ["A"] = new InvalidOperationException("HTTP 500") });
+
+        var result = await new StockCorporateActionSyncService(api, repo, 0).SyncAsync(new[] { "A", "B" }, null, CancellationToken.None);
+
+        Assert.False(result.Blocked);
+        Assert.Equal("A：HTTP 500", result.Error);
+        Assert.Equal(new[] { "A" }, api.Requested);
+    }
+
+    [Fact]
+    public async Task 同步_取消時標記Cancelled_並回報進度()
     {
         var repo = await InitAsync();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        var result = await new StockCorporateActionSyncService(new FakeApi(error: new OperationCanceledException(cts.Token)), repo).SyncAsync("2330", cts.Token);
+        var api = new FakeApi(new());
+        var result = await new StockCorporateActionSyncService(api, repo, 0).SyncAsync(new[] { "A" }, null, cts.Token);
         Assert.True(result.Cancelled);
+        Assert.Empty(api.Requested);
+
+        var reports = new List<StockCorporateActionSyncProgress>();
+        await new StockCorporateActionSyncService(new FakeApi(new()), repo, 0).SyncAsync(new[] { "A" }, new Progress<StockCorporateActionSyncProgress>(reports.Add), CancellationToken.None);
+        await Task.Delay(50);   // Progress<T> 以同步內容回報，稍等讓回呼完成
+        Assert.Contains(reports, r => r.Done == 1 && r.Total == 1);
+    }
+}
+
+public class FinMindCorporateActionApiTests
+{
+    [Fact]
+    public async Task 解析FinMind除權除息_欄位對應_由舊到新()
+    {
+        var handler = FakeHttpHandler.Always(Fixtures.Read("finmind_dividend_result_2330.json"));
+        var client = new FinMindCorporateActionApiClient(new HttpClient(handler), null, () => new DateTime(2026, 11, 7));
+
+        var rows = await client.GetActionsAsync("2330");
+
+        Assert.Equal(new[] { "2020-03-19", "2020-06-18", "2026-09-16" }, rows.Select(r => r.ExDate));
+        Assert.All(rows, r => Assert.Equal("2330", r.StockId));
+        Assert.Equal((260.0, 257.5), (rows[0].PreClose, rows[0].RefPrice));
+        Assert.Equal((2385.0, 2377.99), (rows[2].PreClose, rows[2].RefPrice));   // 用參考價，不是開盤價 2380
+
+        var url = handler.Requests.Single().ToString();
+        Assert.Contains("dataset=TaiwanStockDividendResult", url);
+        Assert.Contains("data_id=2330", url);
+        Assert.Contains("start_date=2003-01-01", url);
+        Assert.Contains("end_date=2026-11-07", url);
+    }
+
+    [Fact]
+    public void 解析_缺參考價用after_price_缺前收盤或日期的略過_同日以最後一筆為準()
+    {
+        var json = """
+            {"msg":"success","status":200,"data":[
+              {"date":"2026-01-02","before_price":100,"after_price":98},
+              {"date":"2026-01-03","after_price":98},
+              {"date":"2026-01-04","before_price":0,"reference_price":98},
+              {"before_price":100,"reference_price":98},
+              {"date":"2026-01-05","before_price":"50.5","reference_price":"49.5"},
+              {"date":"2026-01-05","before_price":60,"reference_price":59}
+            ]}
+            """;
+        var rows = FinMindCorporateActionApiClient.Parse("1101", FinMindApiClient.ParseResponse(json, 200));
+
+        Assert.Equal(new[] { "2026-01-02", "2026-01-05" }, rows.Select(r => r.ExDate));
+        Assert.Equal(98.0, rows[0].RefPrice);                      // 沒有 reference_price → after_price
+        Assert.Equal((60.0, 59.0), (rows[1].PreClose, rows[1].RefPrice));
+    }
+
+    [Fact]
+    public async Task 封鎖時丟FinMindBlockedException()
+    {
+        var handler = FakeHttpHandler.Always(Fixtures.Read("finmind_ip_banned.json"), status: System.Net.HttpStatusCode.Forbidden);
+        var client = new FinMindCorporateActionApiClient(new HttpClient(handler));
+        await Assert.ThrowsAsync<FinMindBlockedException>(() => client.GetActionsAsync("2330"));
     }
 }

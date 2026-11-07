@@ -25,6 +25,7 @@ T86 / MI_QFIIS (三大法人) 依 date 決定：
 FinMind /api/v4/data 依 dataset 與 data_id 決定：
   BAN   → {"msg":"ip banned","status":403} (模擬 IP 被封鎖)
   其他  → finmind_buysell_2330.json / finmind_shareholding_2330.json (使用者提供的實際回應，stock_id 改成請求的代號)
+  dataset=TaiwanStockDividendResult → finmind_dividend_result_2330.json (除權除息結果表，stock_id 改成請求的代號)
 oilpriceapi /v1/prices/past_year：
   標頭 Authorization: Token BAD → HTTP 401；沒帶 Token → HTTP 401；其他 → oilprice_past_year.json (使用者提供的實際回應，截成 12 天)
   設定：OilPrice:PastYearUrl = http://127.0.0.1:9999/v1/prices/past_year，OilPrice:ApiKey 隨便填 (填 BAD 可測失敗)
@@ -90,7 +91,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         print(f"FinMind {dataset} {stock_id} {query.get('start_date', [''])[0]}~{query.get('end_date', [''])[0]}", flush=True)
         if stock_id == "BAN":
             return self.reply(fixture("finmind_ip_banned.json"), status=403)
-        name = "finmind_buysell_2330.json" if dataset == "TaiwanStockInstitutionalInvestorsBuySell" else "finmind_shareholding_2330.json"
+        if dataset == "TaiwanStockDividendResult":
+            name = "finmind_dividend_result_2330.json"
+        else:
+            name = "finmind_buysell_2330.json" if dataset == "TaiwanStockInstitutionalInvestorsBuySell" else "finmind_shareholding_2330.json"
         body = json.loads(fixture(name))
         for row in body["data"]:
             row["stock_id"] = stock_id

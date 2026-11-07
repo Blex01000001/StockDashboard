@@ -7,9 +7,9 @@
 
 1. 【先討論】原油歷史只有一年（oilpriceapi 免費版）：型態掃描要多年資料需另找來源。Yahoo `BZ=F` 用 `range=max` 只回月線，待測 `period1/period2&interval=1d` 是否回日線，並對照 UKOIL 收盤；FRED 現貨與 UKOIL 差太多不採用。
 2. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
-3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `StockCorporateAction`／`OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
+3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」「除權除息同步（FinMind，先同步 2330、0050，對照幾個除息日的前收盤與參考價；`reference_price` 在含現增或配股的『權』是否為真正的參考價尚未驗證）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `StockCorporateAction`／`OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
 4. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
-5. 【先討論】還原股價：演算法（`PriceAdjuster`）、`StockCorporateAction` 表與 Repository 已完成；同步骨架（`StockCorporateActionSyncService`＋`IStockCorporateActionApiClient`，已有測試）與 `StockPriceService` DI 已完成；缺實際 API Client（證交所 TWT49U 或 FinMind `TaiwanStockDividendResult`，格式待你確認；回傳 `StockId／ExDate／PreClose／RefPrice` 即可）、`/stock-update` 同步卡片，以及各頁「還原股價」開關（外觀變更需你同意；預設用原始價或還原價待定）。
+5. 【先討論】還原股價：演算法（`PriceAdjuster`）、`StockCorporateAction` 表、FinMind 除權除息同步（`FinMindCorporateActionApiClient`＋`StockCorporateActionSyncService`，`/stock-update` 有卡片）已完成；缺各頁「還原股價」開關與 `StockPriceService` 接進型態掃描／技術圖表（外觀變更需你同意；預設用原始價或還原價待定）。
 
 ## 已知問題／限制
 
@@ -19,7 +19,7 @@
 - 滾動報酬率以所有股票「聯集」時間軸位移 N 格計算；股票交易日不同（停牌）時，N 日的意義略有偏差。
 - ECharts 走 CDN，離線時無法畫圖。
 - 證交所三大法人只有上市 (T86 `ALLBUT0999`)；MI_QFIIS 若比 T86 晚公布，當天同步可能只有買賣超、沒有持股比例（下次同步會補）。
-- FinMind 匿名請求額度未查證（印象約每小時 300 次）；每檔 2 個請求，一次同步太多檔可能達上限而自動停止。
+- FinMind 匿名請求額度未查證（印象約每小時 300 次）；三大法人每檔 2 個請求、除權除息每檔 1 個，一次同步太多檔可能達上限而自動停止。
 - 型態掃描頁與技術圖表頁的附圖／均線／指標設定各自獨立，不會互相帶入（小卡連結開啟技術圖表時也不帶）。
 - 技術圖表從小卡開啟後網址帶 `?id=&date=`，在該頁按 F5 會重新標示同一個型態日。
 - 技術圖表沒有提示框與圖例：當天數值顯示在各圖上方，均線只能用上方勾選開關，附圖線不能再點圖例隱藏；型態掃描小卡仍用提示框與圖例。

@@ -32,6 +32,13 @@ builder.Services.AddHttpClient<IFinMindApiClient, FinMindApiClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(60);   // 一次回傳十幾年資料，給長一點
 });
 
+// ── 外部 API：FinMind 除權除息結果表 (還原股價用；匿名使用) ──
+builder.Services.AddHttpClient<IStockCorporateActionApiClient, FinMindCorporateActionApiClient>(client =>
+{
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
 // ── 外部 API：oilpriceapi.com (Brent 原油；API Key 在設定 OilPrice:ApiKey) ──
 builder.Services.AddHttpClient<IOilPriceApiClient, OilPriceApiClient>(client =>
 {
@@ -63,6 +70,7 @@ builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>(
 builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 builder.Services.AddScoped<IOilPriceSyncService, OilPriceSyncService>();
 builder.Services.AddScoped<IMarketIndexSyncService, MarketIndexSyncService>();
+builder.Services.AddScoped<IStockCorporateActionSyncService, StockCorporateActionSyncService>();
 builder.Services.AddScoped<IStockPriceService, StockPriceService>();   // 還原股價 (尚無頁面使用)
 builder.Services.AddSingleton<ILocalPathOpener, LocalPathOpener>();
 

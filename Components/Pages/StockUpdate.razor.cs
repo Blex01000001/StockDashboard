@@ -22,6 +22,8 @@ namespace StockDashboard.Components.Pages
         [Inject] private IInstitutionalRepository InstitutionalRepository { get; set; } = default!;
         [Inject] private IInstitutionalSyncService InstitutionalSync { get; set; } = default!;
         [Inject] private IFinMindSyncService FinMindSync { get; set; } = default!;
+        [Inject] private IStockCorporateActionSyncService ActionSync { get; set; } = default!;
+        [Inject] private IStockCorporateActionRepository ActionRepository { get; set; } = default!;
         [Inject] private IOilPriceSyncService OilSync { get; set; } = default!;
         [Inject] private IOilPriceRepository OilRepository { get; set; } = default!;
         [Inject] private ILocalPathOpener PathOpener { get; set; } = default!;
@@ -62,6 +64,14 @@ namespace StockDashboard.Components.Pages
         public string FinMindStatusMessage { get; set; } = string.Empty;
         public bool FinMindIsError { get; set; } = false;
         private CancellationTokenSource? _finMindCts;
+        private CancellationTokenSource? _actionCts;
+
+        // ── FinMind 除權除息 (還原股價用) ──
+        public string ActionStockIds { get; set; } = string.Empty;
+        public (int Stocks, int Events)? ActionSummary { get; set; }
+        public bool IsSyncingAction { get; set; } = false;
+        public string ActionStatusMessage { get; set; } = string.Empty;
+        public bool ActionIsError { get; set; } = false;
 
         // ── 原油價格同步 ──
         public (string? FirstDate, string? LastDate, int Days)? OilSummary { get; set; }
@@ -80,6 +90,7 @@ namespace StockDashboard.Components.Pages
             await LoadNameSummaryAsync();
             await LoadInstitutionalSummaryAsync();
             await LoadOilSummaryAsync();
+            await LoadActionSummaryAsync();
             await LoadSoxSummaryAsync();
         }
 
@@ -88,6 +99,7 @@ namespace StockDashboard.Components.Pages
             // 離開頁面時停止同步 (同步中的頁面元件已銷毀，進度無處顯示)
             _institutionalCts?.Cancel();
             _finMindCts?.Cancel();
+            _actionCts?.Cancel();
         }
 
         private async Task LoadInstitutionalSummaryAsync()
@@ -101,6 +113,80 @@ namespace StockDashboard.Components.Pages
             {
                 SetInstitutionalStatus($"讀取三大法人資料失敗: {ex.Message}", true);
             }
+        }
+
+        // 舊資料庫沒有這張表時只是不顯示摘要，不影響其他功能
+        private async Task LoadActionSummaryAsync()
+        {
+            try { ActionSummary = await ActionRepository.GetSummaryAsync(); }
+            catch (Exception) { ActionSummary = null; }
+        }
+
+        /// <summary>用 FinMind 逐檔下載除權除息結果表 (還原股價用)；IP 被封鎖或達上限時立即停止</summary>
+        public async Task SyncActions()
+        {
+            if (IsSyncingAction) return;
+
+            var stockIds = ActionStockIds
+                .Split(new[] { ',', '，', '、', ' ', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().ToUpperInvariant())
+                .Distinct()
+                .ToList();
+            if (stockIds.Count == 0)
+            {
+                SetActionStatus("請輸入至少一檔股票代號！", true);
+                return;
+            }
+
+            IsSyncingAction = true;
+            _actionCts = new CancellationTokenSource();
+            SetActionStatus($"準備同步 {stockIds.Count} 檔...", false);
+            var progress = new SyncProgress<StockCorporateActionSyncProgress>(p => SetActionStatus($"[{p.Done}/{p.Total}] {p.Message}", false));
+
+            try
+            {
+                var result = await ActionSync.SyncAsync(stockIds, progress, _actionCts.Token);
+                await LoadActionSummaryAsync();
+
+                string summary = $"完成 {result.StocksDone}/{stockIds.Count} 檔、寫入 {result.RowsWritten} 筆（{result.StocksWithoutEvents} 檔沒有除權息資料），向 FinMind 請求 {result.Requests} 次。";
+                if (result.Error != null)
+                {
+                    string retry = result.Blocked ? "" : "已完成的股票都已存入，稍後再按一次同步即可。";
+                    SetActionStatus($"同步中斷：{result.Error}。{retry}{summary}", true);
+                }
+                else if (result.Cancelled)
+                {
+                    SetActionStatus($"已停止。{summary}", false);
+                }
+                else
+                {
+                    SetActionStatus($"除權除息同步完成。{summary}", false);
+                }
+            }
+            catch (Exception ex)
+            {
+                SetActionStatus($"除權除息同步失敗: {ex.Message}", true);
+            }
+            finally
+            {
+                IsSyncingAction = false;
+                _actionCts.Dispose();
+                _actionCts = null;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
+        public void StopActionSync()
+        {
+            _actionCts?.Cancel();
+            SetActionStatus("正在停止...", false);
+        }
+
+        private void SetActionStatus(string msg, bool isError)
+        {
+            ActionStatusMessage = msg;
+            ActionIsError = isError;
+            InvokeAsync(StateHasChanged);
         }
 
         // 舊資料庫沒有這張表時只是不顯示摘要，不影響其他功能
