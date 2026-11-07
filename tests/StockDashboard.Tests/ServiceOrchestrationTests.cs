@@ -69,6 +69,14 @@ internal static class FakeRepos
         public Task<(string? FirstDate, string? LastDate, int Days)> GetSummaryAsync(string code) => throw new NotSupportedException();
     }
 
+    public sealed class Actions(List<StockCorporateActionEntity>? rows = null) : IStockCorporateActionRepository
+    {
+        public Task<IEnumerable<StockCorporateActionEntity>> GetByStockIdAsync(string stockId) =>
+            Task.FromResult<IEnumerable<StockCorporateActionEntity>>((rows ?? new()).Where(a => a.StockId == stockId).ToList());
+        public Task<int> UpsertAsync(IEnumerable<StockCorporateActionEntity> r) => throw new NotSupportedException();
+        public Task<(int Stocks, int Events)> GetSummaryAsync() => throw new NotSupportedException();
+    }
+
     public sealed class Market(bool fail = false) : IMarketIndexRepository
     {
         public Task<IEnumerable<MarketIndexEntity>> GetAllAsync(string code) =>
@@ -80,9 +88,9 @@ internal static class FakeRepos
 
 public class PatternScanServiceFlowTests
 {
-    private static PatternScanService Create(Dictionary<string, List<StockDataPoint>> prices, bool failNames = false, bool failExtras = false) =>
+    private static PatternScanService Create(Dictionary<string, List<StockDataPoint>> prices, bool failNames = false, bool failExtras = false, List<StockCorporateActionEntity>? actions = null) =>
         new(new FakeRepos.Price(prices), new FakeRepos.Name(new() { ["A"] = "甲公司", ["B"] = "乙公司" }, failNames),
-            new FakeRepos.Inst(failExtras), new FakeRepos.Oil(failExtras), new FakeRepos.Market(failExtras));
+            new FakeRepos.Inst(failExtras), new FakeRepos.Oil(failExtras), new FakeRepos.Market(failExtras), new FakeRepos.Actions(actions));
 
     private static readonly BullishEngulfingPattern Pattern = new();
     private static PatternParameterValues Values() => K.NoTrend(Pattern);
@@ -133,6 +141,36 @@ public class PatternScanServiceFlowTests
         Assert.Equal(7, signalCandle.TotalNet);
     }
 
+    // 2026-01-12 除權息，參考價只有前收盤的一半：之前的價格減半，原本 01-12 的吞沒 (開 97 收 101) 就不再吞沒前一天的黑 K
+    private static List<StockCorporateActionEntity> HalfAction(string stockId) =>
+        new() { new StockCorporateActionEntity { StockId = stockId, ExDate = "2026-01-12", PreClose = 100, RefPrice = 50 } };
+
+    [Fact]
+    public async Task 掃描_還原股價開關_只有adjusted時用還原後的價格判斷()
+    {
+        var service = Create(Data(), actions: HalfAction("B"));
+
+        var raw = await service.ScanAsync(new[] { "B" }, Pattern, Values());
+        var adjusted = await service.ScanAsync(new[] { "B" }, Pattern, Values(), adjusted: true);
+
+        Assert.False(raw.Adjusted);
+        Assert.Single(raw.Matches);
+        Assert.True(adjusted.Adjusted);
+        Assert.Empty(adjusted.Matches);                       // 還原後型態不成立
+    }
+
+    [Fact]
+    public async Task 掃描_還原股價_沒有除權息事件的股票結果不變()
+    {
+        var service = Create(Data(), actions: HalfAction("B"));
+
+        var raw = await service.ScanAsync(new[] { "A" }, Pattern, Values());
+        var adjusted = await service.ScanAsync(new[] { "A" }, Pattern, Values(), adjusted: true);
+
+        Assert.Equal(raw.Matches.Select(m => m.SignalDate), adjusted.Matches.Select(m => m.SignalDate));
+        Assert.Equal(raw.Matches[0].Candles.Select(c => c.Close), adjusted.Matches[0].Candles.Select(c => c.Close));
+    }
+
     [Fact]
     public async Task 掃描_自訂觀察天數與小卡範圍()
     {
@@ -148,9 +186,9 @@ public class PatternScanServiceFlowTests
 
 public class StockChartServiceLoadTests
 {
-    private static StockChartService Create(Dictionary<string, List<StockDataPoint>> prices, bool failNames = false, bool failExtras = false) =>
+    private static StockChartService Create(Dictionary<string, List<StockDataPoint>> prices, bool failNames = false, bool failExtras = false, List<StockCorporateActionEntity>? actions = null) =>
         new(new FakeRepos.Price(prices), new FakeRepos.Name(new() { ["A"] = "甲公司" }, failNames),
-            new FakeRepos.Inst(failExtras), new FakeRepos.Oil(failExtras), new FakeRepos.Market(failExtras));
+            new FakeRepos.Inst(failExtras), new FakeRepos.Oil(failExtras), new FakeRepos.Market(failExtras), new FakeRepos.Actions(actions));
 
     [Fact]
     public async Task 查無日線回傳Null()
@@ -171,6 +209,24 @@ public class StockChartServiceLoadTests
 
         var all = await Create(new() { ["A"] = FakeRepos.Series(40, 11) }).LoadAsync("A", 0, new IndicatorSettings());
         Assert.Equal(7, all!.Candles.Single(c => c.Date == "2026-01-12").TotalNet);
+    }
+
+    [Fact]
+    public async Task 載入_還原股價_標題標示且事件日之前的價格調整()
+    {
+        var actions = new List<StockCorporateActionEntity> { new() { StockId = "A", ExDate = "2026-01-12", PreClose = 100, RefPrice = 50 } };
+        var prices = new Dictionary<string, List<StockDataPoint>> { ["A"] = FakeRepos.Series(40) };
+
+        var raw = await Create(prices, actions: actions).LoadAsync("A", 0, new IndicatorSettings());
+        var adj = await Create(prices, actions: actions).LoadAsync("A", 0, new IndicatorSettings(), adjusted: true);
+
+        Assert.False(raw!.Adjusted);
+        Assert.Equal("A 甲公司", raw.Label);
+        Assert.Equal(100.0, raw.FullCandles[0].Close);
+        Assert.True(adj!.Adjusted);
+        Assert.Equal("A 甲公司（還原）", adj.Label);
+        Assert.Equal(50.0, adj.FullCandles[0].Close);           // 事件日之前減半
+        Assert.Equal(100.0, adj.FullCandles[^1].Close);         // 事件日之後不變
     }
 
     [Fact]

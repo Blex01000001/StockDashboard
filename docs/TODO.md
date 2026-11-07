@@ -9,18 +9,18 @@
 2. 【使用者】確認晨星、紅三兵、黑三兵的預設參數（`Services/Patterns/*Pattern.cs`，目前是 Claude 依常見定義訂的）。
 3. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」「除權除息同步（FinMind，先同步 2330、0050，對照幾個除息日的前收盤與參考價；`reference_price` 在含現增或配股的『權』是否為真正的參考價尚未驗證）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `StockExRightEvent`（使用者 stock.db 的舊 `StockCorporateAction` 表程式碼未使用、可自行刪除；本專案的表因此改名）／`OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
 4. 【直接做】日線逐月同步的迴圈仍寫在 `StockUpdate.razor.cs` 的 `SyncFromApi`：比照 `InstitutionalSyncService` 移到 Service（可停止、進度回報）並補測試；畫面與訊息不變。
-5. 【先討論】還原股價：演算法（`PriceAdjuster`）、`StockExRightEvent` 表、FinMind 除權除息同步（`FinMindCorporateActionApiClient`＋`StockCorporateActionSyncService`，`/stock-update` 有卡片）已完成；缺各頁「還原股價」開關與 `StockPriceService` 接進型態掃描／技術圖表（外觀變更需你同意；預設用原始價或還原價待定）。
+5. 【先討論】還原股價：型態掃描與技術圖表已有「還原股價」開關（預設原始價）；尚未做：`/stock-compare` 的開關（報酬率公式屬核心邏輯，要先問你）、預設改用還原價與否、還原價與看盤軟體的對照（TWSE 參考價含現增／配股的『權』是否正確）。
 
 ## 已知問題／限制
 
 - 日線與股票名稱只支援上市 (TWSE)：上櫃 (TPEx) 查不到日線、沒有名稱（三大法人可用 FinMind 同步上櫃，但沒有日線仍無法掃描）。
-- 股價為原始價，未做除權息還原。
+- 股價預設為原始價；型態掃描、技術圖表可勾「還原股價」（比例還原，價格四捨五入到小數 2 位，成交量不還原），需先在 `/stock-update` 同步除權除息，未同步的股票不會還原；`/stock-compare` 尚無此開關。
 - 已下市股票不會從 `StockNameList` 移除。
 - 滾動報酬率以所有股票「聯集」時間軸位移 N 格計算；股票交易日不同（停牌）時，N 日的意義略有偏差。
 - ECharts 走 CDN，離線時無法畫圖。
 - 證交所三大法人只有上市 (T86 `ALLBUT0999`)；MI_QFIIS 若比 T86 晚公布，當天同步可能只有買賣超、沒有持股比例（下次同步會補）。
 - FinMind 匿名請求額度未查證（印象約每小時 300 次）；三大法人每檔 2 個請求、除權除息每檔 1 個，一次同步太多檔可能達上限而自動停止。
-- 型態掃描頁與技術圖表頁的附圖／均線／指標設定各自獨立，不會互相帶入（小卡連結開啟技術圖表時也不帶）。
+- 型態掃描頁與技術圖表頁的附圖／均線／指標設定各自獨立，不會互相帶入（小卡連結開啟技術圖表時只帶股票、日期與是否還原股價）。
 - 技術圖表從小卡開啟後網址帶 `?id=&date=`，在該頁按 F5 會重新標示同一個型態日。
 - 技術圖表沒有提示框與圖例：當天數值顯示在各圖上方，均線只能用上方勾選開關，附圖線不能再點圖例隱藏；型態掃描小卡仍用提示框與圖例。
 - 布林通道（勾「顯示均線」旁的選項）只在技術圖表頁實機驗證過外觀；型態掃描小卡共用同一段繪圖程式，但尚未實機看過。

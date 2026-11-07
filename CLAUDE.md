@@ -56,7 +56,7 @@
 | `tools/ui-snapshot.js` | UI 快照：擷取／比對 computed style 與截圖 | 新增頁面或互動狀態時加到 `STATES` |
 | `tools/fake-twse.py`、`tools/make-test-db.py` | 假證交所（含 FinMind 端點）伺服器、確定性測試資料庫 | |
 
-還原股價（未完成，頁面尚未使用）：`Services/PriceAdjuster.cs`（比例還原純計算：係數 = 參考價 / 前收盤，除權息日之前的 OHLC 與漲跌價差連乘）、`StockPriceService`（`isAdjusted` 才套用）、`StockExRightEvent` 表（**不是 `StockCorporateAction`：使用者的 stock.db 已有同名但欄位不同的表**）與 `StockCorporateActionRepository`、`StockCorporateActionSyncService`（逐檔、封鎖即停）＋`FinMindCorporateActionApiClient`（FinMind `TaiwanStockDividendResult`：`before_price` → PreClose、`reference_price`（無則 `after_price`）→ RefPrice，2003 年起整段一次取回；`/stock-update` 有同步卡片）；缺各頁「還原股價」開關。
+還原股價（型態掃描、技術圖表有「還原股價」開關，預設原始價；`PatternScanService.ScanAsync`／`StockChartService.LoadAsync` 的 `adjusted` 參數用 `PriceAdjuster.ApplyToCandles` 還原完整日線後才判斷／算指標；小卡連結帶 `&adj=1`；`/stock-compare` 尚無）：`Services/PriceAdjuster.cs`（比例還原純計算：係數 = 參考價 / 前收盤，除權息日之前的 OHLC 與漲跌價差連乘）、`StockPriceService`（`isAdjusted` 才套用）、`StockExRightEvent` 表（**不是 `StockCorporateAction`：使用者的 stock.db 已有同名但欄位不同的表**）與 `StockCorporateActionRepository`、`StockCorporateActionSyncService`（逐檔、封鎖即停）＋`FinMindCorporateActionApiClient`（FinMind `TaiwanStockDividendResult`：`before_price` → PreClose、`reference_price`（無則 `after_price`）→ RefPrice，2003 年起整段一次取回；`/stock-update` 有同步卡片）。
 主專案 `StockDashboard.csproj` 在 repo 根目錄，**已排除 `tests/**`、`tools/**`**（否則會把測試碼編進網站）；新增資料夾若不屬於網站也要排除。
 
 ## 修改後的驗證

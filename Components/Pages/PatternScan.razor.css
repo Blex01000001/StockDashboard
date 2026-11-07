@@ -43,6 +43,15 @@
     padding-left: 8px;
 }
 
+.adj-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
 .ctl-field {
     display: flex;
     flex-direction: column;

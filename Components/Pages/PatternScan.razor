@@ -40,6 +40,10 @@
                     <input type="text" placeholder="例如 60,120" class="dark-input extra-horizon-input" @bind="State.ExtraHorizonsInput" />
                 </label>
             </div>
+            <label class="adj-toggle" title="依除權息資料還原價格後再判斷型態與計算報酬；需先到「API 資料更新」同步除權除息（掃描後生效）">
+                <input type="checkbox" @bind="State.Adjusted" />
+                <span>還原股價</span>
+            </label>
             <ChartDisplayOptions Settings="State.Display" OnChanged="OnDisplayChanged" />
         </div>
 
@@ -110,7 +114,7 @@
     {
         <div class="result-bar">
             <div class="result-summary">
-                <span>@State.Result.PatternName：共 <b class="result-count">@State.Result.Matches.Count</b> 筆符合</span>
+                <span>@State.Result.PatternName@(State.Result.Adjusted ? "（還原股價）" : "")：共 <b class="result-count">@State.Result.Matches.Count</b> 筆符合</span>
                 @if (State.Result.Matches.Count > 0)
                 {
                     <span class="win-rates" title="之後第 N 日的報酬方向符合型態即算勝；之後天數不足的不計入">
@@ -158,7 +162,7 @@
                         <span class="card-head-right">
                             <span class="card-date">@match.SignalDate</span>
                             @* 開啟技術圖表，並標示型態成立日 *@
-                            <a class="link-btn chart-link" href="@ChartLink(match)" title="在 K線技術指標圖表 開啟，並標示型態成立日">📈 技術圖表</a>
+                            <a class="link-btn chart-link" href="@ChartLink(match, State.Result.Adjusted)" title="在 K線技術指標圖表 開啟，並標示型態成立日">📈 技術圖表</a>
                         </span>
                     </div>
                     <div id="@($"pattern-chart-{i}")" class="card-chart"></div>
