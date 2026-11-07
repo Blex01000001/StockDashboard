@@ -72,33 +72,6 @@ namespace StockDashboard.Repositories.Implements
             });
         }
 
-        public async Task<IEnumerable<StockDataPoint>> GetLatestCandlesAsync(string stockId, int count)
-        {
-            using var connection = new SqliteConnection(_connectionString);
-
-            // 1. 內層 (子查詢) 先用 DESC 排序並 LIMIT，確保抓到的是「最新」的 N 筆。
-            // 2. 外層再用 ORDER BY TradeDate ASC，把這 N 筆重新按時間從舊到新排好，餵給圖表。
-            // 欄位以 AS 別名對應 StockDataPoint 的屬性名稱。
-            string sql = @"
-                SELECT
-                    TradeDate AS Date,
-                    OpenPrice AS Open,
-                    HighPrice AS High,
-                    LowPrice AS Low,
-                    ClosePrice AS Close,
-                    Volume
-                FROM (
-                    SELECT TradeDate, OpenPrice, HighPrice, LowPrice, ClosePrice, Volume
-                    FROM StockDailyPrice
-                    WHERE StockId = @StockId
-                    ORDER BY TradeDate DESC
-                    LIMIT @Count
-                )
-                ORDER BY TradeDate ASC";
-
-            return await connection.QueryAsync<StockDataPoint>(sql, new { StockId = stockId, Count = count });
-        }
-
         public async Task<IEnumerable<StockDataPoint>> GetAllCandlesAsync(string stockId)
         {
             using var connection = new SqliteConnection(_connectionString);
