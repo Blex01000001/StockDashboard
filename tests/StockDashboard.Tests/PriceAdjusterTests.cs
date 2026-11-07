@@ -125,3 +125,60 @@ public class StockCorporateActionRepositoryTests : IDisposable
         Assert.Equal(98.0, adjusted[1].ClosePrice);
     }
 }
+
+public class StockCorporateActionSyncTests : IDisposable
+{
+    private readonly TempSqliteDb _db = new();
+    public void Dispose() => _db.Dispose();
+
+    private sealed class FakeApi(List<StockCorporateActionEntity>? rows = null, Exception? error = null) : IStockCorporateActionApiClient
+    {
+        public Task<List<StockCorporateActionEntity>> GetActionsAsync(string stockId, CancellationToken cancellationToken = default) =>
+            error != null ? throw error : Task.FromResult(rows!);
+    }
+
+    private static StockCorporateActionEntity A(string exDate, double pre, double reference) =>
+        new() { StockId = "ignored", ExDate = exDate, PreClose = pre, RefPrice = reference };
+
+    private async Task<StockCorporateActionRepository> InitAsync()
+    {
+        await DatabaseInitializer.InitializeAsync(_db.Configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+        return new StockCorporateActionRepository(_db.Configuration);
+    }
+
+    [Fact]
+    public async Task 同步_寫入有效事件_略過壞資料_代號以要求的為準()
+    {
+        var repo = await InitAsync();
+        var api = new FakeApi(new() { A("2026-06-10", 100, 98), A("2025-06-10", 80, 79), A("2026-01-01", 0, 5), A("", 10, 9) });
+
+        var result = await new StockCorporateActionSyncService(api, repo).SyncAsync("2330", CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.Equal((2, "2025-06-10", "2026-06-10"), (result.RowsWritten, result.FirstDate, result.LastDate));
+        Assert.Equal(2, (await repo.GetByStockIdAsync("2330")).Count());
+    }
+
+    [Fact]
+    public async Task 同步_沒有事件或來源出錯_回報錯誤且不寫入()
+    {
+        var repo = await InitAsync();
+
+        var empty = await new StockCorporateActionSyncService(new FakeApi(new()), repo).SyncAsync("2330", CancellationToken.None);
+        var failed = await new StockCorporateActionSyncService(new FakeApi(error: new InvalidOperationException("HTTP 403")), repo).SyncAsync("2330", CancellationToken.None);
+
+        Assert.Contains("2330", empty.Error);
+        Assert.Equal("HTTP 403", failed.Error);
+        Assert.Empty(await repo.GetByStockIdAsync("2330"));
+    }
+
+    [Fact]
+    public async Task 同步_取消時標記Cancelled()
+    {
+        var repo = await InitAsync();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var result = await new StockCorporateActionSyncService(new FakeApi(error: new OperationCanceledException(cts.Token)), repo).SyncAsync("2330", cts.Token);
+        Assert.True(result.Cancelled);
+    }
+}
