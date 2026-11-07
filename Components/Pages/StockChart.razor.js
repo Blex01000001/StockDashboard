@@ -2,7 +2,7 @@
 // 附圖定義與組圖程式在 wwwroot/js/candle-chart.js (與型態掃描小卡共用)
 
 // 版本參數沿用本檔網址的 ?v=，讓共用檔也跟著更新 (避免瀏覽器沿用快取中的舊版)
-const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, stackedBackground, infoTexts, infoRich } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
+const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, stackedBackground, subHeightOf, infoTexts, infoRich } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
 
 // 版面 (像素)：K 線區高度固定，每多一個附圖，圖表就增高 subLegend + subHeight (費半列加高，見 candle-chart.js 的 heightScale)
 const LAYOUT = {
@@ -37,9 +37,66 @@ function bindResize(dom, chart) {
     dom.__resizeObserver.observe(dom);
 }
 
+// ── 拖曳標題列調整附圖順序 ──
+// 標題列 (≡ 加標題) 上蓋一個小的透明拖曳區，只有它可以拖，圖表本身的拖曳平移、縮放不受影響。
+// 開始拖曳時才在每個附圖列上蓋一層「放開區」，經過時畫出插入位置的線；放開後呼叫 C# 的 OnSubChartMoved 重排並重畫。
+// 用 HTML5 拖放 (滑鼠)，暫不支援觸控。
+const GRIP_WIDTH = 84, DROP_LINE = '2px solid #4c8dff';
+function bindSubDrag(dom, subs, dotNetRef) {
+    dom.querySelectorAll('.sub-drag-layer').forEach(el => el.remove());   // 每次重畫都重建
+    if (!dotNetRef || subs.length < 2) return;                              // 只有一個附圖不必排序
+    dom.style.position = 'relative';
+    const layer = document.createElement('div');
+    layer.className = 'sub-drag-layer';
+    Object.assign(layer.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '5' });
+
+    let top = LAYOUT.top + LAYOUT.candleHeight;
+    const rows = subs.map(sub => { const h = LAYOUT.subLegend + subHeightOf(sub, LAYOUT); const row = { sub, top, h }; top += h; return row; });
+    const zones = [];
+    let dragged = null;
+    const setZones = on => zones.forEach(z => { z.style.pointerEvents = on ? 'auto' : 'none'; if (!on) z.style.borderTop = z.style.borderBottom = ''; });
+
+    rows.forEach((row, index) => {
+        const grip = document.createElement('div');
+        grip.draggable = true;
+        grip.title = '拖曳調整附圖順序';
+        Object.assign(grip.style, { position: 'absolute', left: LAYOUT.left + 'px', top: row.top + 'px', width: GRIP_WIDTH + 'px', height: LAYOUT.subLegend + 'px', cursor: 'grab', pointerEvents: 'auto' });
+        grip.addEventListener('dragstart', e => {
+            dragged = row.sub;
+            e.dataTransfer.setData('text/plain', row.sub);   // Firefox 要求
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => setZones(true), 0);              // 拖曳開始後才啟用放開區 (同步改 DOM 會讓瀏覽器取消拖曳)
+        });
+        grip.addEventListener('dragend', () => { dragged = null; setZones(false); });
+
+        const zone = document.createElement('div');
+        Object.assign(zone.style, { position: 'absolute', left: '0', top: row.top + 'px', width: '100%', height: row.h + 'px', pointerEvents: 'none', boxSizing: 'border-box' });
+        zone.addEventListener('dragover', e => {
+            if (!dragged) return;
+            e.preventDefault();
+            // 往下拖排在該列之後 (線畫在下緣)，往上拖排在該列之前 (線畫在上緣)，與勾選列的拖曳規則一致
+            const from = rows.findIndex(r => r.sub === dragged);
+            zone.style.borderTop = from > index ? DROP_LINE : '';
+            zone.style.borderBottom = from < index ? DROP_LINE : '';
+        });
+        zone.addEventListener('dragleave', () => { zone.style.borderTop = zone.style.borderBottom = ''; });
+        zone.addEventListener('drop', e => {
+            e.preventDefault();
+            const from = dragged;
+            dragged = null;
+            setZones(false);
+            if (from && from !== row.sub) dotNetRef.invokeMethodAsync('OnSubChartMoved', from, row.sub);
+        });
+        zones.push(zone);
+        layer.append(zone, grip);
+    });
+    dom.append(layer);
+}
+
 // candles：PatternCandle 陣列 (camelCase)；visibleMas：預設顯示的均線名稱；subCharts：附圖 (依序)；settings：指標參數
 // focusDate：要標示的日期 (從型態掃描小卡開啟時)，沒有則為 null
-export function renderStockChart(containerId, stockLabel, candles, visibleMas, subCharts, settings, focusDate) {
+// dotNetRef：頁面的 DotNetObjectReference (拖曳標題列重排附圖時回呼 OnSubChartMoved)
+export function renderStockChart(containerId, stockLabel, candles, visibleMas, subCharts, settings, focusDate, dotNetRef) {
     const dom = document.getElementById(containerId);
     if (!dom) return;
     const subs = (subCharts || []).filter(s => SUB_CHARTS[s]);
@@ -108,6 +165,7 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
         if (idx >= 0 && idx < candles.length) showInfo(idx);
     });
     chart.on('globalout', () => showInfo(chart.__info.defaultIndex));
+    bindSubDrag(dom, subs, dotNetRef);
 }
 
 export function disposeChart(containerId) {
