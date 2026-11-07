@@ -112,6 +112,9 @@ namespace StockDashboard.Models.Patterns
         // true：看多型態 (之後上漲算勝)；false：看空型態 (之後下跌算勝)
         public bool IsBullish { get; set; } = true;
 
+        // true：這次掃描用還原股價 (顯示用，技術圖表連結也會帶入)
+        public bool Adjusted { get; set; }
+
         // 小卡顯示型態成立日前 / 後幾天
         public int DaysBefore { get; set; }
         public int DaysAfter { get; set; }

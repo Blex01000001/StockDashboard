@@ -14,6 +14,9 @@ namespace StockDashboard.Services
         public string PatternKey { get; set; } = string.Empty;
         public int PageSize { get; set; } = 10;
 
+        // 用還原股價掃描 (預設原始價；下次掃描生效)
+        public bool Adjusted { get; set; }
+
         // 除了 5 / 10 / 20 日之外，額外計算報酬與勝率的天數 (使用者輸入原文，例如 "60,120")
         public string ExtraHorizonsInput { get; set; } = string.Empty;
 

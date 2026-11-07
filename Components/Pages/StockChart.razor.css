@@ -11,6 +11,17 @@
         min-width: 220px;
     }
 
+/* 還原股價勾選 */
+.search-box-container .adj-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
 /* 顯示筆數下拉選單：沒有放大鏡圖示，覆寫共用 .dark-input 的寬度與左側 padding */
 .search-box-container .count-select {
     width: auto;

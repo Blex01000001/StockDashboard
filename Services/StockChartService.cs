@@ -9,7 +9,8 @@ namespace StockDashboard.Services
     /// <summary>技術圖表頁的資料：完整日線 (重算指標用) + 畫在圖上的最近 N 根 (含均線、指標、三大法人)</summary>
     public class StockChartData
     {
-        public string Label { get; set; } = string.Empty;              // 圖表標題，例如 "2330 台積電"
+        public string Label { get; set; } = string.Empty;              // 圖表標題，例如 "2330 台積電"；還原股價會加「（還原）」
+        public bool Adjusted { get; set; }                              // 是否用還原股價
         public List<StockDataPoint> FullCandles { get; set; } = new();  // 由舊到新
         public List<InstitutionalDailyEntity> Institutional { get; set; } = new();   // 改顯示筆數時重填用
         public List<OilPriceEntity> Oil { get; set; } = new();                       // 同上 (原油，與個股無關)
@@ -21,7 +22,8 @@ namespace StockDashboard.Services
     public interface IStockChartService
     {
         // 查無日線時回傳 null；count = 0 表示全部
-        Task<StockChartData?> LoadAsync(string stockId, int count, IndicatorSettings indicators);
+        // adjusted：true 時用還原股價 (依 StockExRightEvent 的除權息事件)
+        Task<StockChartData?> LoadAsync(string stockId, int count, IndicatorSettings indicators, bool adjusted = false);
     }
 
     /// <summary>
@@ -35,10 +37,13 @@ namespace StockDashboard.Services
         private readonly IInstitutionalRepository _institutionalRepository;
         private readonly IOilPriceRepository _oilPriceRepository;
         private readonly IMarketIndexRepository _marketIndexRepository;
+        private readonly IStockCorporateActionRepository _actionRepository;
 
         public StockChartService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository,
-            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository, IMarketIndexRepository marketIndexRepository)
+            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository, IMarketIndexRepository marketIndexRepository,
+            IStockCorporateActionRepository actionRepository)
         {
+            _actionRepository = actionRepository;
             _marketIndexRepository = marketIndexRepository;
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
@@ -46,16 +51,18 @@ namespace StockDashboard.Services
             _oilPriceRepository = oilPriceRepository;
         }
 
-        public async Task<StockChartData?> LoadAsync(string stockId, int count, IndicatorSettings indicators)
+        public async Task<StockChartData?> LoadAsync(string stockId, int count, IndicatorSettings indicators, bool adjusted = false)
         {
             var full = (await _priceRepository.GetAllCandlesAsync(stockId)).ToList();
             if (full.Count == 0) return null;
+            if (adjusted) full = PriceAdjuster.ApplyToCandles(full, await _actionRepository.GetByStockIdAsync(stockId));
 
             string? name = await _stockNameRepository.GetStockNameOrNullAsync(stockId);
             var data = Build(full, count, indicators, await _institutionalRepository.GetByStockOrEmptyAsync(stockId),
                 await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode),
                 await _marketIndexRepository.GetAllOrEmptyAsync(MarketIndexApiClient.SoxCode));
-            data.Label = name == null ? stockId : $"{stockId} {name}";
+            data.Label = (name == null ? stockId : $"{stockId} {name}") + (adjusted ? "（還原）" : "");
+            data.Adjusted = adjusted;
             return data;
         }
 

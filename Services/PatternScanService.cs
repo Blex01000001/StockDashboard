@@ -46,10 +46,13 @@ namespace StockDashboard.Services
         private readonly IInstitutionalRepository _institutionalRepository;
         private readonly IOilPriceRepository _oilPriceRepository;
         private readonly IMarketIndexRepository _marketIndexRepository;
+        private readonly IStockCorporateActionRepository _actionRepository;
 
         public PatternScanService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository,
-            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository, IMarketIndexRepository marketIndexRepository)
+            IInstitutionalRepository institutionalRepository, IOilPriceRepository oilPriceRepository, IMarketIndexRepository marketIndexRepository,
+            IStockCorporateActionRepository actionRepository)
         {
+            _actionRepository = actionRepository;
             _marketIndexRepository = marketIndexRepository;
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
@@ -59,7 +62,7 @@ namespace StockDashboard.Services
 
         public async Task<PatternScanResult> ScanAsync(
             IEnumerable<string> stockIds, ICandlePattern pattern, PatternParameterValues values,
-            int daysBefore = 10, int daysAfter = 20, IEnumerable<int>? horizons = null, IndicatorSettings? indicators = null)
+            int daysBefore = 10, int daysAfter = 20, IEnumerable<int>? horizons = null, IndicatorSettings? indicators = null, bool adjusted = false)
         {
             var ids = stockIds.Distinct().ToList();
             var days = (horizons ?? DefaultHorizons).Where(d => d > 0).Distinct().OrderBy(d => d).ToList();
@@ -67,6 +70,7 @@ namespace StockDashboard.Services
             {
                 PatternName = pattern.Name,
                 IsBullish = pattern.Direction == PatternDirection.Bullish,
+                Adjusted = adjusted,
                 Horizons = days,
                 DaysBefore = daysBefore,
                 DaysAfter = daysAfter
@@ -78,6 +82,8 @@ namespace StockDashboard.Services
             foreach (var stockId in ids)
             {
                 var candles = (await _priceRepository.GetAllCandlesAsync(stockId)).ToList();
+                // 還原股價：型態判斷、之後報酬、指標都用還原後的價格；沒有除權息事件的股票不變
+                if (adjusted && candles.Count > 0) candles = PriceAdjuster.ApplyToCandles(candles, await _actionRepository.GetByStockIdAsync(stockId));
                 if (candles.Count == 0)
                 {
                     result.StocksWithoutData.Add(stockId);

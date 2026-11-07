@@ -11,6 +11,7 @@ namespace StockDashboard.Components.Pages
         // 從型態掃描小卡開啟：/stock-chart?id=2330&date=2026-03-30
         [SupplyParameterFromQuery(Name = "id")] public string? QueryStockId { get; set; }
         [SupplyParameterFromQuery(Name = "date")] public string? QueryDate { get; set; }
+        [SupplyParameterFromQuery(Name = "adj")] public string? QueryAdjusted { get; set; }   // 1 = 該次掃描用還原股價
 
         [Inject] private IStockChartService ChartService { get; set; } = default!;
         [Inject] private StockChartState State { get; set; } = default!;
@@ -26,6 +27,7 @@ namespace StockDashboard.Components.Pages
             if (!string.IsNullOrWhiteSpace(QueryStockId))
             {
                 State.TargetStockId = QueryStockId.Trim();
+                State.Adjusted = QueryAdjusted == "1";
                 await LoadAsync(QueryDate);
                 return;
             }
@@ -35,6 +37,13 @@ namespace StockDashboard.Components.Pages
 
         // 按「繪製圖表」：手動查詢，不再標示型態日
         public Task LoadChartData() => LoadAsync(null);
+
+        // 切換還原股價：完整日線會變，要重新載入 (保留標示的型態日)
+        protected Task OnAdjustedChanged(ChangeEventArgs e)
+        {
+            State.Adjusted = e.Value is true;
+            return State.Data == null ? Task.CompletedTask : LoadAsync(State.FocusDate);
+        }
 
         // 改顯示筆數：用已載入的完整日線重切範圍，不查資料庫
         protected void OnCountChanged(ChangeEventArgs e)
@@ -61,7 +70,7 @@ namespace StockDashboard.Components.Pages
                 Message = "資料載入中...";
 
                 string stockId = State.TargetStockId.Trim();
-                var data = await ChartService.LoadAsync(stockId, State.CandleCount, State.Display.Indicators);
+                var data = await ChartService.LoadAsync(stockId, State.CandleCount, State.Display.Indicators, State.Adjusted);
                 if (data == null)
                 {
                     Message = $"找不到代號 {stockId} 的股票資料。";

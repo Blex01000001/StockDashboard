@@ -78,6 +78,34 @@ public class PriceAdjusterTests
     }
 }
 
+public class PriceAdjusterCandleTests
+{
+    [Fact]
+    public void K線還原_事件日之前乘係數_量與事件日之後不變_不改輸入()
+    {
+        var candles = new List<StockDashboard.Models.StockDataPoint>
+        {
+            new() { Date = "2026-01-02", Open = 100, High = 102, Low = 98, Close = 100, Volume = 1000 },
+            new() { Date = "2026-01-05", Open = 98, High = 99, Low = 97, Close = 98, Volume = 2000 },
+        };
+        var actions = new[] { new StockCorporateActionEntity { StockId = "2330", ExDate = "2026-01-05", PreClose = 100, RefPrice = 98 } };
+
+        var r = PriceAdjuster.ApplyToCandles(candles, actions);
+
+        Assert.Equal((98.0, 99.96, 96.04, 98.0, 1000L), (r[0].Open, r[0].High, r[0].Low, r[0].Close, r[0].Volume));   // 係數 0.98
+        Assert.Equal((98.0, 99.0, 97.0, 98.0, 2000L), (r[1].Open, r[1].High, r[1].Low, r[1].Close, r[1].Volume));     // 事件日當天不變
+        Assert.Equal(100.0, candles[0].Close);                                                                       // 輸入沒被改
+    }
+
+    [Fact]
+    public void K線還原_沒有事件時原樣()
+    {
+        var candles = new List<StockDashboard.Models.StockDataPoint> { new() { Date = "2026-01-02", Open = 1, High = 2, Low = 0.5, Close = 1.5, Volume = 7 } };
+        var r = PriceAdjuster.ApplyToCandles(candles, Array.Empty<StockCorporateActionEntity>());
+        Assert.Equal((1.0, 2.0, 0.5, 1.5, 7L), (r[0].Open, r[0].High, r[0].Low, r[0].Close, r[0].Volume));
+    }
+}
+
 public class StockCorporateActionRepositoryTests : IDisposable
 {
     private readonly TempSqliteDb _db = new();

@@ -106,7 +106,7 @@ namespace StockDashboard.Components.Pages
             {
                 var horizons = Horizons;
                 var result = await PatternScanService.ScanAsync(stockIds, Pattern, Values.Clone(), DaysBefore,
-                    ScanService.CardDaysAfter(horizons), horizons, State.Display.Indicators.Clone());
+                    ScanService.CardDaysAfter(horizons), horizons, State.Display.Indicators.Clone(), State.Adjusted);
 
                 int remaining = MinLoadingMs - (int)stopwatch.ElapsedMilliseconds;
                 if (remaining > 0) await Task.Delay(remaining);
@@ -132,8 +132,8 @@ namespace StockDashboard.Components.Pages
         }
 
         // 小卡 →「K線技術指標圖表」頁 (同一連線內切換，型態掃描結果仍保留)
-        protected static string ChartLink(Models.Patterns.PatternMatch match) =>
-            $"stock-chart?id={Uri.EscapeDataString(match.StockId)}&date={Uri.EscapeDataString(match.SignalDate)}";
+        protected static string ChartLink(Models.Patterns.PatternMatch match, bool adjusted) =>
+            $"stock-chart?id={Uri.EscapeDataString(match.StockId)}&date={Uri.EscapeDataString(match.SignalDate)}" + (adjusted ? "&adj=1" : "");
 
         // ── 附圖、均線、指標參數 (ChartDisplayOptions 元件) ──
 
