@@ -104,6 +104,23 @@ public class StockCorporateActionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task 使用者資料庫已有同名但欄位不同的StockCorporateAction表_不受影響()
+    {
+        // 實際發生過：使用者的 stock.db 已有 StockCorporateAction (欄位不同)，本專案的表改名為 StockExRightEvent 以避開
+        _db.Execute("CREATE TABLE StockCorporateAction (Id INTEGER, Note TEXT); INSERT INTO StockCorporateAction VALUES (1, 'mine');");
+        var repo = await InitAsync();
+
+        await repo.UpsertAsync(new[] { new StockCorporateActionEntity { StockId = "9933", ExDate = "2026-01-05", PreClose = 100, RefPrice = 98 } });
+
+        Assert.Equal(98.0, (await repo.GetByStockIdAsync("9933")).Single().RefPrice);
+        using var c = new Microsoft.Data.Sqlite.SqliteConnection(_db.ConnectionString);
+        c.Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT Note FROM StockCorporateAction";
+        Assert.Equal("mine", cmd.ExecuteScalar());   // 使用者的表原封不動
+    }
+
+    [Fact]
     public async Task 服務_還原開關_只在isAdjusted時套用()
     {
         await DatabaseInitializer.InitializeAsync(_db.Configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);

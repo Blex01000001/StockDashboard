@@ -5,7 +5,7 @@ using StockDashboard.Repositories.Interfaces;
 
 namespace StockDashboard.Repositories.Implements
 {
-    /// <summary>StockCorporateAction (除權息事件) 的存取入口。</summary>
+    /// <summary>StockExRightEvent (除權息事件) 的存取入口。</summary>
     public class StockCorporateActionRepository : IStockCorporateActionRepository
     {
         private readonly string _connectionString;
@@ -22,7 +22,7 @@ namespace StockDashboard.Repositories.Implements
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();
             int affected = await connection.ExecuteAsync(@"
-                INSERT INTO StockCorporateAction (StockId, ExDate, PreClose, RefPrice)
+                INSERT INTO StockExRightEvent (StockId, ExDate, PreClose, RefPrice)
                 VALUES (@StockId, @ExDate, @PreClose, @RefPrice)
                 ON CONFLICT(StockId, ExDate) DO UPDATE SET
                     PreClose = excluded.PreClose, RefPrice = excluded.RefPrice;",
@@ -35,7 +35,7 @@ namespace StockDashboard.Repositories.Implements
         {
             using var connection = new SqliteConnection(_connectionString);
             return await connection.QueryAsync<StockCorporateActionEntity>(
-                "SELECT StockId, ExDate, PreClose, RefPrice FROM StockCorporateAction WHERE StockId = @StockId ORDER BY ExDate",
+                "SELECT StockId, ExDate, PreClose, RefPrice FROM StockExRightEvent WHERE StockId = @StockId ORDER BY ExDate",
                 new { StockId = stockId });
         }
 
@@ -43,7 +43,7 @@ namespace StockDashboard.Repositories.Implements
         {
             using var connection = new SqliteConnection(_connectionString);
             var row = await connection.QuerySingleAsync<SummaryRow>(
-                "SELECT COUNT(DISTINCT StockId) AS Stocks, COUNT(*) AS Events FROM StockCorporateAction");
+                "SELECT COUNT(DISTINCT StockId) AS Stocks, COUNT(*) AS Events FROM StockExRightEvent");
             return ((int)row.Stocks, (int)row.Events);
         }
 
