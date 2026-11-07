@@ -108,7 +108,8 @@ public class StockCorporateActionRepositoryTests : IDisposable
     {
         // 實際發生過：使用者的 stock.db 已有 StockCorporateAction (欄位不同)，本專案的表改名為 StockExRightEvent 以避開
         _db.Execute("CREATE TABLE StockCorporateAction (Id INTEGER, Note TEXT); INSERT INTO StockCorporateAction VALUES (1, 'mine');");
-        var repo = await InitAsync();
+        await DatabaseInitializer.InitializeAsync(_db.Configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+        var repo = new StockCorporateActionRepository(_db.Configuration);
 
         await repo.UpsertAsync(new[] { new StockCorporateActionEntity { StockId = "9933", ExDate = "2026-01-05", PreClose = 100, RefPrice = 98 } });
 
