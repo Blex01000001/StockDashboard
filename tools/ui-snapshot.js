@@ -47,7 +47,7 @@ const STATES = [
     await p.check('.ma-toggle:has-text("120") input'); await p.waitForTimeout(1200);
   }],
   // 切到別頁再回來：代號、附圖設定與圖表都保留
-  ['c_kept', async p => { await p.click('a[href="stock-query"]'); await p.waitForTimeout(800); await p.click('a[href="stock-chart"]'); await p.waitForTimeout(1500); }],
+  ['c_kept', async p => { await p.click('a[href="stock-update"]'); await p.waitForTimeout(800); await p.click('a[href="stock-chart"]'); await p.waitForTimeout(1500); }],
   ['c_count', async p => { await p.selectOption('.count-select', '0'); await p.waitForTimeout(1200); }],
   ['m_init', async p => { await go(p, 'stock-compare'); }],
   ['m_alert', async p => { await p.fill('.dashboard-panel input', ''); await clickMain(p); }],

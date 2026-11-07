@@ -11,7 +11,7 @@
 | `Program.cs` | DI 註冊、HttpClient 設定、啟動流程 | 新增 Service / Repository 註冊 |
 | `Components/App.razor` | HTML 外殼、CSS/JS 載入 | 新增全域 CSS（要加 `?v=@AssetVersion.Value`） |
 | `Components/AssetVersion.cs` | 靜態檔版本號（MVID）；頁面 JS 模組用 `AssetVersion.Module(path)` 載入 | |
-| `Components/Layout/NavMenu.razor` | 側邊欄連結 | 新增頁面時加連結 |
+| `Components/Layout/NavMenu.razor` | 側邊欄連結（順序：API 資料更新、K線技術圖表、K線型態掃描、多檔績效比較；`/stock-query` 已從側邊欄移除，頁面與網址仍在） | 新增頁面時加連結 |
 | `Components/Pages/StockQuery.*` | `/stock-query` 單檔最新日線＋名稱 | |
 | `Components/Pages/StockChart.*` | `/stock-chart` 技術圖表：K 線＋均線＋附圖（同型態掃描），寬度隨容器（`ResizeObserver`），顯示筆數可選，可縮放；`?id=&date=` 開啟並標示型態日（型態掃描小卡「技術圖表」連結）；狀態在 Scoped `StockChartState` | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |

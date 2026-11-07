@@ -107,7 +107,7 @@ app.MapRazorComponents<App>()
 
 #region 讓系統啟動後，自動用預設瀏覽器打開本機網頁
 // 可在 appsettings.json 以 "StartupUrl" 覆寫；預設對應 launchSettings.json 的 http profile (port 8888)
-var startupUrl = app.Configuration["StartupUrl"] ?? "http://localhost:8888/stock-query";
+var startupUrl = app.Configuration["StartupUrl"] ?? "http://localhost:8888/stock-update";
 
 // 等伺服器真正開始監聽後才開瀏覽器，避免瀏覽器先開卻連不上
 app.Lifetime.ApplicationStarted.Register(() =>
