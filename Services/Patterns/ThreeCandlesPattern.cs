@@ -6,7 +6,7 @@ namespace StockDashboard.Services.Patterns
     /// <summary>
     /// 紅三兵 / 黑三兵的共用邏輯 (兩者互為鏡像)：
     /// 連續三根同色 K 棒、實體夠大、收盤一根比一根高 (低)、開盤在前一根實體內、順勢方向的影線短。
-    /// 預設參數由 Claude 依常見定義訂定，修改預設前先問使用者。
+    /// 預設參數已由使用者確認，修改預設前先問使用者。
     /// </summary>
     public abstract class ThreeCandlesPattern : ICandlePattern
     {

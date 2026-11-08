@@ -14,6 +14,7 @@ namespace StockDashboard.Services
         public List<StockDataPoint> FullCandles { get; set; } = new();  // 由舊到新
         public List<InstitutionalDailyEntity> Institutional { get; set; } = new();   // 改顯示筆數時重填用
         public List<OilPriceEntity> Oil { get; set; } = new();                       // 同上 (原油，與個股無關)
+        public List<OilPriceEntity> OilYahoo { get; set; } = new();                  // 同上 (Yahoo Brent 期貨)
         public List<MarketIndexEntity> MarketIndex { get; set; } = new();            // 同上 (費半)
         public int WindowStart { get; set; }                            // Candles 第一根在 FullCandles 的位置
         public List<PatternCandle> Candles { get; set; } = new();
@@ -60,18 +61,20 @@ namespace StockDashboard.Services
             string? name = await _stockNameRepository.GetStockNameOrNullAsync(stockId);
             var data = Build(full, count, indicators, await _institutionalRepository.GetByStockOrEmptyAsync(stockId),
                 await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode),
-                await _marketIndexRepository.GetAllOrEmptyAsync(MarketIndexApiClient.SoxCode));
+                await _marketIndexRepository.GetAllOrEmptyAsync(MarketIndexApiClient.SoxCode),
+                await _oilPriceRepository.GetAllOrEmptyAsync(YahooOilSyncService.Code));
             data.Label = (name == null ? stockId : $"{stockId} {name}") + (adjusted ? "（還原）" : "");
             data.Adjusted = adjusted;
             return data;
         }
 
         public static StockChartData Build(List<StockDataPoint> full, int count, IndicatorSettings indicators,
-            IEnumerable<InstitutionalDailyEntity> institutional, IEnumerable<OilPriceEntity>? oil = null, IEnumerable<MarketIndexEntity>? marketIndex = null)
+            IEnumerable<InstitutionalDailyEntity> institutional, IEnumerable<OilPriceEntity>? oil = null, IEnumerable<MarketIndexEntity>? marketIndex = null,
+            IEnumerable<OilPriceEntity>? oilYahoo = null)
         {
             var data = new StockChartData
             {
-                FullCandles = full, Institutional = institutional.ToList(), Oil = oil?.ToList() ?? new(), MarketIndex = marketIndex?.ToList() ?? new()
+                FullCandles = full, Institutional = institutional.ToList(), Oil = oil?.ToList() ?? new(), OilYahoo = oilYahoo?.ToList() ?? new(), MarketIndex = marketIndex?.ToList() ?? new()
             };
             SetWindow(data, count, indicators);
             return data;
@@ -86,6 +89,7 @@ namespace StockDashboard.Services
             Recompute(data, indicators);
             PatternScanService.ApplyInstitutional(data.Candles, data.Institutional);
             PatternScanService.ApplyOil(data.Candles, data.Oil);
+            PatternScanService.ApplyOilYahoo(data.Candles, data.OilYahoo);
             PatternScanService.ApplyMarketIndex(data.Candles, data.FullCandles.Select(c => c.Date).ToList(), data.MarketIndex);
         }
 

@@ -1,0 +1,130 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using StockDashboard.Models.Entities;
+using StockDashboard.Repositories;
+using StockDashboard.Repositories.Implements;
+using StockDashboard.Services;
+
+namespace StockDashboard.Tests;
+
+public class PriceSyncServiceTests : IDisposable
+{
+    private readonly TempSqliteDb _db = new();
+    public void Dispose() => _db.Dispose();
+
+    /// <summary>假證交所：指定月份有一筆資料，其餘為空；可指定某月拋錯或在某月取消</summary>
+    private sealed class FakeTwse : ITwseApiClient
+    {
+        public HashSet<DateTime> MonthsWithData { get; } = new();
+        public HashSet<DateTime> FailMonths { get; } = new();
+        public Action<DateTime>? OnCall { get; set; }
+        public List<DateTime> Calls { get; } = new();
+
+        public Task<List<StockDailyPriceEntity>> GetMonthlyPricesAsync(string stockId, DateTime month, CancellationToken ct = default)
+        {
+            Calls.Add(month);
+            OnCall?.Invoke(month);
+            if (FailMonths.Contains(month)) throw new HttpRequestException("證交所回應 HTTP 403 Forbidden");
+            var list = MonthsWithData.Contains(month)
+                ? new List<StockDailyPriceEntity> { new() { StockId = stockId, TradeDate = month.ToString("yyyy-MM-15"), ClosePrice = 100 } }
+                : new List<StockDailyPriceEntity>();
+            return Task.FromResult(list);
+        }
+
+        public Task<List<InstitutionalDailyEntity>> GetInstitutionalTradingAsync(DateTime date, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<List<InstitutionalDailyEntity>> GetForeignHoldingAsync(DateTime date, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<List<StockNameEntity>> GetListedStocksAsync(CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private static readonly DateTime Today = new(2026, 11, 8);
+    private static DateTime M(int year, int month) => new(year, month, 1);
+
+    private async Task<(PriceSyncService Service, FakeTwse Twse, StockPriceRepository Repo)> InitAsync()
+    {
+        await DatabaseInitializer.InitializeAsync(_db.Configuration, NullLogger.Instance);
+        var twse = new FakeTwse();
+        var repo = new StockPriceRepository(_db.Configuration);
+        return (new PriceSyncService(twse, repo, 0, () => Today), twse, repo);
+    }
+
+    [Fact]
+    public async Task 逐月由本月往前_全部有資料_寫入資料庫()
+    {
+        var (service, twse, _) = await InitAsync();
+        twse.MonthsWithData.UnionWith(new[] { M(2026, 11), M(2026, 10), M(2026, 9) });
+
+        var reports = new List<PriceSyncProgress>();
+        var result = await service.SyncAsync("2330", 3, new SyncProgress<PriceSyncProgress>(reports.Add), CancellationToken.None);
+
+        Assert.Equal(new[] { M(2026, 11), M(2026, 10), M(2026, 9) }, twse.Calls);
+        Assert.Equal(3, result.SuccessMonths);
+        Assert.Equal(3, result.RowsFetched);
+        Assert.Equal(3, result.RowsWritten);
+        Assert.False(result.Broken);
+        Assert.Null(result.LastError);
+        Assert.Equal(new[] { 1, 2, 3 }, reports.Select(r => r.Index));
+    }
+
+    [Fact]
+    public async Task 本月沒資料不計入熔斷()
+    {
+        var (service, twse, _) = await InitAsync();
+        twse.MonthsWithData.UnionWith(new[] { M(2026, 10), M(2026, 9) });
+
+        var result = await service.SyncAsync("2330", 3, null, CancellationToken.None);
+
+        Assert.Equal(2, result.SuccessMonths);
+        Assert.False(result.Broken);
+    }
+
+    [Fact]
+    public async Task 連續三個月無資料提前中斷()
+    {
+        var (service, twse, _) = await InitAsync();
+        twse.MonthsWithData.Add(M(2026, 10));   // 之前的月份都沒有 (例如尚未上市)
+
+        var result = await service.SyncAsync("2330", 12, null, CancellationToken.None);
+
+        Assert.True(result.Broken);
+        // 本月(不計)、10 月(有)、9/8/7 月連續三次無資料後停止
+        Assert.Equal(5, twse.Calls.Count);
+        Assert.Equal(1, result.RowsWritten);
+    }
+
+    [Fact]
+    public async Task 下載失敗計入熔斷並記錄最後錯誤()
+    {
+        var (service, twse, _) = await InitAsync();
+        twse.FailMonths.UnionWith(new[] { M(2026, 10), M(2026, 9), M(2026, 8) });
+
+        var result = await service.SyncAsync("2330", 6, null, CancellationToken.None);
+
+        Assert.True(result.Broken);
+        Assert.Equal(3, result.ErrorCount);
+        Assert.Contains("2026年08月", result.LastError);
+        Assert.Contains("403", result.LastError);
+        Assert.Equal(0, result.RowsFetched);
+        Assert.Equal(0, result.RowsWritten);
+    }
+
+    [Fact]
+    public async Task 取消後不再請求_已抓到的資料仍寫入()
+    {
+        var (service, twse, _) = await InitAsync();
+        twse.MonthsWithData.UnionWith(new[] { M(2026, 11), M(2026, 10), M(2026, 9) });
+        using var cts = new CancellationTokenSource();
+        twse.OnCall = m => { if (m == M(2026, 10)) cts.Cancel(); };
+
+        var result = await service.SyncAsync("2330", 3, null, cts.Token);
+
+        Assert.True(result.Cancelled);
+        Assert.Equal(2, twse.Calls.Count);
+        Assert.Equal(2, result.RowsWritten);
+    }
+
+    private sealed class SyncProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _action;
+        public SyncProgress(Action<T> action) => _action = action;
+        public void Report(T value) => _action(value);
+    }
+}

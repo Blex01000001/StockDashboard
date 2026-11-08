@@ -67,9 +67,11 @@ builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
 builder.Services.AddScoped<IPatternScanService, PatternScanService>();
 builder.Services.AddScoped<IStockChartService, StockChartService>();
 builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
+builder.Services.AddScoped<IPriceSyncService, PriceSyncService>();
 builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 builder.Services.AddScoped<IOilPriceSyncService, OilPriceSyncService>();
 builder.Services.AddScoped<IMarketIndexSyncService, MarketIndexSyncService>();
+builder.Services.AddScoped<IYahooOilSyncService, YahooOilSyncService>();
 builder.Services.AddScoped<IStockCorporateActionSyncService, StockCorporateActionSyncService>();
 builder.Services.AddScoped<IStockPriceService, StockPriceService>();   // 還原股價 (尚無頁面使用)
 builder.Services.AddSingleton<ILocalPathOpener, LocalPathOpener>();

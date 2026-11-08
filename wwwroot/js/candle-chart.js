@@ -21,7 +21,8 @@ export const MA_LINES = [
 const BOLL_FILL = 'rgba(131, 146, 165, 0.18)';
 
 const HOLDING_COLOR = '#ab47bc';  // 外資持股比例線
-const OIL_COLOR = '#ff9800';      // 原油線
+const OIL_COLOR = '#ff9800';      // 原油線 (oilpriceapi)
+const OIL_YAHOO_COLOR = '#ab47bc'; // 原油線 (Yahoo)
 
 // 費半列的價格 (已在 C# 取到小數 2 位)；缺值顯示 -
 const px = v => v == null ? '-' : v;
@@ -94,11 +95,20 @@ export const SUB_CHARTS = {
     dealer: netChart('dealerNet', '自營商'),
     // 原油：Brent 當日均價 (美元 / 桶；取當天之前最近一筆，見 C# PatternScanService.ApplyOil)，一條線、自己的 Y 軸
     oil: {
-        title: '原油',
+        title: '原油 oilpriceapi',
         lines: () => [{ key: 'oil', name: 'Brent', label: 'Brent 原油', color: OIL_COLOR, ownAxis: true, fmt: v => '$' + v }],
         hasData: c => c.oil != null,
         noDataText: '尚無原油資料（請到「資料更新」頁同步）',
         tooltip: c => `Brent 原油 ${c.oil != null ? '$' + c.oil : '-'}`
+    },
+    // 原油 (Yahoo)：Brent 期貨 BZ=F 的收盤價 (一樣取當天之前最近一筆，見 C# PatternScanService.ApplyOilYahoo)，
+    // 和上面 oilpriceapi 的當日均價並排，讓使用者比較兩個來源差多少
+    oilYahoo: {
+        title: '原油 Yahoo',
+        lines: () => [{ key: 'oilYahoo', name: 'BZ=F', label: 'Yahoo BZ=F 收盤', color: OIL_YAHOO_COLOR, ownAxis: true, fmt: v => '$' + v }],
+        hasData: c => c.oilYahoo != null,
+        noDataText: '尚無 Yahoo 原油資料（請到「資料更新」頁同步）',
+        tooltip: c => `Yahoo BZ=F ${c.oilYahoo != null ? '$' + c.oilYahoo : '-'}`
     },
     // 費半 (美國費城半導體指數)：完整紅綠蠟燭，自己的 Y 軸。日期已在 C# 對齊到台股交易日
     // (PatternScanService.ApplyMarketIndex：取該日之前已收盤的美股，台股連假期間的多個美股交易日合併成一根；美股休市日留空)。

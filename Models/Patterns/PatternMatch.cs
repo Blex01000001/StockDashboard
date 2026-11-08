@@ -84,6 +84,9 @@ namespace StockDashboard.Models.Patterns
         // Brent 原油價格 (美元 / 桶，附圖：原油)：當天之前最近一個交易日的當日均價；沒有資料為 null
         public double? Oil { get; set; }
 
+        // Yahoo Brent 期貨 (BZ=F) 收盤價 (附圖：原油 Yahoo，與上面的 oilpriceapi 並排比較用)：同樣取當天之前最近一個交易日；沒有資料為 null
+        public double? OilYahoo { get; set; }
+
         // 美國費半 (SOX) K 線 (附圖：費半)：對齊到這個台股交易日的美股行情 (見 PatternScanService.ApplyMarketIndex)；
         // 台股連假期間的多個美股交易日已合併成一根。SoxDate = 這根最後一個美股交易日。沒有資料為 null
         public double? SoxOpen { get; set; }

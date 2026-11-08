@@ -16,7 +16,7 @@ namespace StockDashboard.Services
             {
                 ("volume", "成交量"), ("macd", "MACD"), ("kd", "KD"), ("rsi", "RSI"),
                 ("inst", "三大法人"), ("foreign", "外資"), ("trust", "投信"), ("dealer", "自營商"),
-                ("oil", "原油"), ("sox", "費半"),
+                ("oil", "原油 (oilpriceapi)"), ("oilYahoo", "原油 (Yahoo)"), ("sox", "費半"),
             };
         public HashSet<string> SubCharts { get; } = new() { "volume" };
 

@@ -77,6 +77,7 @@ namespace StockDashboard.Services
             };
             var names = await _stockNameRepository.GetStockNamesOrEmptyAsync(ids);
             var oil = await _oilPriceRepository.GetAllOrEmptyAsync(OilPriceApiClient.BrentCode);   // 與個股無關，整次掃描只讀一次
+            var oilYahoo = await _oilPriceRepository.GetAllOrEmptyAsync(YahooOilSyncService.Code);
             var sox = await _marketIndexRepository.GetAllOrEmptyAsync(MarketIndexApiClient.SoxCode);
 
             foreach (var stockId in ids)
@@ -98,6 +99,7 @@ namespace StockDashboard.Services
                 {
                     ApplyInstitutional(matches, await _institutionalRepository.GetByStockOrEmptyAsync(stockId));
                     ApplyOil(matches.SelectMany(m => m.Candles), oil);
+                    ApplyOilYahoo(matches.SelectMany(m => m.Candles), oilYahoo);
                     ApplyMarketIndex(matches.SelectMany(m => m.Candles), candles.Select(c => c.Date).ToList(), sox);
                 }
                 result.Matches.AddRange(matches);
@@ -138,15 +140,24 @@ namespace StockDashboard.Services
         /// 依日期填入 Brent 原油價格 (oil 由舊到新)：每根 K 棒取「當天之前」最近一筆 (嚴格早於當天)，休市日自然沿用前值。
         /// 原因：來源是 UTC 整天的均價，涵蓋台股收盤之後，用當天的值等於偷看未來。找不到更早的資料為 null (圖上留空)。
         /// </summary>
-        public static void ApplyOil(IEnumerable<PatternCandle> candles, IReadOnlyList<OilPriceEntity> oil)
+        public static void ApplyOil(IEnumerable<PatternCandle> candles, IReadOnlyList<OilPriceEntity> oil) =>
+            ApplyPreviousPrice(candles, oil, (c, v) => c.Oil = v);
+
+        /// <summary>
+        /// 同 <see cref="ApplyOil"/>，改填 Yahoo Brent 期貨 (BZ=F) 的收盤價。紐約收盤在台股收盤之後，同樣不能用當天的值。
+        /// </summary>
+        public static void ApplyOilYahoo(IEnumerable<PatternCandle> candles, IReadOnlyList<OilPriceEntity> oil) =>
+            ApplyPreviousPrice(candles, oil, (c, v) => c.OilYahoo = v);
+
+        private static void ApplyPreviousPrice(IEnumerable<PatternCandle> candles, IReadOnlyList<OilPriceEntity> prices, Action<PatternCandle, double?> set)
         {
-            if (oil.Count == 0) return;
-            var dates = oil.Select(o => o.TradeDate).ToArray();
+            if (prices.Count == 0) return;
+            var dates = prices.Select(o => o.TradeDate).ToArray();
             foreach (var candle in candles)
             {
                 int i = Array.BinarySearch(dates, candle.Date, StringComparer.Ordinal);
                 int previous = (i >= 0 ? i : ~i) - 1;   // 找到同一天也要往前一筆
-                candle.Oil = previous >= 0 ? oil[previous].Price : null;
+                set(candle, previous >= 0 ? prices[previous].Price : null);
             }
         }
 
