@@ -120,7 +120,8 @@ export const SUB_CHARTS = {
 export const subHeightOf = (sub, layout) => layout.subHeight * (SUB_CHARTS[sub]?.heightScale ?? 1);
 
 // 各附圖列的淡底色：用容器的 CSS 背景 (線性漸層的硬邊界) 畫在圖表後面，圖表本身是透明的，
-// 所以寬度隨容器、不必隨視窗重算。每列頂端留 SUB_BG_GAP 不上色，相鄰兩列之間才看得出區隔。
+// 所以寬度隨容器、不必隨視窗重算。每列頂端留 layout.subGap (預設 SUB_BG_GAP；技術圖表為 6) 不上色，
+// 相鄰兩列之間、K 線區與第一個附圖之間才看得出區隔。
 // 用半透明色，技術圖表 (#1e222d) 與小卡 (深色卡片) 的底色都適用。
 const SUB_BG = 'rgba(131, 146, 165, 0.09)';
 const SUB_BG_GAP = 3;
@@ -128,9 +129,10 @@ export function stackedBackground(layout, subs) {
     if (subs.length === 0) return 'none';
     const stops = [];
     let top = layout.top + layout.candleHeight;
-    for (const sub of subs) {
+    for (const [index, sub] of subs.entries()) {
         const bottom = top + layout.subLegend + subHeightOf(sub, layout);
-        const from = top + SUB_BG_GAP;
+        // K 線區底部那條軸線本身佔 1px，第一條色帶多讓 1px，視覺上與 K 線圖才剛好隔 subGap (只有指定 subGap 的技術圖表)
+        const from = top + (layout.subGap ?? SUB_BG_GAP) + (index === 0 && layout.subGap != null ? 1 : 0);
         stops.push(`transparent ${from}px`, `${SUB_BG} ${from}px`, `${SUB_BG} ${bottom}px`, `transparent ${bottom}px`);
         top = bottom;
     }
@@ -291,8 +293,8 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
             });
         });
         // 附圖圖例：放在該附圖左上方
-        legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...(def.candleName ? [def.candleName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + 3, left: LAYOUT.left }));
-        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + 2, silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
+        legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...(def.candleName ? [def.candleName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + (LAYOUT.subGap ?? 3), left: LAYOUT.left }));
+        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + (LAYOUT.subGap ?? 3) - 1, silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
         if (def.hasData && !candles.some(def.hasData)) {
             graphics.push({ type: 'text', left: 'center', top: top + subHeight / 2 - 6,
                             style: { text: def.noDataText ?? NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
