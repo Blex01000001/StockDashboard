@@ -119,29 +119,41 @@ export const SUB_CHARTS = {
 // 某個附圖列的繪圖區高度 (預設 layout.subHeight；定義了 heightScale 的附圖依倍數加高)
 export const subHeightOf = (sub, layout) => layout.subHeight * (SUB_CHARTS[sub]?.heightScale ?? 1);
 
+// 附圖一列的高度 = 標題區 (subLegend) + 繪圖區 + 下方內距 (layout.subPad，技術圖表為 3；小卡沒有)
+export const subRowHeightOf = (sub, layout) => layout.subLegend + subHeightOf(sub, layout) + (layout.subPad ?? 0);
+
+// 每個附圖列的位置：row = 這一列的範圍 (含上方間隔)，band = 淡底色帶 (不含上方間隔)。
+// K 線區底部那條軸線本身佔 1px，第一條色帶多讓 1px，視覺上與 K 線圖才剛好隔 subGap (只有指定 subGap 的技術圖表)
+export function subRows(layout, subs) {
+    const rows = [];
+    let top = layout.top + layout.candleHeight;
+    subs.forEach((sub, index) => {
+        const height = subRowHeightOf(sub, layout);
+        const bandTop = top + (layout.subGap ?? SUB_BG_GAP) + (index === 0 && layout.subGap != null ? 1 : 0);
+        rows.push({ sub, top, height, bandTop, bandBottom: top + height });
+        top += height;
+    });
+    return rows;
+}
+
 // 各附圖列的淡底色：用容器的 CSS 背景 (線性漸層的硬邊界) 畫在圖表後面，圖表本身是透明的，
 // 所以寬度隨容器、不必隨視窗重算。每列頂端留 layout.subGap (預設 SUB_BG_GAP；技術圖表為 6) 不上色，
 // 相鄰兩列之間、K 線區與第一個附圖之間才看得出區隔。
 // 用半透明色，技術圖表 (#1e222d) 與小卡 (深色卡片) 的底色都適用。
-const SUB_BG = 'rgba(131, 146, 165, 0.09)';
+export const SUB_BG = 'rgba(131, 146, 165, 0.09)';
 const SUB_BG_GAP = 3;
 export function stackedBackground(layout, subs) {
     if (subs.length === 0) return 'none';
     const stops = [];
-    let top = layout.top + layout.candleHeight;
-    for (const [index, sub] of subs.entries()) {
-        const bottom = top + layout.subLegend + subHeightOf(sub, layout);
-        // K 線區底部那條軸線本身佔 1px，第一條色帶多讓 1px，視覺上與 K 線圖才剛好隔 subGap (只有指定 subGap 的技術圖表)
-        const from = top + (layout.subGap ?? SUB_BG_GAP) + (index === 0 && layout.subGap != null ? 1 : 0);
+    for (const { bandTop: from, bandBottom: bottom } of subRows(layout, subs)) {
         stops.push(`transparent ${from}px`, `${SUB_BG} ${from}px`, `${SUB_BG} ${bottom}px`, `transparent ${bottom}px`);
-        top = bottom;
     }
     return `linear-gradient(to bottom, transparent 0px, ${stops.join(', ')}, transparent 100%)`;
 }
 
 // 整張圖的高度：K 線區 + 每個附圖列 (圖例列 + 繪圖區) + 上下留白；頁面設定容器高度用
 export const stackedHeight = (layout, subs) =>
-    layout.top + layout.candleHeight + subs.reduce((sum, sub) => sum + layout.subLegend + subHeightOf(sub, layout), 0) + layout.bottom;
+    layout.top + layout.candleHeight + subs.reduce((sum, sub) => sum + subRowHeightOf(sub, layout), 0) + layout.bottom;
 // 附圖 Y 軸刻度 (圖小，只留約 3 個刻度)：萬、億縮寫，避免數字太長
 const compact = v => {
     const a = Math.abs(v);
@@ -163,36 +175,73 @@ export function legendStyle(extra) {
 
 
 // 資訊列 (滑鼠所在那一天的數值，顯示在各圖上方；headerInfo 模式用，取代提示框與圖例)
-// 文字用 ECharts rich text：{色碼key|文字}，色碼 key 在 RICH 登記
-const RICH = { w: { fill: '#fff', fontWeight: 'bold' }, n: { fill: '#d1d4dc' } };   // w = 粗體白字 (日期、附圖標題)
-const rc = (color, text) => {
-    const key = 'c' + color.replace('#', '');
-    RICH[key] = { fill: color };
-    return `{${key}|${text}}`;
+// 每個欄位 (日期、開、高、低、收、各均線、附圖標題與數值…) 都是固定寬度：寬度取「整份資料裡該欄位最長的文字」，
+// 所以滑鼠移動時「開 2310」與「開 2310.13」佔一樣寬，後面的欄位不會跟著左右跳動。
+// 文字用 ECharts rich text：{樣式key|文字}，樣式 (顏色、粗體、寬度) 依需要登記在 RICH
+const RICH = {};
+const INFO_FONT = '13px sans-serif';   // 與圖上資訊文字 (fontSize 13，ECharts 預設字體) 一致，量文字寬度用
+const INFO_GAP = 14;                   // 欄位之間的間隔 (含在欄位寬度內)
+const NEUTRAL = '#d1d4dc';
+let measureCtx;
+const textWidth = (text, bold) => {
+    measureCtx ??= document.createElement('canvas').getContext('2d');
+    measureCtx.font = (bold ? 'bold ' : '') + INFO_FONT;
+    return measureCtx.measureText(text).width;
 };
 const val = (v, fmt) => v == null ? '-' : (fmt ? fmt(v) : v);
 
-// 回傳 { id: 文字 }：'info-main' = K 線上方；'info-<附圖代號>' = 各附圖上方
-export function infoTexts(candles, subs, settings, visibleMas, index) {
+// 某一天的所有欄位：{ key = 欄位識別 (同一欄位在不同天的 key 相同，用來算最大寬度), text, color, bold }
+// scope：'main' = K 線上方；附圖代號 = 該附圖上方。附圖標題固定共用 'title'，各附圖的數值才對得齊
+function fieldsOf(scope, c, settings, visibleMas) {
+    const shown = MA_LINES.filter(m => (visibleMas || []).includes(m.name));
+    if (scope === 'main') {
+        const color = c.close >= c.open ? UP : DOWN;
+        return [
+            { key: 'main|date', text: c.date, color: '#fff', bold: true },
+            { key: 'main|o', text: `開 ${c.open}`, color }, { key: 'main|h', text: `高 ${c.high}`, color },
+            { key: 'main|l', text: `低 ${c.low}`, color }, { key: 'main|c', text: `收 ${c.close}`, color },
+            ...shown.map(m => ({ key: 'main|' + m.key, text: `${m.name} ${val(c[m.key])}`, color: m.color })),
+            ...(settings.bollinger ? [{ key: 'main|boll', text: `布林 上 ${val(c.bollUpper)} 下 ${val(c.bollLower)}`, color: '#8392a5' }] : [])
+        ];
+    }
+    const def = SUB_CHARTS[scope];
+    const fields = [];
+    if (def.title) fields.push({ key: 'title', text: def.title, color: '#fff', bold: true });   // 附圖標題 (粗體)
+    const bar = def.infoBar ?? def.barText;
+    if (bar) fields.push({ key: scope + '|bar', text: bar(c), color: NEUTRAL });
+    for (const l of def.lines(settings)) fields.push({ key: scope + '|' + l.key, text: `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`, color: l.color });
+    // 有均線的附圖 (費半)：只列「顯示均線」已勾選的，與 K 線上方的資訊列一致
+    if (def.ma) for (const m of shown) fields.push({ key: scope + '|' + m.key, text: `${m.name} ${val(c[soxMaKey(m)])}`, color: m.color });
+    return fields;
+}
+
+// 各欄位的寬度 (像素)：掃過所有 K 棒，取每個欄位最長文字的寬度 (+ 間隔)。資料、均線勾選、指標參數改變時重算
+export function infoWidths(candles, subs, settings, visibleMas) {
+    const widths = {};
+    for (const c of candles) {
+        for (const scope of ['main', ...subs]) {
+            for (const f of fieldsOf(scope, c, settings, visibleMas)) {
+                const w = textWidth(f.text, f.bold);
+                if (w > (widths[f.key] ?? 0)) widths[f.key] = w;
+            }
+        }
+    }
+    for (const key of Object.keys(widths)) widths[key] = Math.ceil(widths[key]) + INFO_GAP;
+    return widths;
+}
+
+// 回傳 { id: 文字 }：'info-main' = K 線上方；'info-<附圖代號>' = 各附圖上方。widths 來自 infoWidths
+export function infoTexts(candles, subs, settings, visibleMas, index, widths) {
     const c = candles[index];
     if (!c) return {};
-    const color = c.close >= c.open ? UP : DOWN;
-    const main = [`{w|${c.date}}`,
-        rc(color, `開 ${c.open}　高 ${c.high}　低 ${c.low}　收 ${c.close}`),
-        ...MA_LINES.filter(m => (visibleMas || []).includes(m.name)).map(m => rc(m.color, `${m.name} ${val(c[m.key])}`)),
-        ...(settings.bollinger ? [rc('#8392a5', `布林 上 ${val(c.bollUpper)} 下 ${val(c.bollLower)}`)] : [])].join('　');
-    const texts = { 'info-main': main };
-    for (const sub of subs) {
-        const def = SUB_CHARTS[sub];
-        const parts = [];
-        if (def.title) parts.push(`{w|${def.title}}`);   // 附圖標題 (粗體)
-        const bar = def.infoBar ?? def.barText;
-        if (bar) parts.push(`{n|${bar(c)}}`);
-        for (const l of def.lines(settings)) parts.push(rc(l.color, `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`));
-        // 有均線的附圖 (費半)：只列「顯示均線」已勾選的，與 K 線上方的資訊列一致
-        if (def.ma) for (const m of MA_LINES.filter(m => (visibleMas || []).includes(m.name))) parts.push(rc(m.color, `${m.name} ${val(c[soxMaKey(m)])}`));
-        texts['info-' + sub] = parts.join('　');
-    }
+    const render = fields => fields.map(f => {
+        const width = widths?.[f.key];
+        const style = `r${f.color.replace('#', '')}${f.bold ? 'b' : ''}${width ?? ''}`;
+        RICH[style] ??= { fill: f.color, ...(f.bold ? { fontWeight: 'bold' } : {}), ...(width ? { width, align: 'left' } : {}) };
+        return `{${style}|${f.text}}`;
+    }).join('');
+    const texts = { 'info-main': render(fieldsOf('main', c, settings, visibleMas)) };
+    for (const sub of subs) texts['info-' + sub] = render(fieldsOf(sub, c, settings, visibleMas));
     return texts;
 }
 export const infoRich = () => RICH;
@@ -238,7 +287,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         // 有柱狀或「用主 Y 軸的線」才有主 Y 軸內容；只有自己 Y 軸的線 (原油) 就把那條軸放在左側當主軸
         const hasPrimary = !!def.bars || lineDefs.some(l => !l.ownAxis);
         const top = LAYOUT.top + LAYOUT.candleHeight + usedHeight + LAYOUT.subLegend;
-        usedHeight += LAYOUT.subLegend + subHeight;
+        usedHeight += LAYOUT.subLegend + subHeight + (LAYOUT.subPad ?? 0);
         grids.push({ left: LAYOUT.left, right: LAYOUT.right, top, height: subHeight });
         xAxes.push({ type: 'category', gridIndex: g, data: dates, axisLine, axisTick: { show: false },
                      axisLabel: { show: g === lastGrid, color: AXIS_COLOR, fontSize: 10, formatter: dateFormatter } });
@@ -294,7 +343,7 @@ export function buildStackedOption({ candles, subs, settings, layout, mainSeries
         });
         // 附圖圖例：放在該附圖左上方
         legends.push(legendStyle({ data: [...(def.barName ? [def.barName] : []), ...(def.candleName ? [def.candleName] : []), ...lines.map(l => l.name)], top: top - LAYOUT.subLegend + (LAYOUT.subGap ?? 3), left: LAYOUT.left }));
-        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + (LAYOUT.subGap ?? 3) - 1, silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
+        if (headerInfo) graphics.push({ id: 'info-' + sub, type: 'text', left: LAYOUT.left, top: top - LAYOUT.subLegend + (LAYOUT.subGap ?? 3) - 1 + (LAYOUT.subPad ?? 0), silent: true, style: { text: '', fontSize: 13, fill: '#d1d4dc' } });
         if (def.hasData && !candles.some(def.hasData)) {
             graphics.push({ type: 'text', left: 'center', top: top + subHeight / 2 - 6,
                             style: { text: def.noDataText ?? NO_DATA_TEXT, fill: '#5d6270', fontSize: 11 } });
