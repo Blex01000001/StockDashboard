@@ -70,6 +70,7 @@ export const SUB_CHARTS = {
         bars: c => ({ value: c.osc, itemStyle: { color: (c.osc ?? 0) >= 0 ? UP : DOWN } }),
         lines: () => [{ key: 'dif', name: 'DIF', color: LINE_A }, { key: 'macd', name: 'MACD', color: LINE_B }],
         barText: c => `OSC ${c.osc ?? '-'}`,
+        infoColor: c => (c.osc ?? 0) > 0 ? UP : (c.osc ?? 0) < 0 ? DOWN : null,   // 資訊列的 OSC 數字依正負上色 (同柱狀；0 或沒有資料維持一般顏色)
         tooltip: c => `DIF ${c.dif ?? '-'}　MACD ${c.macd ?? '-'}　OSC ${c.osc ?? '-'}`
     },
     kd: {
