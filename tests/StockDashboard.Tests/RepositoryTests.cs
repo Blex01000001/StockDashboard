@@ -144,17 +144,9 @@ public class StockPriceRepositoryTests : IDisposable
         await repo.UpsertPricesAsync(new[] { P("2026-10-01", 100), P("2026-10-02", 101) });
         await repo.UpsertPricesAsync(new[] { P("2026-10-02", 999) });
 
-        var latest = await repo.GetLatestPriceAsync("2330");
+        var rows = (await repo.GetHistoricalPricesAsync("2330", "2026-10-01", "2026-10-31")).ToList();
 
-        Assert.Equal("2026-10-02", latest!.TradeDate);
-        Assert.Equal(999, latest.ClosePrice);
-    }
-
-    [Fact]
-    public async Task 查無資料回傳Null()
-    {
-        var repo = await InitAsync();
-
-        Assert.Null(await repo.GetLatestPriceAsync("9999"));
+        Assert.Equal(new[] { "2026-10-01", "2026-10-02" }, rows.Select(r => r.TradeDate));
+        Assert.Equal(new double?[] { 100, 999 }, rows.Select(r => r.ClosePrice));   // 10-02 被覆寫
     }
 }

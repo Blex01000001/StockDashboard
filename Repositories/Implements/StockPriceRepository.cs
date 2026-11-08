@@ -94,20 +94,6 @@ namespace StockDashboard.Repositories.Implements
             return await connection.QueryAsync<StockDataPoint>(sql, new { StockId = stockId });
         }
 
-        public async Task<StockDailyPriceEntity?> GetLatestPriceAsync(string stockId)
-        {
-            using var connection = new SqliteConnection(_connectionString);
-
-            string sql = $@"
-                SELECT {AllColumns}
-                FROM StockDailyPrice
-                WHERE StockId = @StockId
-                ORDER BY TradeDate DESC
-                LIMIT 1";
-
-            return await connection.QueryFirstOrDefaultAsync<StockDailyPriceEntity>(sql, new { StockId = stockId });
-        }
-
         public async Task<int> UpsertPricesAsync(IEnumerable<StockDailyPriceEntity> prices)
         {
             // 使用 SQLite 的 INSERT OR REPLACE 語法：

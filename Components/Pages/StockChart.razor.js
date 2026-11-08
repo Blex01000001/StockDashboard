@@ -8,7 +8,8 @@ const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, stack
 const LAYOUT = {
     top: 60,           // 標題與均線圖例
     candleHeight: 340,
-    subLegend: 18,
+    subLegend: 21,     // 附圖列的標題 / 圖例區：subGap 的間隔 + 15px 的資訊文字
+    subGap: 6,         // 附圖與附圖、K 線區與第一個附圖之間的間隔 (淡底色帶之間空這麼多)
     subHeight: 70,
     bottom: 80,        // 日期標籤 + 縮放滑桿
     left: 60,
@@ -62,7 +63,7 @@ function bindSubDrag(dom, subs, dotNetRef) {
         grip.title = '拖曳調整附圖順序';
         grip.textContent = '≡';
         Object.assign(grip.style, {
-            position: 'absolute', left: '2px', top: (row.top + row.h / 2 - GRIP_HEIGHT / 2) + 'px',   // 該附圖列的垂直中央
+            position: 'absolute', left: '2px', top: (row.top + (LAYOUT.subGap + row.h) / 2 - GRIP_HEIGHT / 2) + 'px',   // 該附圖淡底色帶 (不含上方間隔) 的垂直中央
             width: GRIP_WIDTH + 'px', height: GRIP_HEIGHT + 'px', lineHeight: GRIP_HEIGHT + 'px', textAlign: 'center',
             fontSize: '20px', color: GRIP_COLOR, cursor: 'grab', userSelect: 'none', pointerEvents: 'auto'
         });
