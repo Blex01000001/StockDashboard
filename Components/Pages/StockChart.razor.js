@@ -2,14 +2,16 @@
 // 附圖定義與組圖程式在 wwwroot/js/candle-chart.js (與型態掃描小卡共用)
 
 // 版本參數沿用本檔網址的 ?v=，讓共用檔也跟著更新 (避免瀏覽器沿用快取中的舊版)
-const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, stackedBackground, subHeightOf, infoTexts, infoRich } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
+const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, subRows, SUB_BG, infoWidths, infoTexts, infoRich } = await import('../../js/candle-chart.js' + new URL(import.meta.url).search);
 
-// 版面 (像素)：K 線區高度固定，每多一個附圖，圖表就增高 subLegend + subHeight (費半列加高，見 candle-chart.js 的 heightScale)
+// 版面 (像素)：K 線區高度固定，每多一個附圖，圖表就增高 subLegend + subHeight + subPad (費半列加高，見 candle-chart.js 的 heightScale)
 const LAYOUT = {
     top: 60,           // 標題與均線圖例
     candleHeight: 340,
-    subLegend: 21,     // 附圖列的標題 / 圖例區：subGap 的間隔 + 15px 的資訊文字
+    subLegend: 24,     // 附圖列的標題 / 圖例區：subGap 的間隔 + subPad 的上內距 + 15px 的資訊文字
     subGap: 6,         // 附圖與附圖、K 線區與第一個附圖之間的間隔 (淡底色帶之間空這麼多)
+    subPad: 3,         // 附圖淡底色帶的上下內距 (上內距算在 subLegend 裡，下內距加在繪圖區下方)
+    subRadius: 8,      // 附圖淡底色帶的圓角
     subHeight: 70,
     bottom: 80,        // 日期標籤 + 縮放滑桿
     left: 60,
@@ -38,6 +40,26 @@ function bindResize(dom, chart) {
     dom.__resizeObserver.observe(dom);
 }
 
+// ── 附圖的淡底色帶 ──
+// 用圓角的 HTML 方塊放在圖表 (透明) 後面，所以寬度隨容器；每次重畫都重建。
+// (型態掃描小卡仍用 candle-chart.js 的 stackedBackground 漸層，不是圓角)
+function renderSubBands(dom, subs) {
+    dom.querySelectorAll('.sub-bg-layer').forEach(el => el.remove());
+    if (subs.length === 0) return;
+    const layer = document.createElement('div');
+    layer.className = 'sub-bg-layer';
+    Object.assign(layer.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', pointerEvents: 'none' });
+    for (const r of subRows(LAYOUT, subs)) {
+        const band = document.createElement('div');
+        Object.assign(band.style, {
+            position: 'absolute', left: '0', width: '100%', top: r.bandTop + 'px', height: (r.bandBottom - r.bandTop) + 'px',
+            background: SUB_BG, borderRadius: LAYOUT.subRadius + 'px'
+        });
+        layer.append(band);
+    }
+    dom.prepend(layer);   // 放在最前面 = 疊在最下層，ECharts 的畫布 (之後才加入) 蓋在上面
+}
+
 // ── 拖曳 ≡ 把手調整附圖順序 ──
 // 每個附圖左側 (Y 軸刻度的左邊、垂直置中) 放一個 ≡ 把手，只有它可以拖，圖表本身的拖曳平移、縮放不受影響。
 // 開始拖曳時才在每個附圖列上蓋一層「放開區」，經過時畫出插入位置的線；放開後呼叫 C# 的 OnSubChartMoved 重排並重畫。
@@ -51,8 +73,7 @@ function bindSubDrag(dom, subs, dotNetRef) {
     layer.className = 'sub-drag-layer';
     Object.assign(layer.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '5' });
 
-    let top = LAYOUT.top + LAYOUT.candleHeight;
-    const rows = subs.map(sub => { const h = LAYOUT.subLegend + subHeightOf(sub, LAYOUT); const row = { sub, top, h }; top += h; return row; });
+    const rows = subRows(LAYOUT, subs).map(r => ({ sub: r.sub, top: r.top, h: r.height, bandTop: r.bandTop, bandBottom: r.bandBottom }));
     const zones = [];
     let dragged = null;
     const setZones = on => zones.forEach(z => { z.style.pointerEvents = on ? 'auto' : 'none'; if (!on) z.style.borderTop = z.style.borderBottom = ''; });
@@ -63,7 +84,7 @@ function bindSubDrag(dom, subs, dotNetRef) {
         grip.title = '拖曳調整附圖順序';
         grip.textContent = '≡';
         Object.assign(grip.style, {
-            position: 'absolute', left: '2px', top: (row.top + (LAYOUT.subGap + row.h) / 2 - GRIP_HEIGHT / 2) + 'px',   // 該附圖淡底色帶 (不含上方間隔) 的垂直中央
+            position: 'absolute', left: '2px', top: ((row.bandTop + row.bandBottom) / 2 - GRIP_HEIGHT / 2) + 'px',   // 該附圖淡底色帶的垂直中央
             width: GRIP_WIDTH + 'px', height: GRIP_HEIGHT + 'px', lineHeight: GRIP_HEIGHT + 'px', textAlign: 'center',
             fontSize: '20px', color: GRIP_COLOR, cursor: 'grab', userSelect: 'none', pointerEvents: 'auto'
         });
@@ -109,7 +130,9 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
     if (!dom) return;
     const subs = (subCharts || []).filter(s => SUB_CHARTS[s]);
     dom.style.height = stackedHeight(LAYOUT, subs) + 'px';
-    dom.style.backgroundImage = stackedBackground(LAYOUT, subs);   // 各附圖列的淡底色
+    dom.style.backgroundImage = 'none';
+    dom.style.position = 'relative';
+    renderSubBands(dom, subs);   // 各附圖列的淡底色 (圓角)
 
     // ECharts 由 App.razor 的 <script> 全域載入；重繪時沿用同一個圖表實例，並保留使用者目前的縮放範圍
     // 換股票、換顯示筆數或標示日期時，縮放範圍回到預設；只換附圖 / 參數時保留目前縮放
@@ -157,10 +180,11 @@ export function renderStockChart(containerId, stockLabel, candles, visibleMas, s
     // 當天數值顯示在各圖上方：預設最新一天（或標示日），滑鼠移動時跟著十字線，移開後回到預設
     const defaultIndex = Math.max(0, focusDate ? candles.findIndex(c => c.date === focusDate) : candles.length - 1);
     chart.__info = { candles, subs, settings: settings || {}, visibleMas: visibleMas || [], defaultIndex };
+    chart.__info.widths = infoWidths(candles, subs, chart.__info.settings, chart.__info.visibleMas);   // 資訊列各欄位的固定寬度
     const rich = infoRich();
     const showInfo = index => {
         const i = chart.__info;
-        const texts = infoTexts(i.candles, i.subs, i.settings, i.visibleMas, index);
+        const texts = infoTexts(i.candles, i.subs, i.settings, i.visibleMas, index, i.widths);
         chart.setOption({ graphic: Object.entries(texts).map(([id, text]) => ({ id, type: 'text', style: { text, rich } })) });
     };
     chart.setOption(option, true);
