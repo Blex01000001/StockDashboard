@@ -162,7 +162,7 @@ export function legendStyle(extra) {
 
 // 資訊列 (滑鼠所在那一天的數值，顯示在各圖上方；headerInfo 模式用，取代提示框與圖例)
 // 文字用 ECharts rich text：{色碼key|文字}，色碼 key 在 RICH 登記
-const RICH = { w: { fill: '#fff', fontWeight: 'bold' }, n: { fill: '#d1d4dc' }, g: { fill: '#8392a5' } };   // w = 粗體白字 (日期、附圖標題)；g = 拖曳把手 ≡
+const RICH = { w: { fill: '#fff', fontWeight: 'bold' }, n: { fill: '#d1d4dc' } };   // w = 粗體白字 (日期、附圖標題)
 const rc = (color, text) => {
     const key = 'c' + color.replace('#', '');
     RICH[key] = { fill: color };
@@ -183,8 +183,7 @@ export function infoTexts(candles, subs, settings, visibleMas, index) {
     for (const sub of subs) {
         const def = SUB_CHARTS[sub];
         const parts = [];
-        // 附圖標題 (粗體)；前面的 ≡ 是拖曳把手 (實際的拖曳區在 StockChart.razor.js 的 bindSubDrag)
-        if (def.title) parts.push(`{g|≡} {w|${def.title}}`);
+        if (def.title) parts.push(`{w|${def.title}}`);   // 附圖標題 (粗體)
         const bar = def.infoBar ?? def.barText;
         if (bar) parts.push(`{n|${bar(c)}}`);
         for (const l of def.lines(settings)) parts.push(rc(l.color, `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`));

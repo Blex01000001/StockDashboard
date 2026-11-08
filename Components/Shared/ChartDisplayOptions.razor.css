@@ -150,50 +150,46 @@
     font-size: 0.72rem;
 }
 
-/* 指標參數小卡：等寬欄位，上緣「標題 ＋ 預設鈕」、下方各參數並排 */
-.indicator-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-    gap: 8px;
-    align-items: stretch;
-}
-
-.indicator-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+/* 勾選框 + 該指標的參數 (技術圖表頁)：框成一組，勾選才亮起 (同型態掃描頁的參數組)；輸入框窄 */
+.ind-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px 8px;
+    flex-wrap: wrap;
     border: 1px solid var(--border-color);
     border-radius: 5px;
-    padding: 6px 10px 8px;
+    padding: 2px 8px;
 }
 
-.indicator-head {
+    .ind-group.on {
+        border-color: rgba(41, 98, 255, 0.55);
+    }
+
+    .ind-group.off .ind-field {
+        color: var(--text-muted);
+        opacity: 0.6;
+    }
+
+    .ind-group .sub-toggle {
+        font-weight: 600;
+    }
+
+.ind-field {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 6px;
-}
-
-.indicator-title {
+    gap: 4px;
+    font-size: 0.75rem;
     color: var(--text-main);
-    font-weight: 600;
 }
 
-.indicator-fields {
-    display: grid;
-    gap: 6px;
-}
-
-.indicator-field {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-    .indicator-field .dark-input {
-        width: 100%;
+    .ind-field .dark-input {
+        width: 52px;
         box-sizing: border-box;
-        padding: 4px 6px;
-        font-size: 0.85rem;
+        padding: 3px 5px;
+        font-size: 0.8rem;
         color-scheme: dark;
     }
+
+.ind-group .link-btn {
+    padding: 1px 6px;
+}
