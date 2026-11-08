@@ -44,6 +44,8 @@ function netChart(key, label, extraLines, extraTooltip) {
         hasData: c => c[key] != null,
         barText: c => `${label} ${signed(toLots(c[key]))} 張`,
         infoBar: c => `${signed(toLots(c[key]))} 張`,
+        // 資訊列的買賣超數字依正負上色 (漲紅跌綠；0 或沒有資料維持一般顏色)
+        infoColor: c => (c[key] ?? 0) > 0 ? UP : (c[key] ?? 0) < 0 ? DOWN : null,
         tooltip: c => `${label} ${signed(toLots(c[key]))} 張${extraTooltip ? extraTooltip(c) : ''}`
     };
 }
@@ -208,7 +210,7 @@ function fieldsOf(scope, c, settings, visibleMas) {
     const fields = [];
     if (def.title) fields.push({ key: 'title', text: def.title, color: '#fff', bold: true });   // 附圖標題 (粗體)
     const bar = def.infoBar ?? def.barText;
-    if (bar) fields.push({ key: scope + '|bar', text: bar(c), color: NEUTRAL });
+    if (bar) fields.push({ key: scope + '|bar', text: bar(c), color: def.infoColor?.(c) ?? NEUTRAL });
     for (const l of def.lines(settings)) fields.push({ key: scope + '|' + l.key, text: `${l.label ?? l.name} ${val(c[l.key], l.fmt)}`, color: l.color });
     // 有均線的附圖 (費半)：只列「顯示均線」已勾選的，與 K 線上方的資訊列一致
     if (def.ma) for (const m of shown) fields.push({ key: scope + '|' + m.key, text: `${m.name} ${val(c[soxMaKey(m)])}`, color: m.color });
