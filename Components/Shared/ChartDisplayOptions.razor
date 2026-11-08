@@ -116,22 +116,14 @@ else
         }
     </span>;
 
-    // 附圖勾選 (可拖曳)：label 本身可拖；視覺效果、允許放開 (dragover 的 preventDefault，不經過伺服器) 與 Firefox 需要的 dataTransfer
-    // 由 wwwroot/js/sub-order-drag.js 處理，放開後由 OnSubChartDropped 重排
+    // 附圖勾選 (型態掃描頁；不可拖曳排序，順序固定為預設)
     private RenderFragment SubChartToggles() => @<text>
         @foreach (var value in Settings.SubChartOrder)
         {
-            @* 勾選列只有型態掃描頁 (非 Framed) 可拖曳；技術圖表頁改拖圖上的附圖標題 (draggable / data-sub-drag 為 null 時屬性不輸出) *@
-            <label class="ma-toggle sub-toggle" draggable="@(Framed ? null : "true")" data-sub-drag="@(Framed ? null : value)"
-                   @ondragstart="() => _draggedSubChart = value"
-                   @ondrop="() => OnSubChartDropped(value)" @ondrop:preventDefault>
+            <label class="ma-toggle sub-toggle">
                 <input type="checkbox" checked="@Settings.SubCharts.Contains(value)" @onchange="e => OnSubChartToggled(value, e)" />
                 <span>@SubChartLabels[value]</span>
             </label>
-        }
-        @if (!Settings.IsDefaultSubChartOrder)
-        {
-            <button class="link-btn" @onclick="ResetSubChartOrder">恢復預設順序</button>
         }
     </text>;
 
@@ -193,17 +185,6 @@ else
     private Dictionary<string, string> IndicatorErrors { get; } = new();
 
     private static readonly Dictionary<string, string> SubChartLabels = ChartDisplaySettings.SubChartOptions.ToDictionary(o => o.Value, o => o.Label);
-
-    // 正在拖曳的附圖 (dragstart 時記下，不影響畫面所以不會造成重繪打斷拖曳)
-    private string? _draggedSubChart;
-
-    private Task OnSubChartDropped(string target)
-    {
-        string? dragged = _draggedSubChart;
-        _draggedSubChart = null;
-        if (dragged == null || !Settings.MoveSubChart(dragged, target)) return Task.CompletedTask;
-        return OnChanged.InvokeAsync(false);   // 順序改變只需重畫，不必重算指標
-    }
 
     private Task ResetSubChartOrder()
     {
