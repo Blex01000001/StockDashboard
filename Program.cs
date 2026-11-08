@@ -67,6 +67,7 @@ builder.Services.AddScoped<IStockPerformanceService, StockPerformanceService>();
 builder.Services.AddScoped<IPatternScanService, PatternScanService>();
 builder.Services.AddScoped<IStockChartService, StockChartService>();
 builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
+builder.Services.AddScoped<IPriceSyncService, PriceSyncService>();
 builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 builder.Services.AddScoped<IOilPriceSyncService, OilPriceSyncService>();
 builder.Services.AddScoped<IMarketIndexSyncService, MarketIndexSyncService>();

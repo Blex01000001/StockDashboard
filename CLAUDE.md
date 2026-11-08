@@ -22,6 +22,7 @@
 | `wwwroot/js/sub-order-drag.js` | 附圖勾選項拖曳排序的輔助程式（Firefox 要求的 `setData`、`dragover` 允許放開、拖曳中的樣式 class）；`App.razor` 以 `?v=` 載入；重排本身在 `ChartDisplayOptions.razor` 的 `@ondrop` | |
 | `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
+| `Services/PriceSyncService.cs` | 個股日線逐月同步（由本月往前、連續 3 個月無資料中斷、請求間隔 `Twse:RequestDelayMs`、可取消、進度回報），最後一次寫入 `StockDailyPrice` | |
 | `Services/InstitutionalSyncService.cs` | 三大法人逐日同步（T86 買賣超＋MI_QFIIS 外資持股），寫入 `InstitutionalDaily`、記錄 `InstitutionalSyncLog` | |
 | `Services/FinMindApiClient.cs` | FinMind API（匿名、無 Token）：個股三大法人買賣超（每日多列合併）、外資持股；`ip banned`／402 丟 `FinMindBlockedException` | FinMind 格式改變時 |
 | `Services/FinMindSyncService.cs` | FinMind 逐檔同步，寫入 `InstitutionalDaily`、記錄 `FinMindSyncLog` | |
