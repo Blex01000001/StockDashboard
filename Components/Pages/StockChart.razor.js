@@ -8,9 +8,9 @@ const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, subRo
 const LAYOUT = {
     top: 60,           // 標題與均線圖例
     candleHeight: 340,
-    subLegend: 24,     // 附圖列的標題 / 圖例區：subGap 的間隔 + subPad 的上內距 + 15px 的資訊文字
+    subLegend: 27,     // 附圖列的標題 / 圖例區：subGap 的間隔 + subPad 的上內距 + 15px 的資訊文字
     subGap: 6,         // 附圖與附圖、K 線區與第一個附圖之間的間隔 (淡底色帶之間空這麼多)
-    subPad: 3,         // 附圖淡底色帶的上下內距 (上內距算在 subLegend 裡，下內距加在繪圖區下方)
+    subPad: 6,         // 附圖淡底色帶的上下內距 (上內距算在 subLegend 裡，下內距加在繪圖區下方)
     subRadius: 8,      // 附圖淡底色帶的圓角
     subHeight: 70,
     bottom: 80,        // 日期標籤 + 縮放滑桿
