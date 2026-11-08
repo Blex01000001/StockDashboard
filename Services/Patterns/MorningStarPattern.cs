@@ -6,7 +6,7 @@ namespace StockDashboard.Services.Patterns
     /// <summary>
     /// 晨星 (三根 K 棒)：
     /// 第一天長黑 K → 第二天小實體 (星線，實體下緣低於第一天收盤) → 第三天紅 K 收復第一天實體一定比例。
-    /// 預設參數由 Claude 依常見定義訂定，修改預設前先問使用者。
+    /// 預設參數已由使用者確認，修改預設前先問使用者。
     /// </summary>
     public class MorningStarPattern : ICandlePattern
     {
