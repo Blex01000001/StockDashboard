@@ -32,7 +32,6 @@ internal static class FakeRepos
             Task.FromResult<IEnumerable<StockDataPoint>>(data.TryGetValue(stockId, out var l) ? l : new List<StockDataPoint>());
         public Task<IEnumerable<StockDailyPriceEntity>> GetHistoricalPricesAsync(string stockId, string startDate, string endDate) => throw new NotSupportedException();
         public Task<IEnumerable<StockDailyPriceEntity>> GetMultipleHistoricalPricesAsync(IEnumerable<string> stockIds, string startDate, string endDate) => throw new NotSupportedException();
-        public Task<StockDailyPriceEntity?> GetLatestPriceAsync(string stockId) => throw new NotSupportedException();
         public Task<int> UpsertPricesAsync(IEnumerable<StockDailyPriceEntity> prices) => throw new NotSupportedException();
     }
 

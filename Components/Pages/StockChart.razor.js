@@ -8,7 +8,8 @@ const { UP, DOWN, MA_LINES, SUB_CHARTS, buildStackedOption, stackedHeight, stack
 const LAYOUT = {
     top: 60,           // 標題與均線圖例
     candleHeight: 340,
-    subLegend: 18,
+    subLegend: 21,     // 附圖列的標題 / 圖例區：subGap 的間隔 + 15px 的資訊文字
+    subGap: 6,         // 附圖與附圖、K 線區與第一個附圖之間的間隔 (淡底色帶之間空這麼多)
     subHeight: 70,
     bottom: 80,        // 日期標籤 + 縮放滑桿
     left: 60,
@@ -37,11 +38,11 @@ function bindResize(dom, chart) {
     dom.__resizeObserver.observe(dom);
 }
 
-// ── 拖曳標題列調整附圖順序 ──
-// 標題列 (≡ 加標題) 上蓋一個小的透明拖曳區，只有它可以拖，圖表本身的拖曳平移、縮放不受影響。
+// ── 拖曳 ≡ 把手調整附圖順序 ──
+// 每個附圖左側 (Y 軸刻度的左邊、垂直置中) 放一個 ≡ 把手，只有它可以拖，圖表本身的拖曳平移、縮放不受影響。
 // 開始拖曳時才在每個附圖列上蓋一層「放開區」，經過時畫出插入位置的線；放開後呼叫 C# 的 OnSubChartMoved 重排並重畫。
 // 用 HTML5 拖放 (滑鼠)，暫不支援觸控。
-const GRIP_WIDTH = 84, DROP_LINE = '2px solid #4c8dff';
+const GRIP_WIDTH = 18, GRIP_HEIGHT = 30, GRIP_COLOR = '#8392a5', DROP_LINE = '2px solid #4c8dff';
 function bindSubDrag(dom, subs, dotNetRef) {
     dom.querySelectorAll('.sub-drag-layer').forEach(el => el.remove());   // 每次重畫都重建
     if (!dotNetRef || subs.length < 2) return;                              // 只有一個附圖不必排序
@@ -60,7 +61,14 @@ function bindSubDrag(dom, subs, dotNetRef) {
         const grip = document.createElement('div');
         grip.draggable = true;
         grip.title = '拖曳調整附圖順序';
-        Object.assign(grip.style, { position: 'absolute', left: LAYOUT.left + 'px', top: row.top + 'px', width: GRIP_WIDTH + 'px', height: LAYOUT.subLegend + 'px', cursor: 'grab', pointerEvents: 'auto' });
+        grip.textContent = '≡';
+        Object.assign(grip.style, {
+            position: 'absolute', left: '2px', top: (row.top + (LAYOUT.subGap + row.h) / 2 - GRIP_HEIGHT / 2) + 'px',   // 該附圖淡底色帶 (不含上方間隔) 的垂直中央
+            width: GRIP_WIDTH + 'px', height: GRIP_HEIGHT + 'px', lineHeight: GRIP_HEIGHT + 'px', textAlign: 'center',
+            fontSize: '20px', color: GRIP_COLOR, cursor: 'grab', userSelect: 'none', pointerEvents: 'auto'
+        });
+        grip.addEventListener('mouseenter', () => { grip.style.color = '#fff'; });
+        grip.addEventListener('mouseleave', () => { grip.style.color = GRIP_COLOR; });
         grip.addEventListener('dragstart', e => {
             dragged = row.sub;
             e.dataTransfer.setData('text/plain', row.sub);   // Firefox 要求

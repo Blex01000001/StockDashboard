@@ -9,7 +9,9 @@
     @* ?v= 版本參數：每次重新編譯都會改變，強迫瀏覽器重新下載 CSS，避免沿用快取中的舊樣式 *@
     <link rel="stylesheet" href="app.css?v=@AssetVersion.Value" />
     <link rel="stylesheet" href="StockDashboard.styles.css?v=@AssetVersion.Value" />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    @* 瀏覽器分頁圖示 📈：SVG (emoji 文字) 為主，PNG 給不支援 SVG 圖示的瀏覽器；?v= 同上 (瀏覽器會積極快取圖示) *@
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=@AssetVersion.Value" />
+    <link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=@AssetVersion.Value" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 

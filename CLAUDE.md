@@ -10,15 +10,15 @@
 |---|---|---|
 | `Program.cs` | DI 註冊、HttpClient 設定、啟動流程 | 新增 Service / Repository 註冊 |
 | `Components/App.razor` | HTML 外殼、CSS/JS 載入 | 新增全域 CSS（要加 `?v=@AssetVersion.Value`） |
+| `wwwroot/favicon.svg`、`favicon.png` | 瀏覽器分頁圖示 📈（SVG 為 emoji 文字，PNG 是同圖的 64×64 備援；`App.razor` 的 `<link rel="icon">` 都加 `?v=`） | |
 | `Components/AssetVersion.cs` | 靜態檔版本號（MVID）；頁面 JS 模組用 `AssetVersion.Module(path)` 載入 | |
-| `Components/Layout/NavMenu.razor` | 側邊欄連結（順序：API 資料更新、K線技術圖表、K線型態掃描、多檔績效比較；`/stock-query` 已從側邊欄移除，頁面與網址仍在） | 新增頁面時加連結 |
-| `Components/Pages/StockQuery.*` | `/stock-query` 單檔最新日線＋名稱 | |
+| `Components/Layout/NavMenu.razor` | 側邊欄連結（順序：API 資料更新、K線技術圖表、K線型態掃描、多檔績效比較） | 新增頁面時加連結 |
 | `Components/Pages/StockChart.*` | `/stock-chart` 技術圖表：K 線＋均線＋附圖（同型態掃描），寬度隨容器（`ResizeObserver`），顯示筆數可選，可縮放；`?id=&date=` 開啟並標示型態日（型態掃描小卡「技術圖表」連結）；狀態在 Scoped `StockChartState` | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
 | `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`） | 小卡與預覽圖改 `.razor.js` |
 | `Components/Pages/StockUpdate.*` | `/stock-update` 依來源分框（`.source-group`）：證交所（日線逐月、三大法人逐日、股票清單）、FinMind（個股多年三大法人）；卡片標題下列 API 簡短網址 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
-| `Components/Shared/ChartDisplayOptions.razor` | 附圖勾選、指標參數（`IndicatorGroups`）、均線勾選；型態掃描與技術圖表共用，改動後 `OnChanged(指標是否改變)`；`Framed`（技術圖表頁）= 單一設定面板（附圖／均線／指標參數各一列，參數為等寬小卡、不收折），否則（型態掃描頁）指標參數收折；勾選標記由 `SubChartToggles`／`MovingAverageToggles` 兩種版面共用 | 新增附圖／指標參數 |
+| `Components/Shared/ChartDisplayOptions.razor` | 附圖勾選、指標參數（`IndicatorGroups`）、均線勾選；型態掃描與技術圖表共用，改動後 `OnChanged(指標是否改變)`；`Framed`（技術圖表頁）= 單一設定面板（附圖／均線各一列；MACD、KD、RSI、布林通道的參數直接放在各自的勾選框旁，框成一組、勾選才亮起，輸入框窄、按鈕只寫「預設」，沒有獨立的指標參數區），否則（型態掃描頁）指標參數收折；勾選標記由 `SubChartToggles`／`MovingAverageToggles` 兩種版面共用 | 新增附圖／指標參數 |
 | `wwwroot/js/sub-order-drag.js` | 附圖勾選項拖曳排序的輔助程式（Firefox 要求的 `setData`、`dragover` 允許放開、拖曳中的樣式 class）；`App.razor` 以 `?v=` 載入；重排本身在 `ChartDisplayOptions.razor` 的 `@ondrop` | |
 | `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
@@ -129,14 +129,14 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 滾動報酬率：`(今日收盤 − N 個交易日前收盤) / N 日前收盤 × 100`，N 以所有股票「聯集」的時間軸計算；缺資料為 `null`（圖上斷線）。
 - 台股配色：漲紅 `#ef5350`、跌綠 `#26a69a`。
 - 型態掃描：小卡為型態成立日前 10 天、後 max(20, 最長觀察天數) 天；均線 MA5／10／20／60／120 用完整歷史計算，預設顯示 5／10／20／60（使用者指定）；之後報酬以型態成立日收盤為基準；結果新的日期在前；每頁筆數可選（預設 10）。
-- 小卡附圖可複選、預設依 成交量→MACD→KD→RSI→三大法人→外資→投信→自營商→原油→費半 疊在 K 線下方，**型態掃描頁可在勾選列拖曳調整順序**（使用者要求；技術圖表頁的勾選列**不可拖**，改拖圖上的附圖標題，見下；兩頁各自一份、重新整理後回到預設、有「恢復預設順序」按鈕；取消勾選再勾回來維持原位）；**K 線區高度固定 150px**，每多一個附圖小卡增高一列（版面數值在 `.razor.js` 的 `LAYOUT`）。預設只有成交量（使用者指定；含量 MA5／MA10）。
-- 技術圖表頁與型態掃描用同一套附圖、均線、指標（使用者要求）：K 線區固定 340px、每個附圖 88px，寬度隨視窗；均線與指標用完整歷史計算；滑鼠所在日的數值顯示在各圖上方（`infoTexts`：K 線區放開高低收＋已勾選均線與日期，附圖各放自己的數值；無提示框、圖例隱藏；預設顯示最新日或標示日）；顯示筆數 半年 120／一年 250（預設）／三年 750／全部；預設縮放顯示最近約 60 根；換附圖時保留目前縮放範圍。圖表標題置中；每個附圖上方資訊列開頭有 ≡ 與粗體標題（`SUB_CHARTS[x].title`），**拖曳這個標題列可調整附圖順序**（使用者要求；只有標題列可拖，圖表本身的拖曳平移不受影響；`StockChart.razor.js` 的 `bindSubDrag` 在標題列蓋透明拖曳區、拖曳時才蓋放開區並畫藍色插入線，放開後以 `DotNetObjectReference` 回呼 `OnSubChartMoved` → `MoveSubChart`，勾選列順序一併更新；HTML5 拖放，不支援觸控；型態掃描小卡沒有），每個附圖左側都有 Y 軸（`buildStackedOption` 的 `subAxes`，只有技術圖表頁開；約 3 個刻度、大數字用萬／億縮寫，KD／RSI 固定 0／50／100；外資持股％的軸在右側、原油的軸在左側；型態掃描小卡不顯示）。從小卡開啟時標示型態日（黃色虛線）、縮放到該日前 30 後 60 根，該日不在範圍內時自動改用夠大的筆數（多留前 30 根）。
+- 小卡附圖可複選、預設依 成交量→MACD→KD→RSI→三大法人→外資→投信→自營商→原油→費半 疊在 K 線下方，**型態掃描頁可在勾選列拖曳調整順序**（使用者要求；技術圖表頁的勾選列**不可拖**，改拖圖上附圖左側的 ≡ 把手，見下；兩頁各自一份、重新整理後回到預設、有「恢復預設順序」按鈕；取消勾選再勾回來維持原位）；**K 線區高度固定 150px**，每多一個附圖小卡增高一列（版面數值在 `.razor.js` 的 `LAYOUT`）。預設只有成交量（使用者指定；含量 MA5／MA10）。
+- 技術圖表頁與型態掃描用同一套附圖、均線、指標（使用者要求）：K 線區固定 340px、每個附圖 91px（含上方 6px 間隔），寬度隨視窗；附圖與附圖、K 線區與第一個附圖的間隔都是 6px（`LAYOUT.subGap`，淡底色帶之間的空隙；型態掃描小卡維持 3px）；均線與指標用完整歷史計算；滑鼠所在日的數值顯示在各圖上方（`infoTexts`：K 線區放開高低收＋已勾選均線與日期，附圖各放自己的數值；無提示框、圖例隱藏；預設顯示最新日或標示日）；顯示筆數 半年 120／一年 250（預設）／三年 750／全部；預設縮放顯示最近約 60 根；換附圖時保留目前縮放範圍。圖表標題置中；每個附圖上方資訊列開頭有粗體標題（`SUB_CHARTS[x].title`），**拖曳每個附圖左側（Y 軸刻度左邊、垂直置中）的 ≡ 把手可調整附圖順序**（使用者要求；只有把手可拖，圖表本身的拖曳平移不受影響；`StockChart.razor.js` 的 `bindSubDrag` 在左側放 ≡ 把手、拖曳時才蓋放開區並畫藍色插入線，放開後以 `DotNetObjectReference` 回呼 `OnSubChartMoved` → `MoveSubChart`，勾選列順序一併更新；HTML5 拖放，不支援觸控；型態掃描小卡沒有），每個附圖左側都有 Y 軸（`buildStackedOption` 的 `subAxes`，只有技術圖表頁開；約 3 個刻度、大數字用萬／億縮寫，KD／RSI 固定 0／50／100；外資持股％的軸在右側、原油的軸在左側；型態掃描小卡不顯示）。從小卡開啟時標示型態日（黃色虛線）、縮放到該日前 30 後 60 根，該日不在範圍內時自動改用夠大的筆數（多留前 30 根）。
 - 附圖列各自有淡底色（使用者要求；`candle-chart.js` 的 `stackedBackground`，用容器 CSS 背景畫在透明的圖表後面，每列頂端留 3px 不上色以區隔相鄰附圖）；K 線與附圖上方的資訊文字 13px、小卡圖例 12px（使用者要求比原本大 2px）。
 - 指標預設：MACD 12,26,9（DIF − 訊號線 = OSC 柱狀，正紅負綠；EMA 以第一筆收盤為起始值）、KD 9,3,3（K/D 起始 50，參考線 80/20）、RSI 6 與 12（Wilder 平滑，參考線 70/30）。三者參數都可在頁面調整（定義在 `ChartDisplayOptions.razor` 的 `IndicatorGroups`，新增指標時加一組）。
 - 指標用 `PatternScanService.ApplyIndicators` 以完整日線計算；掃描結果保留各股完整日線（`FullCandles`），調整指標參數時 `RecomputeIndicators` 即時重算，不重新查資料庫。
 - 勝率：看多型態之後第 N 日報酬 > 0 算勝、看空型態 < 0 算勝，報酬 0 算輸；之後天數不足的不計入分母。觀察天數固定 5／10／20，加上使用者輸入的「額外觀察天數」（可多組，如 `60,120`，1～250 天；以完整歷史計算，可超過小卡的後 20 天）。
 - 三大法人附圖（使用者指定）：單位「張」（股 ÷ 1000），正紅負綠。「三大法人」只畫合計買賣超柱狀；「外資」= 外陸資（不含外資自營商）＋ 外資自營商，另畫「全體外資及陸資持股比率」線（自己的 Y 軸）；投信、自營商（自行買賣＋避險）只畫買賣超。整張小卡無資料時顯示提示。證交所同步範圍：最近一週（預設）／最近一個月（使用者指定）。FinMind 分類換算：外資 = `Foreign_Investor`、外資自營商 = `Foreign_Dealer_Self`（2017-12-18 前無此列，留 null）、投信 = `Investment_Trust`、自營商 = `Dealer` + `Dealer_self` + `Dealer_Hedging`（2014-12-01 前後擇一有值）；持股比例 = `TaiwanStockShareholding.ForeignInvestmentSharesRatio`。
-- 布林通道（使用者要求）：畫在 K 線上，只填上下軌之間的淡灰藍底色（中軌 = MA20 不重畫）；勾選在「顯示均線」那排，參數（天數 20、標準差倍數 2，母體標準差）在指標參數區（型態掃描頁為收折區）；預設關閉，關閉時不計算；設定放在 `IndicatorSettings.Bollinger`，兩頁共用。
+- 布林通道（使用者要求）：畫在 K 線上，只填上下軌之間的淡灰藍底色（中軌 = MA20 不重畫）；勾選在「顯示均線」那排，參數（天數 20、標準差倍數 2，母體標準差）技術圖表頁放在勾選框旁（型態掃描頁為收折區）；預設關閉，關閉時不計算；設定放在 `IndicatorSettings.Bollinger`，兩頁共用。
 - 原油附圖（使用者要求）：Brent 當日均價（美元 / 桶，不是收盤價）一條橘線、自己的 Y 軸，排在附圖最後、預設不勾；`/stock-update` 的 oilpriceapi 卡片同步最近一年（免費每天 50 次），更早的資料靠多次同步累積。
 - 費半附圖（使用者要求）：美國費城半導體指數 SOX 的紅綠蠟燭（漲紅跌綠），自己的 Y 軸並顯示價格刻度，排在附圖最後、預設不勾；**這一列比其他附圖高 2 倍**（技術圖表附圖區 70 → 140px、小卡 48 → 96px，其他附圖高度不變）。資訊列／提示框顯示「開高低收＋美股日期」。**費半也畫均線（使用者要求）：週期與開關和個股共用「顯示均線」（5／10／20／60／120，勾選時個股與費半同時畫；同名 series 由同一個圖例控制）；均線用「美股自己的交易日」算（MA5 = 最近 5 個美股交易日，不是對齊後的台股日），對應到台股日時取合併後最後一個美股交易日的值；來源只有一年，所以 MA60／MA120 在資料最前面幾個月是空的。**`/stock-update` 的 Yahoo Finance 卡片同步最近一年，更早的資料靠多次同步累積。
 - 勝率醒目提示：50% 起每 5 個百分點一級（共 5 級），用黃色系而非紅綠（紅綠在台股代表漲跌）。

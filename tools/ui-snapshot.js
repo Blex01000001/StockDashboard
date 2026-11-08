@@ -32,13 +32,10 @@ const option = (name, fallback) => {
 
 // ── 要擷取的畫面狀態：[名稱, 動作] ──
 const STATES = [
-  ['q_init', async p => { await go(p, 'stock-query'); }],
-  ['q_alert', async p => { await p.fill('.dashboard-panel input', ''); await clickMain(p); }],
-  ['q_result', async p => { await p.fill('.dashboard-panel input', '2330'); await clickMain(p); }],
-  ['q_focus', async p => { await p.focus('.dashboard-panel input'); }],
-  ['q_btnhover', async p => { await p.hover('.dashboard-panel button'); }],
-  ['q_navhover', async p => { await p.hover('a[href="stock-chart"]'); }],
-  ['q_collapsed', async p => { await p.click('.toggle-btn'); await p.waitForTimeout(500); }],
+  // 側邊欄狀態 (原本借用 /stock-query 頁面，該頁已刪除，改用 /stock-update)
+  ['n_init', async p => { await go(p, 'stock-update'); }],
+  ['n_navhover', async p => { await p.hover('a[href="stock-chart"]'); }],
+  ['n_collapsed', async p => { await p.click('.toggle-btn'); await p.waitForTimeout(500); }],
   ['c_init', async p => { await p.click('.toggle-btn'); await p.waitForTimeout(500); await go(p, 'stock-chart'); }],
   ['c_alert', async p => { await p.fill('.search-input-wrapper input', 'NOPE'); await clickMain(p); }],
   ['c_drawn', async p => { await p.fill('.search-input-wrapper input', '2330'); await clickMain(p, 1500); }],
