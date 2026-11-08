@@ -343,7 +343,7 @@ public class MarketIndexAlignmentTests
     public void 附圖選項_費半在原油之後且排最後()
     {
         var options = ChartDisplaySettings.SubChartOptions.Select(o => o.Value).ToList();
-        Assert.Equal(new[] { "oil", "sox" }, options.TakeLast(2));
+        Assert.Equal(new[] { "oil", "oilYahoo", "sox" }, options.TakeLast(3));
         var state = new ChartDisplaySettings();
         state.SubCharts.Add("sox");
         state.SubCharts.Add("macd");

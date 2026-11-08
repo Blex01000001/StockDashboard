@@ -22,6 +22,7 @@ namespace StockDashboard.Components.Pages
         [Inject] private ILocalPathOpener PathOpener { get; set; } = default!;
         [Inject] private IMarketIndexSyncService MarketIndexSync { get; set; } = default!;
         [Inject] private IMarketIndexRepository MarketIndexRepository { get; set; } = default!;
+        [Inject] private IYahooOilSyncService YahooOilSync { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
@@ -73,6 +74,12 @@ namespace StockDashboard.Components.Pages
         public string OilStatusMessage { get; set; } = string.Empty;
         public bool OilIsError { get; set; } = false;
 
+        // ── Yahoo Brent 期貨 (BZ=F) 同步 ──
+        public (string? FirstDate, string? LastDate, int Days)? YahooOilSummary { get; set; }
+        public bool IsSyncingYahooOil { get; set; } = false;
+        public string YahooOilStatusMessage { get; set; } = string.Empty;
+        public bool YahooOilIsError { get; set; } = false;
+
         // ── 費半 (SOX) 同步 ──
         public (string? FirstDate, string? LastDate, int Days)? SoxSummary { get; set; }
         public bool IsSyncingSox { get; set; } = false;
@@ -86,6 +93,7 @@ namespace StockDashboard.Components.Pages
             await LoadOilSummaryAsync();
             await LoadActionSummaryAsync();
             await LoadSoxSummaryAsync();
+            await LoadYahooOilSummaryAsync();
         }
 
         public void Dispose()
@@ -196,6 +204,39 @@ namespace StockDashboard.Components.Pages
         {
             try { SoxSummary = await MarketIndexRepository.GetSummaryAsync(MarketIndexApiClient.SoxCode); }
             catch (Exception) { SoxSummary = null; }
+        }
+
+        private async Task LoadYahooOilSummaryAsync()
+        {
+            try { YahooOilSummary = await OilRepository.GetSummaryAsync(YahooOilSyncService.Code); }
+            catch (Exception) { YahooOilSummary = null; }
+        }
+
+        /// <summary>下載 Yahoo Brent 期貨 (BZ=F) 全部日線 (一次請求)</summary>
+        public async Task SyncYahooOil()
+        {
+            if (IsSyncingYahooOil) return;
+            IsSyncingYahooOil = true;
+            YahooOilStatusMessage = "下載中...";
+            YahooOilIsError = false;
+            try
+            {
+                var result = await YahooOilSync.SyncAsync(CancellationToken.None);
+                await LoadYahooOilSummaryAsync();
+                if (result.Error != null)
+                {
+                    YahooOilStatusMessage = $"Yahoo 原油同步失敗：{result.Error}";
+                    YahooOilIsError = true;
+                }
+                else
+                {
+                    YahooOilStatusMessage = $"Yahoo 原油同步完成：寫入 {result.RowsWritten} 筆（{result.FirstDate} ~ {result.LastDate}）。";
+                }
+            }
+            finally
+            {
+                IsSyncingYahooOil = false;
+            }
         }
 
         /// <summary>下載最近一年的費半日線 (一次請求)</summary>

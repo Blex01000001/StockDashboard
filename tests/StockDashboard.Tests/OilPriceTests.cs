@@ -269,3 +269,73 @@ public class LocalPathOpenerTests
         public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = null!;
     }
 }
+
+public class YahooOilTests : IDisposable
+{
+    private readonly TempSqliteDb _db = new();
+    public void Dispose() => _db.Dispose();
+
+    private sealed class FakeYahoo : IMarketIndexApiClient
+    {
+        public List<MarketIndexEntity> Rows { get; set; } = new();
+        public Exception? Error { get; set; }
+        public (string Code, string Symbol, DateTime From, DateTime To)? Request { get; private set; }
+
+        public Task<List<MarketIndexEntity>> GetDailyAsync(string code, string symbol, DateTime from, DateTime to, CancellationToken cancellationToken = default)
+        {
+            Request = (code, symbol, from, to);
+            return Error != null ? Task.FromException<List<MarketIndexEntity>>(Error) : Task.FromResult(Rows);
+        }
+    }
+
+    private static MarketIndexEntity Bar(string date, double close) =>
+        new() { Code = YahooOilSyncService.Code, TradeDate = date, Open = close - 1, High = close + 1, Low = close - 2, Close = close };
+
+    private async Task<OilPriceRepository> InitAsync()
+    {
+        await DatabaseInitializer.InitializeAsync(_db.Configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+        return new OilPriceRepository(_db.Configuration);
+    }
+
+    [Fact]
+    public async Task 同步_從2007年起一次請求_只存收盤價_與oilpriceapi分開代號()
+    {
+        var repo = await InitAsync();
+        await repo.UpsertAsync(new[] { new OilPriceEntity { Code = OilPriceApiClient.BrentCode, TradeDate = "2026-11-03", Price = 104.78 } });
+        var api = new FakeYahoo { Rows = new() { Bar("2026-11-03", 100.5), Bar("2026-11-04", 98.3) } };
+
+        var result = await new YahooOilSyncService(api, repo, () => new DateTime(2026, 11, 5, 3, 0, 0)).SyncAsync(CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.Equal(2, result.RowsWritten);
+        Assert.Equal(("2026-11-03", "2026-11-04"), (result.FirstDate, result.LastDate));
+        Assert.Equal((YahooOilSyncService.Code, "BZ=F", new DateTime(2007, 7, 30), new DateTime(2026, 11, 5)), api.Request);
+
+        var yahoo = (await repo.GetAllAsync(YahooOilSyncService.Code)).ToList();
+        Assert.Equal(new[] { 100.5, 98.3 }, yahoo.Select(r => r.Price));
+        Assert.Equal(104.78, Assert.Single(await repo.GetAllAsync(OilPriceApiClient.BrentCode)).Price);   // oilpriceapi 的資料不受影響
+    }
+
+    [Fact]
+    public async Task 同步_失敗與空結果回報錯誤()
+    {
+        var repo = await InitAsync();
+        var failed = await new YahooOilSyncService(new FakeYahoo { Error = new InvalidOperationException("Yahoo 回應請求過多 (HTTP 429)，請稍後再試") }, repo).SyncAsync(CancellationToken.None);
+        Assert.Contains("429", failed.Error);
+        var empty = await new YahooOilSyncService(new FakeYahoo(), repo).SyncAsync(CancellationToken.None);
+        Assert.NotNull(empty.Error);
+        Assert.Empty(await repo.GetAllAsync(YahooOilSyncService.Code));
+    }
+
+    [Fact]
+    public void 對齊_取當天之前最近一筆_與原油分開填入()
+    {
+        var candles = new[] { "2026-11-02", "2026-11-03", "2026-11-04" }.Select(d => new PatternCandle { Date = d }).ToList();
+        var yahoo = new[] { new OilPriceEntity { TradeDate = "2026-11-02", Price = 10 }, new OilPriceEntity { TradeDate = "2026-11-03", Price = 20 } };
+
+        PatternScanService.ApplyOilYahoo(candles, yahoo);
+
+        Assert.Equal(new double?[] { null, 10, 20 }, candles.Select(c => c.OilYahoo));
+        Assert.All(candles, c => Assert.Null(c.Oil));
+    }
+}

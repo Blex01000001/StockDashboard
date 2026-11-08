@@ -310,6 +310,36 @@
                     </div>
                 }
             </div>
+
+            <div class="card-box card-wide">
+                <h3 class="card-title">🛢️ Brent 原油期貨（BZ=F）</h3>
+                <div class="api-url"><code>query1.finance.yahoo.com/v8/finance/chart/BZ%3DF?interval=1d</code></div>
+                <p class="description">
+                    一次請求取回 2007 年起的全部日線，只存<b>收盤價</b>到 <code class="code-tag">OilPriceDaily</code>（代號 <code class="code-tag">@StockDashboard.Services.YahooOilSyncService.Code</code>），
+                    供「原油 (Yahoo)」附圖使用，可和 oilpriceapi 的「原油 (oilpriceapi)」附圖（當日均價）並排比較。
+                </p>
+
+                <div class="list-sync-row">
+                    <span class="description list-summary">
+                        @if (YahooOilSummary is { Days: > 0 })
+                        {
+                            <span>已有 <b>@YahooOilSummary.Value.Days</b> 天（@YahooOilSummary.Value.FirstDate ~ @YahooOilSummary.Value.LastDate）</span>
+                        }
+                        else
+                        {
+                            <span>尚未同步</span>
+                        }
+                    </span>
+                    <button @onclick="SyncYahooOil" class="action-btn" disabled="@IsSyncingYahooOil">🔄 同步 Yahoo 原油</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(YahooOilStatusMessage))
+                {
+                    <div class="status-box @(YahooOilIsError ? "error" : "success")">
+                        @YahooOilStatusMessage
+                    </div>
+                }
+            </div>
         </div>
     </section>
 
