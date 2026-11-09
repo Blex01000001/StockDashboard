@@ -68,7 +68,7 @@
                         </select>
                         @if (IsSyncingInstitutional)
                         {
-                            <button @onclick="StopInstitutionalSync" class="action-btn">⏹ 停止</button>
+                            <button @onclick="StopInstitutionalSync" class="action-btn stop-btn">⏹ 停止</button>
                         }
                         else
                         {
@@ -195,7 +195,7 @@
                         <input type="text" @bind="FinMindStockIds" placeholder="例如: 2330,0050" class="dark-input" list="stock-id-options" disabled="@IsSyncingFinMind" />
                         @if (IsSyncingFinMind)
                         {
-                            <button @onclick="StopFinMindSync" class="action-btn">⏹ 停止</button>
+                            <button @onclick="StopFinMindSync" class="action-btn stop-btn">⏹ 停止</button>
                         }
                         else
                         {
@@ -235,7 +235,7 @@
                         <input type="text" @bind="ActionStockIds" placeholder="例如: 2330,0050" class="dark-input" list="stock-id-options" disabled="@IsSyncingAction" />
                         @if (IsSyncingAction)
                         {
-                            <button @onclick="StopActionSync" class="action-btn">⏹ 停止</button>
+                            <button @onclick="StopActionSync" class="action-btn stop-btn">⏹ 停止</button>
                         }
                         else
                         {
