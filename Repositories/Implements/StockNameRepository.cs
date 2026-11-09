@@ -9,7 +9,7 @@ namespace StockDashboard.Repositories.Implements
     /// <summary>
     /// 股票名稱的存取入口，合併兩個來源 (說明見 IStockNameRepository)。
     /// </summary>
-    public class StockNameRepository : IStockNameRepository
+    public class StockNameRepository : IStockNameRepository, IIndustryRepository
     {
         // 使用者既有的「上市公司基本資料」表：只讀取，絕不寫入
         private const string CompanyTable = "StockList";
@@ -20,6 +20,7 @@ namespace StockDashboard.Repositories.Implements
         // StockList 中要讀取的中文欄位名稱 (比對時忽略空白)
         private const string CompanyCodeColumn = "公司代號";
         private const string CompanyNameColumn = "公司簡稱";
+        private const string IndustryColumn = "產業別";
 
         private readonly string _connectionString;
 
@@ -105,6 +106,26 @@ namespace StockDashboard.Repositories.Implements
             transaction.Commit();
 
             return affectedRows;
+        }
+
+        public async Task<List<string>> GetStockIdsByIndustryAsync(string industryCode)
+        {
+            string code = (industryCode ?? string.Empty).Trim().TrimStart('0');
+            if (code.Length == 0) return new List<string>();
+
+            using var connection = new SqliteConnection(_connectionString);
+            var columns = (await connection.QueryAsync<string>($"SELECT name FROM pragma_table_info('{CompanyTable}')")).ToList();
+            string? Find(string target) => columns.FirstOrDefault(c => RemoveWhitespace(c) == target);
+            string? codeColumn = Find(CompanyCodeColumn), industryColumn = Find(IndustryColumn);
+            if (codeColumn == null || industryColumn == null) return new List<string>();
+
+            // 產業別可能被匯入成數字或文字 (01 與 1)：轉成文字、去空白與前導 0 再比對
+            var ids = await connection.QueryAsync<string>($@"
+                SELECT DISTINCT TRIM(CAST({Quote(codeColumn)} AS TEXT))
+                FROM {CompanyTable}
+                WHERE LTRIM(TRIM(CAST({Quote(industryColumn)} AS TEXT)), '0') = @Code
+                  AND TRIM(IFNULL(CAST({Quote(codeColumn)} AS TEXT), '')) <> ''", new { Code = code });
+            return ids.OrderBy(i => i, StringComparer.Ordinal).ToList();
         }
 
         /// <summary>

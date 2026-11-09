@@ -23,12 +23,19 @@ namespace StockDashboard.Components.Pages
         [Inject] private IMarketIndexSyncService MarketIndexSync { get; set; } = default!;
         [Inject] private IMarketIndexRepository MarketIndexRepository { get; set; } = default!;
         [Inject] private IYahooOilSyncService YahooOilSync { get; set; } = default!;
+        [Inject] private IIndustryPriceSyncRunner IndustryRunner { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
         public bool IsError { get; set; } = false;
         public bool IsProcessing { get; set; } = false;
         public string SelectedRange { get; set; } = "1";
+
+        // ── 依產業別批次同步日線 (背景執行者是單例：離開頁面也繼續跑，回來時顯示目前進度) ──
+        public string IndustryCodeInput { get; set; } = string.Empty;
+
+        public string IndustryStatusMessage => IndustryMessage();
+        public bool IndustryIsError => !IndustryRunner.IsRunning && IndustryRunner.LastResult?.Error != null;
 
         // ── 股票清單同步 ──
         public StockNameSummary? NameSummary { get; set; }
@@ -88,6 +95,8 @@ namespace StockDashboard.Components.Pages
 
         protected override async Task OnInitializedAsync()
         {
+            IndustryRunner.Changed += OnIndustryChanged;
+            if (!string.IsNullOrEmpty(IndustryRunner.IndustryCode)) IndustryCodeInput = IndustryRunner.IndustryCode;
             await LoadNameSummaryAsync();
             await LoadInstitutionalSummaryAsync();
             await LoadOilSummaryAsync();
@@ -96,8 +105,37 @@ namespace StockDashboard.Components.Pages
             await LoadYahooOilSummaryAsync();
         }
 
+        private void OnIndustryChanged() => InvokeAsync(StateHasChanged);
+
+        public void StartIndustrySync()
+        {
+            if (string.IsNullOrWhiteSpace(IndustryCodeInput)) return;
+            IndustryRunner.Start(IndustryCodeInput);
+        }
+
+        public void StopIndustrySync() => IndustryRunner.Stop();
+
+        private string IndustryMessage()
+        {
+            var p = IndustryRunner.Progress;
+            var r = IndustryRunner.LastResult;
+            if (IndustryRunner.IsRunning)
+            {
+                return p == null
+                    ? $"產業別 {IndustryRunner.IndustryCode}：準備中..."
+                    : $"產業別 {p.IndustryCode}：第 {p.StockIndex}/{p.StockTotal} 檔 {p.StockId} — {p.Message}（已請求 {p.Requests} 次、寫入 {p.RowsWritten} 筆）";
+            }
+            if (r == null) return string.Empty;
+
+            string summary = $"完成 {r.StocksDone}/{r.StocksTotal} 檔、寫入 {r.RowsWritten} 筆，向證交所請求 {r.Requests} 次。";
+            if (r.Error != null) return $"產業別 {IndustryRunner.IndustryCode} 同步中斷：{r.Error}。{(r.StocksTotal > 0 ? "已抓到的資料都已存入，稍後再按一次即可接著跑。" : "")}{(r.StocksTotal > 0 ? summary : "")}";
+            if (r.Cancelled) return $"產業別 {IndustryRunner.IndustryCode} 已停止。{summary}再按一次會接著跑。";
+            return $"產業別 {IndustryRunner.IndustryCode} 同步完成。{summary}";
+        }
+
         public void Dispose()
         {
+            IndustryRunner.Changed -= OnIndustryChanged;   // 只取消訂閱，背景同步繼續跑
             // 離開頁面時停止同步 (同步中的頁面元件已銷毀，進度無處顯示)
             _institutionalCts?.Cancel();
             _finMindCts?.Cancel();
