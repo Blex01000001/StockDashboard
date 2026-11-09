@@ -22,6 +22,8 @@
 | `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
 | `Services/PriceSyncService.cs` | 個股日線逐月同步（由本月往前、連續 3 個月無資料中斷、請求間隔 `Twse:RequestDelayMs`、可取消、進度回報），最後一次寫入 `StockDailyPrice` | |
+| `Services/IndustryPriceSyncService.cs` | 依產業別（`StockList` 的「產業別」代碼，例如 24）批次同步日線：每檔由本月往前逐月抓到上市日（最多 480 個月）；可續跑（已完整月份〔最後交易日 ≥ 25 號且早於本月〕不重抓、`PriceSyncLog` 記錄已追溯到上市日）；任何下載錯誤立即停止整批（不當成沒資料）；間隔 `Twse:BatchRequestDelayMs`（預設 3 秒）；每檔抓完即寫入 | |
+| `Services/IndustryPriceSyncRunner.cs` | 上面服務的背景執行者（**Singleton**，`Task.Run`，不綁頁面／連線；關閉分頁也繼續跑，網站程式關掉才中止）；`/stock-update` 訂閱 `Changed` 顯示進度 | |
 | `Services/InstitutionalSyncService.cs` | 三大法人逐日同步（T86 買賣超＋MI_QFIIS 外資持股），寫入 `InstitutionalDaily`、記錄 `InstitutionalSyncLog` | |
 | `Services/FinMindApiClient.cs` | FinMind API（匿名、無 Token）：個股三大法人買賣超（每日多列合併）、外資持股；`ip banned`／402 丟 `FinMindBlockedException` | FinMind 格式改變時 |
 | `Services/FinMindSyncService.cs` | FinMind 逐檔同步，寫入 `InstitutionalDaily`、記錄 `FinMindSyncLog` | |
@@ -42,8 +44,8 @@
 | `Services/PatternScanState.cs` | 型態掃描頁的畫面狀態（Scoped）；附圖／均線／指標設定在 `Display`（`ChartDisplaySettings`） | 新增要保留的輸入時 |
 | `Services/ChartDisplaySettings.cs` | 附圖選項、顯示順序（`SubChartOrder`，預設 = `SubChartOptions` 順序，技術圖表頁 `MoveSubChart` 拖曳重排）、均線選項與預設、指標參數 | 新增附圖時加到 `SubChartOptions` |
 | `Services/StockChartService.cs` | 技術圖表資料：完整日線算指標，取最近 N 根（`SetWindow`，0 = 全部），填三大法人；`CountToInclude` 確保標示日在範圍內 | |
-| `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口 | 新查詢 |
-| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`） | |
+| `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口；另實作 `IPriceCoverageRepository`（各月最後交易日、`PriceSyncLog` 的「已追溯到上市日」） | 新查詢 |
+| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`）；另實作 `IIndustryRepository`（依產業別查代號，忽略前導 0 與欄位空白） | |
 | `Repositories/Implements/InstitutionalRepository.cs` | `InstitutionalDaily`／`InstitutionalSyncLog`／`FinMindSyncLog` 讀寫 | |
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
 | `Repositories/DatabaseInitializer.cs` | 啟動時 `CREATE TABLE IF NOT EXISTS`（Schema 在此） | 新增資料表 |
@@ -123,6 +125,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 | 費半均線在 `ApplyMarketIndex` 內用完整美股序列算，再依美股日期對應到台股日 | 對齊後的序列有休市留空與連假合併，在上面算 MA5 會變成「5 個台股日」而不是 5 個美股交易日 |
 | 費半來源用 Yahoo `^SOX` 區間查詢（`period1/period2&interval=1d`） | 使用者只要一年；`range=max` 會被降成月線；非官方 API，壞了只需改 `MarketIndexApiClient.ParseResponse` |
 | 附圖列高度可個別指定（`SUB_CHARTS[x].heightScale`，費半 = 2），整張圖高度用 `stackedHeight(layout, subs)` 計算 | 費半是蠟燭，要比一般附圖高才看得清楚（使用者指定只加高這一列）；沒勾費半時高度與原本相同 |
+| 依產業批次同步：已完整月份不重抓、遇錯即停整批、背景執行者用 Singleton | 整個產業要跑數小時到十幾小時且常被封鎖，必須可續跑；下載錯誤若當成「沒資料」會把每一檔誤判成已到上市日；使用者要放著去吃飯洗澡，所以不能綁在頁面或連線上（Scoped／元件會隨連線中斷） |
 | 型態掃描頁的狀態放在 Scoped 的 `PatternScanState` | 使用者要求切換頁面後保留結果；Blazor 元件離開頁面即銷毀，Scoped 服務在同一連線內持續存在（F5 重新整理才重置） |
 
 ## 核心邏輯（修改前須先與使用者確認）

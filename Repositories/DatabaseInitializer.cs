@@ -25,6 +25,13 @@ namespace StockDashboard.Repositories
                 PRIMARY KEY (StockId, TradeDate)
             );
 
+            -- 依產業批次同步日線的進度：HistoryReached = 1 表示已追溯到該股票的上市日 (之後不必再往前查)
+            CREATE TABLE IF NOT EXISTS PriceSyncLog (
+                StockId        TEXT PRIMARY KEY,
+                HistoryReached INTEGER NOT NULL DEFAULT 0,
+                UpdatedAt      TEXT
+            );
+
             -- 證交所同步的股票代號清單 (含 ETF)。
             -- 注意：StockList 是使用者既有的「上市公司基本資料」表 (中文欄位)，本程式只讀取、不建立也不修改。
             -- 個股每日三大法人 (T86 買賣超 + MI_QFIIS 外資持股)，單位：股

@@ -60,6 +60,8 @@ builder.Services.AddScoped<IStockNameRepository, StockNameRepository>();
 builder.Services.AddScoped<IInstitutionalRepository, InstitutionalRepository>();
 builder.Services.AddScoped<IOilPriceRepository, OilPriceRepository>();
 builder.Services.AddScoped<IMarketIndexRepository, MarketIndexRepository>();
+builder.Services.AddScoped<IIndustryRepository>(sp => (StockNameRepository)sp.GetRequiredService<IStockNameRepository>());
+builder.Services.AddScoped<IPriceCoverageRepository>(sp => (StockPriceRepository)sp.GetRequiredService<IStockPriceRepository>());
 builder.Services.AddScoped<IStockCorporateActionRepository, StockCorporateActionRepository>();
 
 // ── 商業邏輯層 (Service) ──
@@ -68,6 +70,8 @@ builder.Services.AddScoped<IPatternScanService, PatternScanService>();
 builder.Services.AddScoped<IStockChartService, StockChartService>();
 builder.Services.AddScoped<IInstitutionalSyncService, InstitutionalSyncService>();
 builder.Services.AddScoped<IPriceSyncService, PriceSyncService>();
+builder.Services.AddScoped<IIndustryPriceSyncService, IndustryPriceSyncService>();
+builder.Services.AddSingleton<IIndustryPriceSyncRunner, IndustryPriceSyncRunner>();   // 單例：關閉頁面也繼續跑
 builder.Services.AddScoped<IFinMindSyncService, FinMindSyncService>();
 builder.Services.AddScoped<IOilPriceSyncService, OilPriceSyncService>();
 builder.Services.AddScoped<IMarketIndexSyncService, MarketIndexSyncService>();

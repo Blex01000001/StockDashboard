@@ -11,7 +11,7 @@ namespace StockDashboard.Repositories.Implements
     /// StockDailyPrice 資料表的唯一存取入口。
     /// 所有頁面 / Service 都應透過此類別讀寫股價，不要在 Razor 元件內直接寫 SQL。
     /// </summary>
-    public class StockPriceRepository : IStockPriceRepository
+    public class StockPriceRepository : IStockPriceRepository, IPriceCoverageRepository
     {
         private readonly string _connectionString;
 
@@ -115,6 +115,31 @@ namespace StockDashboard.Repositories.Implements
             transaction.Commit();
 
             return affectedRows;
+        }
+
+        public async Task<Dictionary<string, string>> GetMonthLastDatesAsync(string stockId)
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            var rows = await connection.QueryAsync<(string Month, string LastDate)>(
+                @"SELECT substr(TradeDate, 1, 7) AS Month, MAX(TradeDate) AS LastDate
+                  FROM StockDailyPrice WHERE StockId = @StockId GROUP BY substr(TradeDate, 1, 7)", new { StockId = stockId });
+            return rows.ToDictionary(r => r.Month, r => r.LastDate);
+        }
+
+        public async Task<bool> IsHistoryReachedAsync(string stockId)
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            return await connection.ExecuteScalarAsync<long>(
+                "SELECT COUNT(*) FROM PriceSyncLog WHERE StockId = @StockId AND HistoryReached = 1", new { StockId = stockId }) > 0;
+        }
+
+        public async Task SetHistoryReachedAsync(string stockId)
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.ExecuteAsync(@"
+                INSERT INTO PriceSyncLog (StockId, HistoryReached, UpdatedAt) VALUES (@StockId, 1, @Now)
+                ON CONFLICT(StockId) DO UPDATE SET HistoryReached = 1, UpdatedAt = excluded.UpdatedAt;",
+                new { StockId = stockId, Now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") });
         }
     }
 }
