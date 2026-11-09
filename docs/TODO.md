@@ -7,12 +7,12 @@
 
 1. 【使用者】原油歷史只有一年（oilpriceapi 免費版）：已加「原油 (Yahoo)」附圖（`BZ=F` 收盤價，2007 年起日線；確認 `period1/period2&interval=1d` 回日線）。請到 `/stock-update` 按「同步 Yahoo 原油」，在技術圖表同時勾兩個原油附圖，比較與 oilpriceapi（當日均價）差多少、也可對照 TradingView UKOIL，再決定：只用 Yahoo 補更早的歷史、整個取代，或維持現狀（決定後刪掉不用的那條附圖與程式）。
 2. 【使用者】在自己的電腦實際測試「同步原油價格」、「同步費半」（Yahoo 為非官方 API，可能被擋；同步後用 TradingView 對照幾個日期的 SOX 收盤）與原油卡片上的「開啟 appsettings.json／資料夾」按鈕（Windows 應開記事本、檔案總管，沙盒無法驗證；`appsettings.json` 填 `OilPrice:ApiKey`，貼過 Key 的話建議重新產生）、「更新股票清單」「三大法人同步（證交所、FinMind）」「除權除息同步（FinMind，先同步 2330、0050，對照幾個除息日的前收盤與參考價；`reference_price` 在含現增或配股的『權』是否為真正的參考價尚未驗證）」能連線成功（沙盒連不到；FinMind 先同步 1～2 檔），並確認 stock.db 沒有既存的 `StockExRightEvent`（使用者 stock.db 的舊 `StockCorporateAction` 表程式碼未使用、可自行刪除；本專案的表因此改名）／`OilPriceDaily`／`MarketIndexDaily`／`FinMindSyncLog`／`InstitutionalDaily`／`InstitutionalSyncLog` 同名表。
-3. 【先討論】還原股價：型態掃描與技術圖表已有「還原股價」開關（預設原始價）；尚未做：`/stock-compare` 的開關（報酬率公式屬核心邏輯，要先問你）、預設改用還原價與否、還原價與看盤軟體的對照（TWSE 參考價含現增／配股的『權』是否正確）。
+3. 【先討論】還原股價：型態掃描與技術圖表已有「還原股價」開關（型態掃描預設還原、技術圖表預設原始價）；尚未做：`/stock-compare` 的開關（報酬率公式屬核心邏輯，要先問你）、技術圖表預設是否也改還原價、還原價與看盤軟體的對照（TWSE 參考價含現增／配股的『權』是否正確）。
 
 ## 已知問題／限制
 
 - 日線與股票名稱只支援上市 (TWSE)：上櫃 (TPEx) 查不到日線、沒有名稱（三大法人可用 FinMind 同步上櫃，但沒有日線仍無法掃描）。
-- 股價預設為原始價；型態掃描、技術圖表可勾「還原股價」（比例還原，價格四捨五入到小數 2 位，成交量不還原），需先在 `/stock-update` 同步除權除息，未同步的股票不會還原；`/stock-compare` 尚無此開關。
+- 股價預設為原始價（型態掃描頁預設勾還原）；型態掃描、技術圖表可勾「還原股價」（比例還原，價格四捨五入到小數 2 位，成交量不還原），需先在 `/stock-update` 同步除權除息，未同步的股票不會還原；`/stock-compare` 尚無此開關。
 - 已下市股票不會從 `StockNameList` 移除。
 - 滾動報酬率以所有股票「聯集」時間軸位移 N 格計算；股票交易日不同（停牌）時，N 日的意義略有偏差。
 - ECharts 走 CDN，離線時無法畫圖。

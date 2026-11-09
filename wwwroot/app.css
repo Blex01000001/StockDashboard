@@ -170,6 +170,7 @@ body {
 
 .content-container {
     padding: 10px;
+    padding-top: 5px;
     max-width: 1400px;
     margin: 0 auto;
 }
@@ -185,12 +186,15 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 24px;
+    padding-top: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
 .panel-standard .panel-header {
-    margin-bottom: 24px;
+    margin-bottom: 5px;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 12px;
+    padding-bottom: 5px;
 }
 
 .panel-standard .panel-title {
@@ -209,7 +213,7 @@ body {
 .panel-standard .search-box-container {
     display: flex;
     gap: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 5px;
 }
 
 .panel-standard .search-input-wrapper {
