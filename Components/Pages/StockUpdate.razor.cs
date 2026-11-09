@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using StockDashboard.Components.Shared;
 using StockDashboard.Models;
 using StockDashboard.Models.Entities;
@@ -25,6 +26,7 @@ namespace StockDashboard.Components.Pages
         [Inject] private IYahooOilSyncService YahooOilSync { get; set; } = default!;
         [Inject] private IIndustryPriceSyncRunner IndustryRunner { get; set; } = default!;
         [Inject] private IIndustryRepository IndustryRepository { get; set; } = default!;
+        [Inject] private IJSRuntime JS { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
@@ -117,7 +119,14 @@ namespace StockDashboard.Components.Pages
             IndustryRunner.Start(IndustryCodeInput);
         }
 
-        public void StopIndustrySync() => IndustryRunner.Stop();
+        // 停止前先跟使用者確認 (整批同步要跑好幾個小時，誤按很可惜)；已抓到的資料都已存入，之後再按「開始同步」會接著跑
+        public async Task StopIndustrySync()
+        {
+            bool confirmed;
+            try { confirmed = await JS.InvokeAsync<bool>("confirm", "確定要停止依產業別的批次同步嗎？\n\n已抓到的資料都已存入，之後再按「開始同步」會接著跑。"); }
+            catch (Exception) { return; }   // 連線中斷等：不停止
+            if (confirmed) IndustryRunner.Stop();
+        }
 
         private string IndustryMessage()
         {

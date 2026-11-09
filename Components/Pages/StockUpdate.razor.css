@@ -135,6 +135,15 @@
     }
 
 /* ── 依資料來源分組的外框 ── */
+/* 停止按鈕：紅色，避免誤按 (覆寫全域 .panel-standard .action-btn 的藍色) */
+.card-box .action-btn.stop-btn {
+    background-color: #d32f2f;
+}
+
+    .card-box .action-btn.stop-btn:hover {
+        background-color: #b71c1c;
+    }
+
 .source-group {
     margin-top: 20px;
     padding: 14px 18px 18px;
