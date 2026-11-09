@@ -6,8 +6,8 @@
 }
 
 .card-box {
-    background-color: var(--bg-main);
-    border: 1px solid var(--border-color);
+    background-color: #272c3a;   /* 比面板底色 (--bg-card) 亮一階，讓各來源的小卡與背景分得出來 */
+    border: 1px solid #383e50;
     border-radius: 6px;
     padding: 20px;
 }
@@ -117,6 +117,22 @@
     gap: 8px;
     flex-shrink: 0;
 }
+
+/* 輔助按鈕 (開啟 appsettings.json / 資料夾)：比主要的同步按鈕小、色調淡，不搶眼 */
+.list-sync-row .btn-pair .action-btn {
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    background-color: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+
+    .list-sync-row .btn-pair .action-btn:hover {
+        background-color: transparent;
+        color: var(--text-main);
+        border-color: var(--text-muted);
+    }
 
 /* ── 依資料來源分組的外框 ── */
 .source-group {
