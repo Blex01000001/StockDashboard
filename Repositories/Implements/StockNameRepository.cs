@@ -108,6 +108,29 @@ namespace StockDashboard.Repositories.Implements
             return affectedRows;
         }
 
+        public async Task<List<IndustryOption>> GetIndustriesAsync()
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            var columns = (await connection.QueryAsync<string>($"SELECT name FROM pragma_table_info('{CompanyTable}')")).ToList();
+            string? Find(string target) => columns.FirstOrDefault(c => RemoveWhitespace(c) == target);
+            string? codeColumn = Find(CompanyCodeColumn), industryColumn = Find(IndustryColumn);
+            if (codeColumn == null || industryColumn == null) return new List<IndustryOption>();
+
+            var rows = await connection.QueryAsync<(string Industry, long Count)>($@"
+                SELECT TRIM(CAST({Quote(industryColumn)} AS TEXT)) AS Industry, COUNT(DISTINCT TRIM(CAST({Quote(codeColumn)} AS TEXT))) AS Count
+                FROM {CompanyTable}
+                WHERE TRIM(IFNULL(CAST({Quote(industryColumn)} AS TEXT), '')) <> ''
+                  AND TRIM(IFNULL(CAST({Quote(codeColumn)} AS TEXT), '')) <> ''
+                GROUP BY TRIM(CAST({Quote(industryColumn)} AS TEXT))");
+
+            // "1" 與 "01" 視為同一個產業
+            return rows.GroupBy(r => IndustryNames.Normalize(r.Industry))
+                .Where(g => g.Key.Length > 0)
+                .Select(g => new IndustryOption(g.Key, IndustryNames.NameOf(g.Key), (int)g.Sum(r => r.Count)))
+                .OrderBy(o => o.Code, StringComparer.Ordinal)
+                .ToList();
+        }
+
         public async Task<List<string>> GetStockIdsByIndustryAsync(string industryCode)
         {
             string code = (industryCode ?? string.Empty).Trim().TrimStart('0');

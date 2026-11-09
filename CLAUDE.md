@@ -15,7 +15,7 @@
 | `Components/Layout/NavMenu.razor` | 側邊欄連結（順序：API 資料更新、K線技術圖表、K線型態掃描、多檔績效比較） | 新增頁面時加連結 |
 | `Components/Pages/StockChart.*` | `/stock-chart` 技術圖表：K 線＋均線＋附圖（同型態掃描），寬度隨容器（`ResizeObserver`），顯示筆數可選，可縮放；`?id=&date=` 開啟並標示型態日（型態掃描小卡「技術圖表」連結）；狀態在 Scoped `StockChartState` | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
-| `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`） | 小卡與預覽圖改 `.razor.js` |
+| `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`）；「產業別」下拉選了會把該產業全部代號帶入股票清單（`IIndustryRepository`） | 小卡與預覽圖改 `.razor.js` |
 | `Components/Pages/StockUpdate.*` | `/stock-update` 依來源分框（`.source-group`）：證交所（日線逐月、三大法人逐日、股票清單）、FinMind（個股多年三大法人）；卡片標題下列 API 簡短網址 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Components/Shared/ChartDisplayOptions.razor` | 附圖勾選、指標參數（`IndicatorGroups`）、均線勾選；型態掃描與技術圖表共用，改動後 `OnChanged(指標是否改變)`；`Framed`（技術圖表頁）= 單一設定面板（附圖／均線各一列；MACD、KD、RSI、布林通道的參數直接放在各自的勾選框旁，框成一組、勾選才亮起，輸入框窄、按鈕只寫「預設」，沒有獨立的指標參數區），否則（型態掃描頁）指標參數收折；勾選標記由 `SubChartToggles`／`MovingAverageToggles` 兩種版面共用 | 新增附圖／指標參數 |
@@ -45,7 +45,7 @@
 | `Services/ChartDisplaySettings.cs` | 附圖選項、顯示順序（`SubChartOrder`，預設 = `SubChartOptions` 順序，技術圖表頁 `MoveSubChart` 拖曳重排）、均線選項與預設、指標參數 | 新增附圖時加到 `SubChartOptions` |
 | `Services/StockChartService.cs` | 技術圖表資料：完整日線算指標，取最近 N 根（`SetWindow`，0 = 全部），填三大法人；`CountToInclude` 確保標示日在範圍內 | |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口；另實作 `IPriceCoverageRepository`（各月最後交易日、`PriceSyncLog` 的「已追溯到上市日」） | 新查詢 |
-| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`）；另實作 `IIndustryRepository`（依產業別查代號，忽略前導 0 與欄位空白） | |
+| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`）；另實作 `IIndustryRepository`（產業別清單〔代碼統一兩位數、名稱對照在 `Models/IndustryOption.cs` 的 `IndustryNames`〕、依產業別查代號，忽略前導 0 與欄位空白） | |
 | `Repositories/Implements/InstitutionalRepository.cs` | `InstitutionalDaily`／`InstitutionalSyncLog`／`FinMindSyncLog` 讀寫 | |
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
 | `Repositories/DatabaseInitializer.cs` | 啟動時 `CREATE TABLE IF NOT EXISTS`（Schema 在此） | 新增資料表 |

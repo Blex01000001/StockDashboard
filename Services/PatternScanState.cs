@@ -11,6 +11,7 @@ namespace StockDashboard.Services
     public class PatternScanState
     {
         public string StockIdsInput { get; set; } = "2330,0050,006208";
+        public string IndustryCode { get; set; } = string.Empty;   // 產業別下拉選單目前的選擇 (空 = 手動輸入)
         public string PatternKey { get; set; } = string.Empty;
         public int PageSize { get; set; } = 10;
 

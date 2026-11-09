@@ -21,6 +21,16 @@
                     }
                 </select>
             </label>
+            <label class="ctl-field" title="選擇產業別後，股票清單會自動帶入該產業的全部股票（讀自 StockList 的產業別；沒有日線的股票會列在『無資料』）">
+                <span>產業別</span>
+                <select class="dark-input pattern-select" value="@State.IndustryCode" @onchange="OnIndustryChanged">
+                    <option value="">（手動輸入股票清單）</option>
+                    @foreach (var industry in Industries)
+                    {
+                        <option value="@industry.Code">@industry.Label</option>
+                    }
+                </select>
+            </label>
             <label class="ctl-field">
                 <span>股票清單</span>
                 <input type="text" @bind="State.StockIdsInput" placeholder="以逗號分隔，如: 2330, 0050" class="dark-input stock-list-input" />

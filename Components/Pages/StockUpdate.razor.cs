@@ -24,6 +24,7 @@ namespace StockDashboard.Components.Pages
         [Inject] private IMarketIndexRepository MarketIndexRepository { get; set; } = default!;
         [Inject] private IYahooOilSyncService YahooOilSync { get; set; } = default!;
         [Inject] private IIndustryPriceSyncRunner IndustryRunner { get; set; } = default!;
+        [Inject] private IIndustryRepository IndustryRepository { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
@@ -33,6 +34,7 @@ namespace StockDashboard.Components.Pages
 
         // ── 依產業別批次同步日線 (背景執行者是單例：離開頁面也繼續跑，回來時顯示目前進度) ──
         public string IndustryCodeInput { get; set; } = string.Empty;
+        public List<IndustryOption> Industries { get; private set; } = new();   // 讀取失敗或沒有產業別欄位時為空
 
         public string IndustryStatusMessage => IndustryMessage();
         public bool IndustryIsError => !IndustryRunner.IsRunning && IndustryRunner.LastResult?.Error != null;
@@ -96,6 +98,8 @@ namespace StockDashboard.Components.Pages
         protected override async Task OnInitializedAsync()
         {
             IndustryRunner.Changed += OnIndustryChanged;
+            try { Industries = await IndustryRepository.GetIndustriesAsync(); }
+            catch (Exception) { Industries = new(); }
             if (!string.IsNullOrEmpty(IndustryRunner.IndustryCode)) IndustryCodeInput = IndustryRunner.IndustryCode;
             await LoadNameSummaryAsync();
             await LoadInstitutionalSummaryAsync();

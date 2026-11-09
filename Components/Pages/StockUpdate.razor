@@ -135,14 +135,20 @@
                 <h3 class="card-title">🏭 依產業別批次同步日線（全部歷史）</h3>
                 <div class="api-url"><code>twse.com.tw/exchangeReport/STOCK_DAY</code></div>
                 <p class="description">
-                    輸入 <code class="code-tag">StockList</code> 的「產業別」代碼（例如 24 = 半導體業），該產業每一檔股票都會由本月往前逐月下載，直到上市日（有多少撈多少）。
+                    選擇 <code class="code-tag">StockList</code> 的「產業別」（例如 24 半導體業），該產業每一檔股票都會由本月往前逐月下載，直到上市日（有多少撈多少）。
                     請求間隔約 3 秒，整個產業可能要跑好幾個小時：<b>可以離開頁面或關閉分頁，網站程式開著就會繼續跑</b>。
                     已完整的歷史月份不會重抓；被證交所封鎖或按「停止」後，再按一次會接著跑。
                 </p>
 
                 <div class="list-sync-row">
                     <span class="btn-pair">
-                        <input type="text" @bind="IndustryCodeInput" placeholder="產業別代碼，例如 24" class="dark-input" disabled="@IndustryRunner.IsRunning" />
+                        <select @bind="IndustryCodeInput" class="dark-input" disabled="@IndustryRunner.IsRunning">
+                            <option value="">請選擇產業別</option>
+                            @foreach (var industry in Industries)
+                            {
+                                <option value="@industry.Code">@industry.Label</option>
+                            }
+                        </select>
                     </span>
                     @if (IndustryRunner.IsRunning)
                     {
