@@ -30,3 +30,11 @@
     padding: 0 12px;
     color-scheme: dark;
 }
+
+/* 標題與副標題「本機 SQLite 資料串接」放同一列 (使用者要求) */
+.panel-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px;
+}
