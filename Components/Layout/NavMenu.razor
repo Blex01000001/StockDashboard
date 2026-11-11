@@ -22,9 +22,6 @@
             <span class="brand-name">QUANT STACK</span>
             <span class="brand-sub">台股報酬可視化</span>
         </div>
-        <button class="toggle-btn" @onclick="ToggleSidebar" title="@(IsCollapsed ? "展開側邊欄" : "收合側邊欄")" aria-label="切換側邊欄">
-            @(IsCollapsed ? "❯" : "❮")
-        </button>
     </div>
 
     <nav class="nav-list">
@@ -52,6 +49,12 @@
             </NavLink>
         </div>
     </nav>
+
+    @* 收合 / 展開：放在底部的一列按鈕 (圖示 + 文字)，收合時只剩圖示且箭頭反向 *@
+    <button class="toggle-btn" @onclick="ToggleSidebar" title="@(IsCollapsed ? "展開側邊欄" : "收合側邊欄")" aria-label="切換側邊欄">
+        <svg class="nav-icon toggle-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" /></svg>
+        <span class="nav-text">收合側邊欄</span>
+    </button>
 
     <div class="sidebar-footer">
         <span class="status-dot"></span>
