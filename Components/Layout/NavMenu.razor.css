@@ -1,39 +1,224 @@
 /*
- * NavMenu 的 scoped CSS。
- * NavLink 產生的 <a> 屬於子元件，必須用 ::deep 才能選到。
- * 這些規則的權重高於 app.css 中的 .nav-link 規則，因此實際的連結高度、顏色、hover / active 底色以這裡為準。
+ * 側邊欄的全部樣式 (scoped)。NavLink 產生的 <a> 屬於子元件，必須用 ::deep 才能選到。
+ * 設計：深色漸層底、分組標題、線條圖示、選取項目有藍色左側指示條與淡藍底、收合時只剩圖示。
+ * 外層版面 (.app-layout / .main-content) 與色彩變數在 wwwroot/app.css。
  */
-.nav-item {
-    font-size: 0.9rem;
-    padding-bottom: 0.5rem;
+.sidebar-container {
+    width: 240px;
+    background: linear-gradient(180deg, #181b24 0%, #13151c 100%);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    flex-shrink: 0;
 }
 
-    .nav-item:first-of-type {
-        padding-top: 1rem;
+    .sidebar-container.collapsed {
+        width: 64px;
     }
 
-    .nav-item:last-of-type {
-        padding-bottom: 1rem;
-    }
-
-    .nav-item ::deep .nav-link {
-        color: #d7d7d7;
-        background: none;
-        border: none;
-        border-radius: 4px;
-        height: 3rem;
-        display: flex;
-        align-items: center;
-        line-height: 3rem;
-        width: 100%;
-    }
-
-.nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.37);
-    color: white;
+/* ── 品牌區 ── */
+.sidebar-header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    overflow: hidden;
+    white-space: nowrap;
 }
 
-.nav-item ::deep .nav-link:hover {
-    background-color: rgba(255,255,255,0.1);
-    color: white;
+.brand-mark {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 6px rgba(41, 98, 255, 0.35));
+}
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    transition: opacity 0.15s ease;
+}
+
+.brand-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+    color: #ffffff;
+}
+
+.brand-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.sidebar-container.collapsed .brand-text {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.toggle-btn {
+    position: absolute;
+    right: -12px;
+    top: 20px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #1e222d;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    z-index: 10;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+    .toggle-btn:hover {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+        color: #fff;
+    }
+
+/* ── 導覽 ── */
+.nav-list {
+    flex: 1;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.nav-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nav-section-label {
+    padding: 4px 12px 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    color: #5b6070;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+}
+
+/* 收合時分組標題改成一條細分隔線 */
+.sidebar-container.collapsed .nav-section-label {
+    height: 1px;
+    padding: 0;
+    margin: 4px 10px 6px;
+    background-color: var(--border-color);
+    font-size: 0;
+    overflow: hidden;
+}
+
+.nav-section ::deep .nav-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 8px;
+    color: #9aa0b0;
+    text-decoration: none;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    background: none;
+    border: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+    .nav-section ::deep .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: #e6e8ee;
+    }
+
+    /* 選取中：淡藍底 + 左側藍色指示條 */
+    .nav-section ::deep .nav-link.active {
+        background-color: rgba(41, 98, 255, 0.16);
+        color: #ffffff;
+        font-weight: 500;
+    }
+
+        .nav-section ::deep .nav-link.active::before {
+            content: "";
+            position: absolute;
+            left: -10px;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 0 3px 3px 0;
+            background-color: var(--accent-color);
+        }
+
+.nav-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.nav-section ::deep .nav-link.active .nav-icon {
+    stroke: #6f9bff;
+}
+
+.nav-text {
+    transition: opacity 0.15s ease;
+}
+
+.sidebar-container.collapsed .nav-text {
+    display: none;   /* 收合時文字不佔位，圖示才會置中 */
+}
+
+.sidebar-container.collapsed .nav-section ::deep .nav-link {
+    padding: 0;
+    justify-content: center;
+}
+
+/* ── 底部狀態 ── */
+.sidebar-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.72rem;
+    color: #5b6070;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: #26a69a;
+    box-shadow: 0 0 0 3px rgba(38, 166, 154, 0.15);
+}
+
+.sidebar-container.collapsed .footer-text {
+    display: none;
+}
+
+.sidebar-container.collapsed .sidebar-footer {
+    justify-content: center;
+    padding: 14px 0;
 }

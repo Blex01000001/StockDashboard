@@ -12,7 +12,7 @@
 | `Components/App.razor` | HTML 外殼、CSS/JS 載入 | 新增全域 CSS（要加 `?v=@AssetVersion.Value`） |
 | `wwwroot/favicon.svg`、`favicon.png` | 瀏覽器分頁圖示 📈（SVG 為 emoji 文字，PNG 是同圖的 64×64 備援；`App.razor` 的 `<link rel="icon">` 都加 `?v=`） | |
 | `Components/AssetVersion.cs` | 靜態檔版本號（MVID）；頁面 JS 模組用 `AssetVersion.Module(path)` 載入 | |
-| `Components/Layout/NavMenu.razor` | 側邊欄連結（順序：API 資料更新、K線技術圖表、K線型態掃描、多檔績效比較） | 新增頁面時加連結 |
+| `Components/Layout/NavMenu.razor` | 側邊欄：品牌標誌（SVG）、分組標題（資料／分析）、線條 SVG 圖示、底部「本機模式」狀態；連結順序：API 資料更新、K線技術圖表、K線型態掃描、多檔績效比較；可收合（只剩圖示） | 新增頁面時加連結（含 SVG 圖示） |
 | `Components/Pages/StockChart.*` | `/stock-chart` 技術圖表：K 線＋均線＋附圖（同型態掃描），寬度隨容器（`ResizeObserver`），顯示筆數可選，可縮放；`?id=&date=` 開啟並標示型態日（型態掃描小卡「技術圖表」連結）；狀態在 Scoped `StockChartState` | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
 | `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`）；「產業別」下拉選了會把該產業全部代號帶入股票清單（`IIndustryRepository`） | 小卡與預覽圖改 `.razor.js` |
@@ -50,7 +50,7 @@
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
 | `Repositories/DatabaseInitializer.cs` | 啟動時 `CREATE TABLE IF NOT EXISTS`（Schema 在此） | 新增資料表 |
 | `wwwroot/app.css` | 全域：色彩變數、版面、側邊欄、共用面板 `.panel-standard` | |
-| `Components/Layout/NavMenu.razor.css` | 側邊欄連結實際生效的樣式（權重高於 `app.css`） | |
+| `Components/Layout/NavMenu.razor.css` | 側邊欄**全部**樣式（深色漸層底、選取項目淡藍底＋左側藍色指示條、收合狀態；`app.css` 已不含側邊欄規則） | |
 | `Components/Pages/*.razor.css` | 各頁 scoped CSS | |
 | `docs/TODO.md` | 目前狀態：待辦（有編號與標記）、已知問題／限制、想法；**每次 commit 時同步更新** | 每次 commit |
 | `appsettings.Example.json` | 設定範本（`appsettings.json` 被 gitignore） | 新增設定鍵時同步更新 |

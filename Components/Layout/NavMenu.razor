@@ -1,41 +1,62 @@
-﻿<div class="sidebar-container @(IsCollapsed ? "collapsed" : "")">
+<div class="sidebar-container @(IsCollapsed ? "collapsed" : "")">
     <div class="sidebar-header">
-        <span class="brand-logo">📊</span>
-        <span class="brand-name">QUANT STACK</span>
-        <button class="toggle-btn" @onclick="ToggleSidebar">
+        @* 品牌標誌：藍色漸層圓角方塊 + 三根 K 棒 *@
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+            <defs>
+                <linearGradient id="qs-brand-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#4c82ff" />
+                    <stop offset="1" stop-color="#2146c7" />
+                </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="8" fill="url(#qs-brand-grad)" />
+            <g stroke="#fff" stroke-width="1.6" stroke-linecap="round">
+                <path d="M10 8v3M10 21v3M16 11v2M16 20v3M22 7v3M22 18v5" />
+            </g>
+            <g fill="#fff">
+                <rect x="8" y="11" width="4" height="10" rx="1" />
+                <rect x="14" y="13" width="4" height="7" rx="1" opacity=".85" />
+                <rect x="20" y="10" width="4" height="8" rx="1" />
+            </g>
+        </svg>
+        <div class="brand-text">
+            <span class="brand-name">QUANT STACK</span>
+            <span class="brand-sub">台股報酬可視化</span>
+        </div>
+        <button class="toggle-btn" @onclick="ToggleSidebar" title="@(IsCollapsed ? "展開側邊欄" : "收合側邊欄")" aria-label="切換側邊欄">
             @(IsCollapsed ? "❯" : "❮")
         </button>
     </div>
 
     <nav class="nav-list">
-        <div class="nav-item">
-            <NavLink href="stock-update" class="nav-link">
-                <span class="nav-icon">🔄</span>
+        <div class="nav-section">
+            <div class="nav-section-label">資料</div>
+            <NavLink href="stock-update" class="nav-link" title="API 資料更新">
+                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
                 <span class="nav-text">API 資料更新</span>
             </NavLink>
         </div>
 
-        <div class="nav-item">
-            <NavLink href="stock-chart" class="nav-link">
-                <span class="nav-icon">📈</span>
+        <div class="nav-section">
+            <div class="nav-section-label">分析</div>
+            <NavLink href="stock-chart" class="nav-link" title="K線技術圖表">
+                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v3M7 17v3M12 8v2M12 16v3M17 3v4M17 15v5" /><rect x="5" y="7" width="4" height="10" rx="1" /><rect x="10" y="10" width="4" height="6" rx="1" /><rect x="15" y="7" width="4" height="8" rx="1" /></svg>
                 <span class="nav-text">K線技術圖表</span>
             </NavLink>
-        </div>
-
-        <div class="nav-item">
-            <NavLink href="pattern-scan" class="nav-link">
-                <span class="nav-icon">🔎</span>
+            <NavLink href="pattern-scan" class="nav-link" title="K線型態掃描">
+                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
                 <span class="nav-text">K線型態掃描</span>
             </NavLink>
-        </div>
-
-        <div class="nav-item">
-            <NavLink href="stock-compare" class="nav-link">
-                <span class="nav-icon">📊</span>
+            <NavLink href="stock-compare" class="nav-link" title="多檔績效比較">
+                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 15l4-5 4 3 5-6" /></svg>
                 <span class="nav-text">多檔績效比較</span>
             </NavLink>
         </div>
     </nav>
+
+    <div class="sidebar-footer">
+        <span class="status-dot"></span>
+        <span class="footer-text">本機模式 · SQLite</span>
+    </div>
 </div>
 
 @code {
