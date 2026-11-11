@@ -4,6 +4,7 @@ namespace StockDashboard.Services
     {
         bool IsRunning { get; }
         string IndustryCode { get; }
+        int Months { get; }   // 這次同步每檔最多往前幾個月 (IndustryPriceSyncService.MaxMonths = 全部歷史)
         IndustryPriceSyncProgress? Progress { get; }
         IndustryPriceSyncResult? LastResult { get; }
 
@@ -11,7 +12,7 @@ namespace StockDashboard.Services
         event Action? Changed;
 
         // 開始依產業同步 (背景執行，立即返回)；已在執行中則忽略
-        void Start(string industryCode);
+        void Start(string industryCode, int months = IndustryPriceSyncService.MaxMonths);
         void Stop();
     }
 
@@ -29,17 +30,19 @@ namespace StockDashboard.Services
 
         public bool IsRunning { get; private set; }
         public string IndustryCode { get; private set; } = string.Empty;
+        public int Months { get; private set; } = IndustryPriceSyncService.MaxMonths;
         public IndustryPriceSyncProgress? Progress { get; private set; }
         public IndustryPriceSyncResult? LastResult { get; private set; }
         public event Action? Changed;
 
-        public void Start(string industryCode)
+        public void Start(string industryCode, int months = IndustryPriceSyncService.MaxMonths)
         {
             lock (_lock)
             {
                 if (IsRunning) return;
                 IsRunning = true;
                 IndustryCode = industryCode.Trim();
+                Months = months;
                 Progress = null;
                 LastResult = null;
                 _cts = new CancellationTokenSource();
@@ -47,7 +50,7 @@ namespace StockDashboard.Services
             Notify();
             var token = _cts!.Token;
             string code = IndustryCode;
-            _ = Task.Run(() => RunAsync(code, token));
+            _ = Task.Run(() => RunAsync(code, months, token));
         }
 
         public void Stop()
@@ -56,7 +59,7 @@ namespace StockDashboard.Services
             catch (ObjectDisposedException) { /* 剛好跑完 */ }
         }
 
-        private async Task RunAsync(string code, CancellationToken token)
+        private async Task RunAsync(string code, int months, CancellationToken token)
         {
             IndustryPriceSyncResult result;
             try
@@ -64,7 +67,7 @@ namespace StockDashboard.Services
                 using var scope = _scopeFactory.CreateScope();
                 var service = scope.ServiceProvider.GetRequiredService<IIndustryPriceSyncService>();
                 // 不用 Progress<T>：它會用 SynchronizationContext 轉送，背景執行緒上直接更新即可
-                result = await service.SyncAsync(code, new DirectProgress(p => { Progress = p; Notify(); }), token);
+                result = await service.SyncAsync(code, new DirectProgress(p => { Progress = p; Notify(); }), token, months);
             }
             catch (Exception ex)
             {

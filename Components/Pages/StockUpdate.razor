@@ -156,7 +156,8 @@
                     }
                     else
                     {
-                        <button @onclick="StartIndustrySync" class="action-btn">🏭 開始同步</button>
+                        <button @onclick="StartIndustrySync" class="action-btn">🏭 全部歷史</button>
+                        <button @onclick="StartIndustryRecentSync" class="action-btn" title="每檔只更新近三個月 (已完整的月份不重抓)，適合日常補最新資料">📅 近三個月</button>
                     }
                 </div>
 
@@ -192,7 +193,7 @@
                 <div class="form-group">
                     <label>股票代號（可多檔，以逗號分隔）</label>
                     <div class="search-box-container">
-                        <input type="text" @bind="FinMindStockIds" placeholder="例如: 2330,0050" class="dark-input" list="stock-id-options" disabled="@IsSyncingFinMind" />
+                        <input type="text" @bind="FinMindStockIds" placeholder="例如: 2330,0050" class="dark-input" disabled="@IsSyncingFinMind" />
                         @if (IsSyncingFinMind)
                         {
                             <button @onclick="StopFinMindSync" class="action-btn stop-btn">⏹ 停止</button>
@@ -201,6 +202,21 @@
                         {
                             <button @onclick="SyncFinMind" class="action-btn">🔄 同步三大法人</button>
                         }
+                    </div>
+                </div>
+
+                @* 依產業別：選產業後把該產業全部代號帶入上面的輸入框並開始同步 (每檔 2 個請求，檔數多時可能達 FinMind 匿名額度而自動停止，再按一次會接著補) *@
+                <div class="form-group">
+                    <label>或依產業別同步</label>
+                    <div class="search-box-container">
+                        <select @bind="FinMindIndustry" class="dark-input" disabled="@IsSyncingFinMind">
+                            <option value="">請選擇產業別</option>
+                            @foreach (var industry in Industries)
+                            {
+                                <option value="@industry.Code">@industry.Label</option>
+                            }
+                        </select>
+                        <button @onclick="SyncFinMindByIndustry" class="action-btn" disabled="@IsSyncingFinMind">🏭 依產業別同步</button>
                     </div>
                 </div>
 
@@ -232,7 +248,7 @@
                 <div class="form-group">
                     <label>股票代號（可多檔，以逗號分隔）</label>
                     <div class="search-box-container">
-                        <input type="text" @bind="ActionStockIds" placeholder="例如: 2330,0050" class="dark-input" list="stock-id-options" disabled="@IsSyncingAction" />
+                        <input type="text" @bind="ActionStockIds" placeholder="例如: 2330,0050" class="dark-input" disabled="@IsSyncingAction" />
                         @if (IsSyncingAction)
                         {
                             <button @onclick="StopActionSync" class="action-btn stop-btn">⏹ 停止</button>
@@ -241,6 +257,21 @@
                         {
                             <button @onclick="SyncActions" class="action-btn">🔄 同步除權除息</button>
                         }
+                    </div>
+                </div>
+
+                @* 依產業別：選產業後把該產業全部代號帶入上面的輸入框並開始同步 (每檔 1 個請求) *@
+                <div class="form-group">
+                    <label>或依產業別同步</label>
+                    <div class="search-box-container">
+                        <select @bind="ActionIndustry" class="dark-input" disabled="@IsSyncingAction">
+                            <option value="">請選擇產業別</option>
+                            @foreach (var industry in Industries)
+                            {
+                                <option value="@industry.Code">@industry.Label</option>
+                            }
+                        </select>
+                        <button @onclick="SyncActionsByIndustry" class="action-btn" disabled="@IsSyncingAction">🏭 依產業別同步</button>
                     </div>
                 </div>
 

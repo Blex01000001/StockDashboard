@@ -18,7 +18,8 @@ namespace StockDashboard.Services
 
     public interface IIndustryPriceSyncService
     {
-        Task<IndustryPriceSyncResult> SyncAsync(string industryCode, IProgress<IndustryPriceSyncProgress>? progress, CancellationToken cancellationToken);
+        // maxMonths：每檔最多往前幾個月 (預設到上市日；例如 3 = 只更新近三個月)
+        Task<IndustryPriceSyncResult> SyncAsync(string industryCode, IProgress<IndustryPriceSyncProgress>? progress, CancellationToken cancellationToken, int maxMonths = IndustryPriceSyncService.MaxMonths);
     }
 
     /// <summary>
@@ -63,8 +64,9 @@ namespace StockDashboard.Services
             return last.Length >= 10 && int.TryParse(last.AsSpan(8, 2), out int day) && day >= CompleteDay;
         }
 
-        public async Task<IndustryPriceSyncResult> SyncAsync(string industryCode, IProgress<IndustryPriceSyncProgress>? progress, CancellationToken cancellationToken)
+        public async Task<IndustryPriceSyncResult> SyncAsync(string industryCode, IProgress<IndustryPriceSyncProgress>? progress, CancellationToken cancellationToken, int maxMonths = MaxMonths)
         {
+            maxMonths = Math.Clamp(maxMonths, 1, MaxMonths);
             var result = new IndustryPriceSyncResult();
             string code = industryCode.Trim();
             var stockIds = await _industry.GetStockIdsByIndustryAsync(code);
@@ -95,7 +97,7 @@ namespace StockDashboard.Services
                 bool finishedHistory = false;
                 bool stop = false;
 
-                for (int i = 0; i < MaxMonths; i++)
+                for (int i = 0; i < maxMonths; i++)
                 {
                     var month = thisMonth.AddMonths(-i);
                     string key = month.ToString("yyyy-MM");
