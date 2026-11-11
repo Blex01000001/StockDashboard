@@ -184,6 +184,26 @@ public class IndustryPriceSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task 只更新近N個月_每檔最多往前N個月()
+    {
+        var (service, twse, repo) = await InitAsync("2330", "2303");
+        foreach (var id in new[] { "2330", "2303" })
+            twse.MonthsWithData[id] = new() { M(2026, 11), M(2026, 10), M(2026, 9), M(2026, 8), M(2026, 7) };
+
+        var result = await service.SyncAsync("24", null, CancellationToken.None, maxMonths: 3);
+
+        Assert.Equal(6, result.Requests);   // 每檔 11、10、9 月
+        Assert.All(twse.Calls, c => Assert.True(c.Month >= M(2026, 9)));
+        Assert.Equal(2, result.StocksDone);
+        Assert.False(await repo.IsHistoryReachedAsync("2330"));   // 沒追溯到上市日，不能記成已到上市日
+
+        // 再跑一次：9、10 月已完整不重抓，只剩本月
+        twse.Calls.Clear();
+        await service.SyncAsync("24", null, CancellationToken.None, maxMonths: 3);
+        Assert.Equal(new[] { ("2330", M(2026, 11)), ("2303", M(2026, 11)) }, twse.Calls);
+    }
+
+    [Fact]
     public async Task 續跑_已完整的月份不重抓_已追溯到上市日不再往前查()
     {
         var (service, twse, _) = await InitAsync("2330");

@@ -22,7 +22,7 @@
 | `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
 | `Services/PriceSyncService.cs` | 個股日線逐月同步（由本月往前、連續 3 個月無資料中斷、請求間隔 `Twse:RequestDelayMs`、可取消、進度回報），最後一次寫入 `StockDailyPrice` | |
-| `Services/IndustryPriceSyncService.cs` | 依產業別（`StockList` 的「產業別」代碼，例如 24）批次同步日線：每檔由本月往前逐月抓到上市日（最多 480 個月）；可續跑（已完整月份〔最後交易日 ≥ 25 號且早於本月〕不重抓、`PriceSyncLog` 記錄已追溯到上市日）；任何下載錯誤立即停止整批（不當成沒資料）；間隔 `Twse:BatchRequestDelayMs`（預設 3 秒）；每檔抓完即寫入 | |
+| `Services/IndustryPriceSyncService.cs` | 依產業別（`StockList` 的「產業別」代碼，例如 24）批次同步日線：每檔由本月往前逐月抓到上市日（最多 480 個月）；可續跑（已完整月份〔最後交易日 ≥ 25 號且早於本月〕不重抓、`PriceSyncLog` 記錄已追溯到上市日）；任何下載錯誤立即停止整批（不當成沒資料）；間隔 `Twse:BatchRequestDelayMs`（預設 3 秒）；每檔抓完即寫入；`maxMonths` 可限制每檔往前幾個月（頁面有「近三個月」按鈕） | |
 | `Services/IndustryPriceSyncRunner.cs` | 上面服務的背景執行者（**Singleton**，`Task.Run`，不綁頁面／連線；關閉分頁也繼續跑，網站程式關掉才中止）；`/stock-update` 訂閱 `Changed` 顯示進度 | |
 | `Services/InstitutionalSyncService.cs` | 三大法人逐日同步（T86 買賣超＋MI_QFIIS 外資持股），寫入 `InstitutionalDaily`、記錄 `InstitutionalSyncLog` | |
 | `Services/FinMindApiClient.cs` | FinMind API（匿名、無 Token）：個股三大法人買賣超（每日多列合併）、外資持股；`ip banned`／402 丟 `FinMindBlockedException` | FinMind 格式改變時 |

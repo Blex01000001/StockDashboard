@@ -63,6 +63,7 @@ namespace StockDashboard.Components.Pages
 
         // ── FinMind 個股三大法人同步 ──
         public string FinMindStockIds { get; set; } = string.Empty;
+        public string FinMindIndustry { get; set; } = string.Empty;
         public bool FinMindFullReload { get; set; } = false;
         public int FinMindSyncedCount { get; set; }
         public bool IsSyncingFinMind { get; set; } = false;
@@ -74,6 +75,7 @@ namespace StockDashboard.Components.Pages
 
         // ── FinMind 除權除息 (還原股價用) ──
         public string ActionStockIds { get; set; } = string.Empty;
+        public string ActionIndustry { get; set; } = string.Empty;
         public (int Stocks, int Events)? ActionSummary { get; set; }
         public bool IsSyncingAction { get; set; } = false;
         public string ActionStatusMessage { get; set; } = string.Empty;
@@ -119,6 +121,16 @@ namespace StockDashboard.Components.Pages
             IndustryRunner.Start(IndustryCodeInput);
         }
 
+        // 只更新近三個月：日常補最新資料用 (已完整的月份不重抓，所以通常很快)
+        public void StartIndustryRecentSync()
+        {
+            if (string.IsNullOrWhiteSpace(IndustryCodeInput)) return;
+            IndustryRunner.Start(IndustryCodeInput, RecentMonths);
+        }
+
+        private const int RecentMonths = 3;
+        private string IndustryScope => IndustryRunner.Months < IndustryPriceSyncService.MaxMonths ? $"（近 {IndustryRunner.Months} 個月）" : "";
+
         // 停止前先跟使用者確認 (整批同步要跑好幾個小時，誤按很可惜)；已抓到的資料都已存入，之後再按「開始同步」會接著跑
         public async Task StopIndustrySync()
         {
@@ -139,15 +151,15 @@ namespace StockDashboard.Components.Pages
             if (IndustryRunner.IsRunning)
             {
                 return p == null
-                    ? $"產業別 {IndustryRunner.IndustryCode}：準備中..."
-                    : $"產業別 {p.IndustryCode}：第 {p.StockIndex}/{p.StockTotal} 檔 {p.StockId} — {p.Message}（已請求 {p.Requests} 次、寫入 {p.RowsWritten} 筆）";
+                    ? $"產業別 {IndustryRunner.IndustryCode}{IndustryScope}：準備中..."
+                    : $"產業別 {p.IndustryCode}{IndustryScope}：第 {p.StockIndex}/{p.StockTotal} 檔 {p.StockId} — {p.Message}（已請求 {p.Requests} 次、寫入 {p.RowsWritten} 筆）";
             }
             if (r == null) return string.Empty;
 
             string summary = $"完成 {r.StocksDone}/{r.StocksTotal} 檔、寫入 {r.RowsWritten} 筆，向證交所請求 {r.Requests} 次。";
-            if (r.Error != null) return $"產業別 {IndustryRunner.IndustryCode} 同步中斷：{r.Error}。{(r.StocksTotal > 0 ? "已抓到的資料都已存入，稍後再按一次即可接著跑。" : "")}{(r.StocksTotal > 0 ? summary : "")}";
-            if (r.Cancelled) return $"產業別 {IndustryRunner.IndustryCode} 已停止。{summary}再按一次會接著跑。";
-            return $"產業別 {IndustryRunner.IndustryCode} 同步完成。{summary}";
+            if (r.Error != null) return $"產業別 {IndustryRunner.IndustryCode}{IndustryScope} 同步中斷：{r.Error}。{(r.StocksTotal > 0 ? "已抓到的資料都已存入，稍後再按一次即可接著跑。" : "")}{(r.StocksTotal > 0 ? summary : "")}";
+            if (r.Cancelled) return $"產業別 {IndustryRunner.IndustryCode}{IndustryScope} 已停止。{summary}再按一次會接著跑。";
+            return $"產業別 {IndustryRunner.IndustryCode}{IndustryScope} 同步完成。{summary}";
         }
 
         public void Dispose()
@@ -181,6 +193,33 @@ namespace StockDashboard.Components.Pages
         }
 
         /// <summary>用 FinMind 逐檔下載除權除息結果表 (還原股價用)；IP 被封鎖或達上限時立即停止</summary>
+        // 依產業別：把該產業全部股票代號帶入輸入框，再照原本的流程同步
+        public async Task SyncActionsByIndustry()
+        {
+            if (IsSyncingAction) return;
+            var ids = await LoadIndustryIdsAsync(ActionIndustry, m => SetActionStatus(m, true));
+            if (ids == null) return;
+            ActionStockIds = string.Join(",", ids);
+            await SyncActions();
+        }
+
+        // 讀某產業別的股票代號；沒選或找不到時用 report 顯示原因並回傳 null
+        private async Task<List<string>?> LoadIndustryIdsAsync(string industryCode, Action<string> report)
+        {
+            if (string.IsNullOrWhiteSpace(industryCode)) { report("請先選擇產業別！"); return null; }
+            try
+            {
+                var ids = await IndustryRepository.GetStockIdsByIndustryAsync(industryCode);
+                if (ids.Count == 0) { report($"StockList 找不到產業別 {industryCode} 的股票"); return null; }
+                return ids;
+            }
+            catch (Exception ex)
+            {
+                report($"讀取產業別失敗: {ex.Message}");
+                return null;
+            }
+        }
+
         public async Task SyncActions()
         {
             if (IsSyncingAction) return;
@@ -448,6 +487,16 @@ namespace StockDashboard.Components.Pages
         /// <summary>
         /// 用 FinMind 逐檔下載多年三大法人買賣超與外資持股；IP 被封鎖或達上限時立即停止
         /// </summary>
+        // 依產業別：把該產業全部股票代號帶入輸入框，再照原本的流程同步
+        public async Task SyncFinMindByIndustry()
+        {
+            if (IsSyncingFinMind) return;
+            var ids = await LoadIndustryIdsAsync(FinMindIndustry, m => SetFinMindStatus(m, true));
+            if (ids == null) return;
+            FinMindStockIds = string.Join(",", ids);
+            await SyncFinMind();
+        }
+
         public async Task SyncFinMind()
         {
             if (IsSyncingFinMind) return;
