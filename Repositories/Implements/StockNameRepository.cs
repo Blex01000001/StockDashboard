@@ -141,20 +141,12 @@ namespace StockDashboard.Repositories.Implements
         }
 
         /// <summary>
-        /// ETF 代號：StockNameList (證交所同步，含 ETF) 中 00 開頭、且不在 StockList (只有一般上市公司) 的代號。
+        /// ETF 代號：StockNameList (證交所同步，含 ETF) 中代號以 00 開頭者 (使用者指定的判斷依據)。
         /// 還沒按過「更新股票清單」時沒有資料，回傳空清單。
         /// </summary>
-        private static async Task<List<string>> GetEtfIdsAsync(SqliteConnection connection)
-        {
-            var synced = await connection.QueryAsync<string>($"SELECT StockId FROM {SyncedTable} WHERE StockId LIKE '00%' ORDER BY StockId");
-
-            var companySql = await BuildCompanySelectAsync(connection);
-            var companyIds = companySql == null
-                ? new HashSet<string>()
-                : (await connection.QueryAsync<string>($"SELECT StockId FROM ({companySql})")).ToHashSet();
-
-            return synced.Where(id => !companyIds.Contains(id)).OrderBy(id => id, StringComparer.Ordinal).ToList();
-        }
+        private static async Task<List<string>> GetEtfIdsAsync(SqliteConnection connection) =>
+            (await connection.QueryAsync<string>($"SELECT StockId FROM {SyncedTable} WHERE StockId LIKE '00%'"))
+                .OrderBy(id => id, StringComparer.Ordinal).ToList();
 
         public async Task<List<string>> GetStockIdsByIndustryAsync(string industryCode)
         {

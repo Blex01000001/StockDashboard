@@ -45,7 +45,7 @@
 | `Services/ChartDisplaySettings.cs` | 附圖選項、顯示順序（`SubChartOrder`，預設 = `SubChartOptions` 順序，技術圖表頁 `MoveSubChart` 拖曳重排）、均線選項與預設、指標參數 | 新增附圖時加到 `SubChartOptions` |
 | `Services/StockChartService.cs` | 技術圖表資料：完整日線算指標，取最近 N 根（`SetWindow`，0 = 全部），填三大法人；`CountToInclude` 確保標示日在範圍內 | |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口；另實作 `IPriceCoverageRepository`（各月最後交易日、`PriceSyncLog` 的「已追溯到上市日」） | 新查詢 |
-| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`）；另實作 `IIndustryRepository`（產業別清單〔代碼統一兩位數、名稱對照在 `Models/IndustryOption.cs` 的 `IndustryNames`〕、依產業別查代號，忽略前導 0 與欄位空白；另有特別的「ETF」選項 = `StockNameList` 中 00 開頭且不在 `StockList` 的代號，需先按過「更新股票清單」） | |
+| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`）；另實作 `IIndustryRepository`（產業別清單〔代碼統一兩位數、名稱對照在 `Models/IndustryOption.cs` 的 `IndustryNames`〕、依產業別查代號，忽略前導 0 與欄位空白；另有特別的「ETF」選項 = `StockNameList` 中代號以 00 開頭者（使用者指定的判斷依據），需先按過「更新股票清單」） | |
 | `Repositories/Implements/InstitutionalRepository.cs` | `InstitutionalDaily`／`InstitutionalSyncLog`／`FinMindSyncLog` 讀寫 | |
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
 | `Repositories/DatabaseInitializer.cs` | 啟動時 `CREATE TABLE IF NOT EXISTS`（Schema 在此） | 新增資料表 |

@@ -11,7 +11,7 @@ namespace StockDashboard.Models
     /// </summary>
     public static class IndustryNames
     {
-        /// <summary>特別的「產業別」：ETF (StockNameList 中代號 00 開頭、不在 StockList 的股票)</summary>
+        /// <summary>特別的「產業別」：ETF (StockNameList 中代號以 00 開頭的股票)</summary>
         public const string EtfCode = "ETF";
 
         private static readonly Dictionary<string, string> Names = new()

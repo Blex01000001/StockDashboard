@@ -56,12 +56,11 @@ public class IndustryRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task ETF_StockNameList中00開頭且不在StockList的代號_出現在產業別選單與代號查詢()
+    public async Task ETF_StockNameList中00開頭的代號_出現在產業別選單與代號查詢()
     {
         _db.Execute("""
             CREATE TABLE StockList ("公司代號" TEXT, "公司簡稱" TEXT, "產業別" TEXT);
             INSERT INTO StockList VALUES ('2330', '台積電', '24');
-            INSERT INTO StockList VALUES ('0099', '假裝是00開頭的公司', '24');
             """);
         await DatabaseInitializer.InitializeAsync(_db.Configuration, NullLogger.Instance);
         var repo = new StockNameRepository(_db.Configuration);
@@ -70,7 +69,7 @@ public class IndustryRepositoryTests : IDisposable
             new StockNameEntity { StockId = "0050", StockName = "元大台灣50", UpdatedAt = "2026-11-01" },
             new StockNameEntity { StockId = "00981A", StockName = "某主動式ETF", UpdatedAt = "2026-11-01" },
             new StockNameEntity { StockId = "2330", StockName = "台積電", UpdatedAt = "2026-11-01" },
-            new StockNameEntity { StockId = "0099", StockName = "假裝是00開頭的公司", UpdatedAt = "2026-11-01" },   // 在 StockList → 不是 ETF
+            new StockNameEntity { StockId = "1101", StockName = "台泥", UpdatedAt = "2026-11-01" },
         });
 
         var options = await repo.GetIndustriesAsync();
@@ -79,7 +78,7 @@ public class IndustryRepositoryTests : IDisposable
         Assert.Equal("ETF（2 檔）", etf.Label);
         Assert.Equal(new[] { "0050", "00981A" }, await repo.GetStockIdsByIndustryAsync("ETF"));
         Assert.Equal(new[] { "0050", "00981A" }, await repo.GetStockIdsByIndustryAsync(" etf "));
-        Assert.Equal(new[] { "0099", "2330" }, await repo.GetStockIdsByIndustryAsync("24"));   // 一般產業不受影響
+        Assert.Equal(new[] { "2330" }, await repo.GetStockIdsByIndustryAsync("24"));   // 一般產業不受影響
     }
 
     [Fact]
