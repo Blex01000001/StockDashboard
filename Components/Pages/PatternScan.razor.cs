@@ -1,7 +1,9 @@
 ﻿using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using StockDashboard.Models;
 using StockDashboard.Models.Patterns;
+using StockDashboard.Repositories.Interfaces;
 using StockDashboard.Services;
 using ScanService = StockDashboard.Services.PatternScanService;
 using StockDashboard.Services.Patterns;
@@ -20,6 +22,7 @@ namespace StockDashboard.Components.Pages
         [Inject] private IPatternScanService PatternScanService { get; set; } = default!;
         [Inject] private IEnumerable<ICandlePattern> PatternRegistrations { get; set; } = default!;
         [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+        [Inject] private IIndustryRepository IndustryRepository { get; set; } = default!;
 
         // 畫面狀態放在 Scoped 服務中：切換到其他頁再回來時保留 (見 PatternScanState)
         [Inject] protected PatternScanState State { get; set; } = default!;
@@ -42,10 +45,32 @@ namespace StockDashboard.Components.Pages
         private bool _cardsNeedRender;
         private bool _previewNeedsRender;
 
-        protected override void OnInitialized()
+        protected List<IndustryOption> Industries { get; private set; } = new();   // 讀取失敗或沒有產業別欄位時為空
+
+        protected override async Task OnInitializedAsync()
         {
             Patterns = PatternRegistrations.ToList();
             if (Patterns.All(p => p.Key != State.PatternKey)) State.PatternKey = Patterns[0].Key;
+
+            try { Industries = await IndustryRepository.GetIndustriesAsync(); }
+            catch (Exception) { Industries = new(); }
+        }
+
+        // 選產業別：把該產業的全部股票代號帶入「股票清單」(之後仍可手動修改)；選回「手動輸入」不動清單
+        protected async Task OnIndustryChanged(ChangeEventArgs e)
+        {
+            State.IndustryCode = e.Value?.ToString() ?? string.Empty;
+            if (State.IndustryCode.Length == 0) return;
+            try
+            {
+                var ids = await IndustryRepository.GetStockIdsByIndustryAsync(State.IndustryCode);
+                if (ids.Count > 0) State.StockIdsInput = string.Join(",", ids);
+                else State.Message = $"StockList 找不到產業別 {State.IndustryCode} 的股票";
+            }
+            catch (Exception ex)
+            {
+                State.Message = $"讀取產業別失敗: {ex.Message}";
+            }
         }
 
         protected static string Num(double value) => value.ToString(CultureInfo.InvariantCulture);

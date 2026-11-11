@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using StockDashboard.Components.Shared;
 using StockDashboard.Models;
 using StockDashboard.Models.Entities;
@@ -24,6 +25,8 @@ namespace StockDashboard.Components.Pages
         [Inject] private IMarketIndexRepository MarketIndexRepository { get; set; } = default!;
         [Inject] private IYahooOilSyncService YahooOilSync { get; set; } = default!;
         [Inject] private IIndustryPriceSyncRunner IndustryRunner { get; set; } = default!;
+        [Inject] private IIndustryRepository IndustryRepository { get; set; } = default!;
+        [Inject] private IJSRuntime JS { get; set; } = default!;
 
         public string BatchStockId { get; set; } = "2330";
         public string StatusMessage { get; set; } = string.Empty;
@@ -33,6 +36,7 @@ namespace StockDashboard.Components.Pages
 
         // ── 依產業別批次同步日線 (背景執行者是單例：離開頁面也繼續跑，回來時顯示目前進度) ──
         public string IndustryCodeInput { get; set; } = string.Empty;
+        public List<IndustryOption> Industries { get; private set; } = new();   // 讀取失敗或沒有產業別欄位時為空
 
         public string IndustryStatusMessage => IndustryMessage();
         public bool IndustryIsError => !IndustryRunner.IsRunning && IndustryRunner.LastResult?.Error != null;
@@ -96,6 +100,8 @@ namespace StockDashboard.Components.Pages
         protected override async Task OnInitializedAsync()
         {
             IndustryRunner.Changed += OnIndustryChanged;
+            try { Industries = await IndustryRepository.GetIndustriesAsync(); }
+            catch (Exception) { Industries = new(); }
             if (!string.IsNullOrEmpty(IndustryRunner.IndustryCode)) IndustryCodeInput = IndustryRunner.IndustryCode;
             await LoadNameSummaryAsync();
             await LoadInstitutionalSummaryAsync();
@@ -113,7 +119,18 @@ namespace StockDashboard.Components.Pages
             IndustryRunner.Start(IndustryCodeInput);
         }
 
-        public void StopIndustrySync() => IndustryRunner.Stop();
+        // 停止前先跟使用者確認 (整批同步要跑好幾個小時，誤按很可惜)；已抓到的資料都已存入，之後再按「開始同步」會接著跑
+        public async Task StopIndustrySync()
+        {
+            if (await ConfirmStopAsync("依產業別的批次同步", "之後再按「開始同步」會接著跑")) IndustryRunner.Stop();
+        }
+
+        // 所有「停止」按鈕共用的確認視窗；連線中斷等無法詢問時一律不停止
+        private async Task<bool> ConfirmStopAsync(string what, string note)
+        {
+            try { return await JS.InvokeAsync<bool>("confirm", $"確定要停止{what}嗎？\n\n已抓到的資料都已存入，{note}。"); }
+            catch (Exception) { return false; }
+        }
 
         private string IndustryMessage()
         {
@@ -217,8 +234,9 @@ namespace StockDashboard.Components.Pages
             }
         }
 
-        public void StopActionSync()
+        public async Task StopActionSync()
         {
+            if (!await ConfirmStopAsync("除權除息同步", "再按一次同步即可接著跑")) return;
             _actionCts?.Cancel();
             SetActionStatus("正在停止...", false);
         }
@@ -420,8 +438,9 @@ namespace StockDashboard.Components.Pages
             public void Report(T value) => onReport(value);
         }
 
-        public void StopInstitutionalSync()
+        public async Task StopInstitutionalSync()
         {
+            if (!await ConfirmStopAsync("三大法人同步", "已完成的日期不會重抓，再按一次同步即可接著跑")) return;
             _institutionalCts?.Cancel();
             SetInstitutionalStatus("正在停止...", false);
         }
@@ -482,8 +501,9 @@ namespace StockDashboard.Components.Pages
             }
         }
 
-        public void StopFinMindSync()
+        public async Task StopFinMindSync()
         {
+            if (!await ConfirmStopAsync("FinMind 三大法人同步", "再按一次同步即可接著跑")) return;
             _finMindCts?.Cancel();
             SetFinMindStatus("正在停止...", false);
         }

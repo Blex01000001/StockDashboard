@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using StockDashboard.Models;
 using StockDashboard.Models.Entities;
 using StockDashboard.Repositories;
 using StockDashboard.Repositories.Implements;
@@ -33,11 +34,34 @@ public class IndustryRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task 產業別選單_代碼統一兩位數_附名稱與檔數_依代碼排序()
+    {
+        _db.Execute("""
+            CREATE TABLE StockList ("公司代號" TEXT, "公司簡稱" TEXT, "產業別" TEXT);
+            INSERT INTO StockList VALUES ('2330', '台積電', '24');
+            INSERT INTO StockList VALUES ('2303', '聯電', '24');
+            INSERT INTO StockList VALUES ('1101', '台泥', '1');
+            INSERT INTO StockList VALUES ('1102', '亞泥', '01');
+            INSERT INTO StockList VALUES ('9999', '怪怪', '77');
+            INSERT INTO StockList VALUES ('8888', '沒有產業', NULL);
+            """);
+        await DatabaseInitializer.InitializeAsync(_db.Configuration, NullLogger.Instance);
+
+        var options = await new StockNameRepository(_db.Configuration).GetIndustriesAsync();
+
+        Assert.Equal(new[] { "01", "24", "77" }, options.Select(o => o.Code));
+        Assert.Equal(new IndustryOption("01", "水泥工業", 2), options[0]);
+        Assert.Equal("24 半導體業（2 檔）", options[1].Label);
+        Assert.Equal("其他", options[2].Name);   // 不認得的代碼
+    }
+
+    [Fact]
     public async Task 沒有StockList或沒有產業別欄位_回傳空清單()
     {
         await DatabaseInitializer.InitializeAsync(_db.Configuration, NullLogger.Instance);
         var repo = new StockNameRepository(_db.Configuration);
         Assert.Empty(await repo.GetStockIdsByIndustryAsync("24"));
+        Assert.Empty(await repo.GetIndustriesAsync());
 
         _db.Execute("""CREATE TABLE StockList ("公司代號" TEXT, "公司簡稱" TEXT); INSERT INTO StockList VALUES ('2330', '台積電');""");
         Assert.Empty(await repo.GetStockIdsByIndustryAsync("24"));
@@ -106,6 +130,8 @@ public class IndustryPriceSyncServiceTests : IDisposable
 
     private sealed class FakeIndustry(params string[] ids) : IIndustryRepository
     {
+        public Task<List<IndustryOption>> GetIndustriesAsync() => Task.FromResult(new List<IndustryOption>());
+
         public Task<List<string>> GetStockIdsByIndustryAsync(string industryCode) =>
             Task.FromResult(industryCode.Trim() == "24" ? ids.ToList() : new List<string>());
     }

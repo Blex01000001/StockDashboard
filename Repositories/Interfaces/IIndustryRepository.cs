@@ -1,3 +1,5 @@
+using StockDashboard.Models;
+
 namespace StockDashboard.Repositories.Interfaces
 {
     /// <summary>
@@ -6,6 +8,9 @@ namespace StockDashboard.Repositories.Interfaces
     /// </summary>
     public interface IIndustryRepository
     {
+        // StockList 裡有的全部產業別 (代碼兩位數、名稱、股票檔數)，依代碼排序；沒有 StockList 或產業別欄位時回傳空清單 (下拉選單用)
+        Task<List<IndustryOption>> GetIndustriesAsync();
+
         // 某產業別 (代碼，忽略前導 0，例如 "24"、"01" 與 "1") 的全部股票代號，依代號排序；沒有 StockList 或產業別欄位時回傳空清單
         Task<List<string>> GetStockIdsByIndustryAsync(string industryCode);
     }
