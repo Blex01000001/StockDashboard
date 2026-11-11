@@ -114,8 +114,17 @@ namespace StockDashboard.Repositories.Implements
             var columns = (await connection.QueryAsync<string>($"SELECT name FROM pragma_table_info('{CompanyTable}')")).ToList();
             string? Find(string target) => columns.FirstOrDefault(c => RemoveWhitespace(c) == target);
             string? codeColumn = Find(CompanyCodeColumn), industryColumn = Find(IndustryColumn);
-            if (codeColumn == null || industryColumn == null) return new List<IndustryOption>();
+            var options = new List<IndustryOption>();
+            if (codeColumn != null && industryColumn != null) options = await ReadIndustriesAsync(connection, codeColumn, industryColumn);
 
+            // ETF：StockList 不含 ETF，另外從同步來的清單找出
+            int etfCount = (await GetEtfIdsAsync(connection)).Count;
+            if (etfCount > 0) options.Add(new IndustryOption(IndustryNames.EtfCode, "ETF", etfCount));
+            return options;
+        }
+
+        private static async Task<List<IndustryOption>> ReadIndustriesAsync(SqliteConnection connection, string codeColumn, string industryColumn)
+        {
             var rows = await connection.QueryAsync<(string Industry, long Count)>($@"
                 SELECT TRIM(CAST({Quote(industryColumn)} AS TEXT)) AS Industry, COUNT(DISTINCT TRIM(CAST({Quote(codeColumn)} AS TEXT))) AS Count
                 FROM {CompanyTable}
@@ -131,12 +140,21 @@ namespace StockDashboard.Repositories.Implements
                 .ToList();
         }
 
+        /// <summary>
+        /// ETF 代號：StockNameList (證交所同步，含 ETF) 中代號以 00 開頭者 (使用者指定的判斷依據)。
+        /// 還沒按過「更新股票清單」時沒有資料，回傳空清單。
+        /// </summary>
+        private static async Task<List<string>> GetEtfIdsAsync(SqliteConnection connection) =>
+            (await connection.QueryAsync<string>($"SELECT StockId FROM {SyncedTable} WHERE StockId LIKE '00%'"))
+                .OrderBy(id => id, StringComparer.Ordinal).ToList();
+
         public async Task<List<string>> GetStockIdsByIndustryAsync(string industryCode)
         {
             string code = (industryCode ?? string.Empty).Trim().TrimStart('0');
             if (code.Length == 0) return new List<string>();
 
             using var connection = new SqliteConnection(_connectionString);
+            if (code.Equals(IndustryNames.EtfCode, StringComparison.OrdinalIgnoreCase)) return await GetEtfIdsAsync(connection);
             var columns = (await connection.QueryAsync<string>($"SELECT name FROM pragma_table_info('{CompanyTable}')")).ToList();
             string? Find(string target) => columns.FirstOrDefault(c => RemoveWhitespace(c) == target);
             string? codeColumn = Find(CompanyCodeColumn), industryColumn = Find(IndustryColumn);

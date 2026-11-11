@@ -112,6 +112,24 @@
         flex-shrink: 0;
     }
 
+.list-sync-row.industry-row {
+    justify-content: flex-start;   /* 下拉選單與按鈕靠在一起，不要被 space-between 拉開 */
+}
+
+.list-sync-row .btn-group {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* 產業別下拉選單：依內容寬度，不撐滿整欄 (會擋視線) */
+.card-box .dark-input.industry-select {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 180px;
+    max-width: 240px;
+}
+
 .list-sync-row .btn-pair {
     display: flex;
     gap: 8px;
