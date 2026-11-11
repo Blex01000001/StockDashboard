@@ -3,7 +3,7 @@ namespace StockDashboard.Models
     /// <summary>產業別下拉選單的一個選項：代碼 (兩位數，例如 24)、名稱、該產業在 StockList 的股票檔數</summary>
     public record IndustryOption(string Code, string Name, int Count)
     {
-        public string Label => $"{Code} {Name}（{Count} 檔）";
+        public string Label => Code == IndustryNames.EtfCode ? $"ETF（{Count} 檔）" : $"{Code} {Name}（{Count} 檔）";
     }
 
     /// <summary>
@@ -11,6 +11,9 @@ namespace StockDashboard.Models
     /// </summary>
     public static class IndustryNames
     {
+        /// <summary>特別的「產業別」：ETF (StockNameList 中代號 00 開頭、不在 StockList 的股票)</summary>
+        public const string EtfCode = "ETF";
+
         private static readonly Dictionary<string, string> Names = new()
         {
             ["01"] = "水泥工業", ["02"] = "食品工業", ["03"] = "塑膠工業", ["04"] = "紡織纖維", ["05"] = "電機機械",
@@ -27,6 +30,7 @@ namespace StockDashboard.Models
         public static string Normalize(string code)
         {
             string trimmed = (code ?? string.Empty).Trim();
+            if (trimmed.Equals(EtfCode, StringComparison.OrdinalIgnoreCase)) return EtfCode;
             return trimmed.Length == 0 ? string.Empty : trimmed.TrimStart('0').PadLeft(2, '0');
         }
 

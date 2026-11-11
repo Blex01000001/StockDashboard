@@ -140,9 +140,9 @@
                     已完整的歷史月份不會重抓；被證交所封鎖或按「停止」後，再按一次會接著跑。
                 </p>
 
-                <div class="list-sync-row">
+                <div class="list-sync-row industry-row">
                     <span class="btn-pair">
-                        <select @bind="IndustryCodeInput" class="dark-input" disabled="@IndustryRunner.IsRunning">
+                        <select @bind="IndustryCodeInput" class="dark-input industry-select" disabled="@IndustryRunner.IsRunning">
                             <option value="">請選擇產業別</option>
                             @foreach (var industry in Industries)
                             {
@@ -150,15 +150,17 @@
                             }
                         </select>
                     </span>
-                    @if (IndustryRunner.IsRunning)
-                    {
-                        <button @onclick="StopIndustrySync" class="action-btn stop-btn">⏹ 停止</button>
-                    }
-                    else
-                    {
-                        <button @onclick="StartIndustrySync" class="action-btn">🏭 全部歷史</button>
-                        <button @onclick="StartIndustryRecentSync" class="action-btn" title="每檔只更新近三個月 (已完整的月份不重抓)，適合日常補最新資料">📅 近三個月</button>
-                    }
+                    <span class="btn-group">
+                        @if (IndustryRunner.IsRunning)
+                        {
+                            <button @onclick="StopIndustrySync" class="action-btn stop-btn">⏹ 停止</button>
+                        }
+                        else
+                        {
+                            <button @onclick="StartIndustrySync" class="action-btn">🏭 全部歷史</button>
+                            <button @onclick="StartIndustryRecentSync" class="action-btn" title="每檔只更新近三個月 (已完整的月份不重抓)，適合日常補最新資料">📅 近三個月</button>
+                        }
+                    </span>
                 </div>
 
                 @if (!string.IsNullOrEmpty(IndustryStatusMessage))
@@ -209,7 +211,7 @@
                 <div class="form-group">
                     <label>或依產業別同步</label>
                     <div class="search-box-container">
-                        <select @bind="FinMindIndustry" class="dark-input" disabled="@IsSyncingFinMind">
+                        <select @bind="FinMindIndustry" class="dark-input industry-select" disabled="@IsSyncingFinMind">
                             <option value="">請選擇產業別</option>
                             @foreach (var industry in Industries)
                             {
@@ -264,7 +266,7 @@
                 <div class="form-group">
                     <label>或依產業別同步</label>
                     <div class="search-box-container">
-                        <select @bind="ActionIndustry" class="dark-input" disabled="@IsSyncingAction">
+                        <select @bind="ActionIndustry" class="dark-input industry-select" disabled="@IsSyncingAction">
                             <option value="">請選擇產業別</option>
                             @foreach (var industry in Industries)
                             {

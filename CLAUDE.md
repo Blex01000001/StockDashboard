@@ -45,7 +45,7 @@
 | `Services/ChartDisplaySettings.cs` | 附圖選項、顯示順序（`SubChartOrder`，預設 = `SubChartOptions` 順序，技術圖表頁 `MoveSubChart` 拖曳重排）、均線選項與預設、指標參數 | 新增附圖時加到 `SubChartOptions` |
 | `Services/StockChartService.cs` | 技術圖表資料：完整日線算指標，取最近 N 根（`SetWindow`，0 = 全部），填三大法人；`CountToInclude` 確保標示日在範圍內 | |
 | `Repositories/Implements/StockPriceRepository.cs` | `StockDailyPrice` 唯一讀寫入口；另實作 `IPriceCoverageRepository`（各月最後交易日、`PriceSyncLog` 的「已追溯到上市日」） | 新查詢 |
-| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`）；另實作 `IIndustryRepository`（產業別清單〔代碼統一兩位數、名稱對照在 `Models/IndustryOption.cs` 的 `IndustryNames`〕、依產業別查代號，忽略前導 0 與欄位空白） | |
+| `Repositories/Implements/StockNameRepository.cs` | 股票名稱（合併 `StockList` ＋ `StockNameList`）；另實作 `IIndustryRepository`（產業別清單〔代碼統一兩位數、名稱對照在 `Models/IndustryOption.cs` 的 `IndustryNames`〕、依產業別查代號，忽略前導 0 與欄位空白；另有特別的「ETF」選項 = `StockNameList` 中 00 開頭且不在 `StockList` 的代號，需先按過「更新股票清單」） | |
 | `Repositories/Implements/InstitutionalRepository.cs` | `InstitutionalDaily`／`InstitutionalSyncLog`／`FinMindSyncLog` 讀寫 | |
 | `Repositories/StockNameRepositoryExtensions.cs` | 顯示用名稱查詢，失敗回傳 null／空字典 | |
 | `Repositories/DatabaseInitializer.cs` | 啟動時 `CREATE TABLE IF NOT EXISTS`（Schema 在此） | 新增資料表 |
@@ -154,7 +154,7 @@ dotnet test --filter "FullyQualifiedName~TwseApiClientTests"   # 只跑部分測
 - 連不到 `twse.com.tw`、`openapi.twse.com.tw`、`api.finmindtrade.com`、ECharts CDN（使用者可在環境 Network access 加 Allowed domains）：
   - 測 TWSE／FinMind：`python3 tools/fake-twse.py`，`Twse:*`、`FinMind:DataUrl` 設定指向它（用法見檔案開頭）；啟動網站要加 `NO_PROXY=127.0.0.1,localhost`，否則會走沙盒 proxy。
   - 測圖表：`curl -sSL https://registry.npmjs.org/echarts/-/echarts-5.4.3.tgz | tar xz -C /tmp package/dist/echarts.min.js`，再傳 `--echarts /tmp/package/dist/echarts.min.js`。
-- **不要用 `pkill -f`／`pgrep -f` 關伺服器**：會比對到自己的 shell 指令而中斷 session。改用 `ps -eo pid,args | awk '/StockDashboard.dll/ && !/awk/ {print $1}' | xargs -r kill`。
+- **不要用 `pkill -f`／`pgrep -f` 關伺服器**：會比對到自己的 shell 指令而中斷 session。改用 `ps -eo pid,args | awk '/bin\/Debug\/net8.0\/StockDashboard/ && !/awk/ {print $1}' | xargs -r kill`（`dotnet run` 的程序名稱是 apphost `StockDashboard`，不含 `.dll`，用舊指令會關不掉，造成新版起不來、看到舊畫面）。
 - 測試用的 `appsettings.json` 用完要刪（雖被 gitignore，但會影響之後的啟動）。
 - 使用者說「合併到 main」指的是 `master`（repo 沒有 `main` 分支）。
 
