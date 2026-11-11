@@ -58,44 +58,56 @@
 }
 
 .sidebar-container.collapsed .brand-text {
-    opacity: 0;
-    pointer-events: none;
+    display: none;
 }
 
 .toggle-btn {
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 12px;
-    height: 38px;
-    margin: 0 10px 10px;
-    padding: 0 12px;
+    justify-content: center;
+    padding: 0;
     border: none;
     border-radius: 8px;
     background: none;
-    color: #6b7080;
-    font-size: 0.82rem;
-    white-space: nowrap;
+    color: #8a90a0;
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
 
     .toggle-btn:hover {
-        background-color: rgba(255, 255, 255, 0.05);
-        color: #e6e8ee;
+        background-color: rgba(255, 255, 255, 0.07);
+        color: #ffffff;
     }
 
 .toggle-icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     transition: transform 0.25s ease;
 }
 
-/* 收合時只剩圖示，箭頭反向 (表示可以展開) */
+/* 收合時：標誌在上、按鈕在下，圖示左右翻轉 (箭頭朝右 = 展開) */
+.sidebar-container.collapsed .sidebar-header {
+    height: auto;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 0 12px;
+}
+
 .sidebar-container.collapsed .toggle-btn {
-    justify-content: center;
-    padding: 0;
+    margin-left: 0;
 }
 
 .sidebar-container.collapsed .toggle-icon {
-    transform: rotate(180deg);
+    transform: scaleX(-1);
 }
 
 /* ── 導覽 ── */
