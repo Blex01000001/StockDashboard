@@ -4,7 +4,8 @@ using StockDashboard.Repositories.Interfaces;
 namespace StockDashboard.Services
 {
     /// <summary>日線同步進度 (資料更新頁顯示用)：Index 從 1 開始</summary>
-    public record PriceSyncProgress(int Index, int Total, DateTime Month, int ConsecutiveEmpty, int MaxConsecutiveEmpty);
+    public record PriceSyncProgress(int Index, int Total, DateTime Month, int ConsecutiveEmpty, int MaxConsecutiveEmpty,
+        string StockId = "", int StockIndex = 1, int StockTotal = 1);
 
     /// <summary>日線同步結果</summary>
     public class PriceSyncResult
@@ -20,9 +21,25 @@ namespace StockDashboard.Services
         public DateTime ThisMonth { get; set; }     // 本月 (第一天)，空結果訊息用
     }
 
+    /// <summary>多檔同步中，一檔股票的結果</summary>
+    public record StockPriceSyncOutcome(string StockId, PriceSyncResult Result);
+
+    /// <summary>多檔同步的結果：依序處理的每一檔 (中斷時只有已處理的)</summary>
+    public class MultiPriceSyncResult
+    {
+        public int StocksTotal { get; set; }
+        public List<StockPriceSyncOutcome> Stocks { get; } = new();
+        public bool Cancelled { get; set; }
+        public string? StoppedReason { get; set; }   // 某一檔完全下載失敗 (多半被封鎖) 而中斷整批的原因
+        public int RowsWritten => Stocks.Sum(s => s.Result.RowsWritten);
+    }
+
     public interface IPriceSyncService
     {
         Task<PriceSyncResult> SyncAsync(string stockId, int months, IProgress<PriceSyncProgress>? progress, CancellationToken cancellationToken);
+
+        // 多檔：依序同步每一檔 (每檔各自由本月往前 months 個月)，檔與檔之間也等待請求間隔
+        Task<MultiPriceSyncResult> SyncManyAsync(IReadOnlyList<string> stockIds, int months, IProgress<PriceSyncProgress>? progress, CancellationToken cancellationToken);
     }
 
     /// <summary>
@@ -51,6 +68,41 @@ namespace StockDashboard.Services
             _repository = repository;
             _delayMs = delayMs;
             _today = today;
+        }
+
+        public async Task<MultiPriceSyncResult> SyncManyAsync(IReadOnlyList<string> stockIds, int months, IProgress<PriceSyncProgress>? progress, CancellationToken cancellationToken)
+        {
+            var multi = new MultiPriceSyncResult { StocksTotal = stockIds.Count };
+            for (int i = 0; i < stockIds.Count; i++)
+            {
+                if (cancellationToken.IsCancellationRequested) { multi.Cancelled = true; break; }
+
+                // 檔與檔之間也要等待，避免被證交所封鎖
+                if (i > 0 && _delayMs > 0)
+                {
+                    try { await Task.Delay(_delayMs, cancellationToken); }
+                    catch (OperationCanceledException) { multi.Cancelled = true; break; }
+                }
+
+                string stockId = stockIds[i];
+                var result = await SyncAsync(stockId, months, progress == null ? null : new StockProgress(progress, stockId, i + 1, stockIds.Count), cancellationToken);
+                multi.Stocks.Add(new StockPriceSyncOutcome(stockId, result));
+
+                if (result.Cancelled) { multi.Cancelled = true; break; }
+                // 整檔都下載失敗 (沒抓到任何資料、有錯誤)：多半是被封鎖，不再繼續請求後面的股票
+                if (result.RowsFetched == 0 && result.LastError != null)
+                {
+                    multi.StoppedReason = $"{stockId}：{result.LastError}";
+                    break;
+                }
+            }
+            return multi;
+        }
+
+        // 把單檔的進度補上「第幾檔、代號」再轉送
+        private sealed class StockProgress(IProgress<PriceSyncProgress> inner, string stockId, int index, int total) : IProgress<PriceSyncProgress>
+        {
+            public void Report(PriceSyncProgress value) => inner.Report(value with { StockId = stockId, StockIndex = index, StockTotal = total });
         }
 
         public async Task<PriceSyncResult> SyncAsync(string stockId, int months, IProgress<PriceSyncProgress>? progress, CancellationToken cancellationToken)

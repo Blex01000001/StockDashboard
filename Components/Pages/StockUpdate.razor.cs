@@ -632,13 +632,24 @@ namespace StockDashboard.Components.Pages
         /// </summary>
         public async Task SyncFromApi()
         {
-            if (string.IsNullOrWhiteSpace(BatchStockId))
+            // 允許逗號、空白、頓號分隔多檔 (例如 006208,00981A,00991A)
+            var stockIds = BatchStockId
+                .Split(new[] { ',', '，', '、', ' ', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().ToUpperInvariant())
+                .Distinct()
+                .ToList();
+            if (stockIds.Count == 0)
             {
                 SetStatus("請指定要從 API 同步的股票代號！", true);
                 return;
             }
+            if (stockIds.Count > 1)
+            {
+                await SyncManyFromApi(stockIds);
+                return;
+            }
 
-            string stockId = BatchStockId.Trim();
+            string stockId = stockIds[0];
 
             if (!int.TryParse(SelectedRange, out int totalMonthsToSync))
             {
@@ -685,6 +696,52 @@ namespace StockDashboard.Components.Pages
                 }
 
                 SetStatus(finalStatus, false);
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"大批次同步失敗: {ex.Message}", true);
+            }
+            finally
+            {
+                IsProcessing = false;
+                _priceCts.Dispose();
+                _priceCts = null;
+            }
+        }
+
+        /// <summary>多檔日線同步：依序處理每一檔，最後列出每檔結果；某檔完全失敗 (多半被封鎖) 就中斷整批</summary>
+        private async Task SyncManyFromApi(List<string> stockIds)
+        {
+            if (!int.TryParse(SelectedRange, out int months)) months = 1;
+
+            IsProcessing = true;
+            SetStatus($"開始同步 {stockIds.Count} 檔股票的歷史數據 (設定範圍: {months} 個月)...", false);
+
+            _priceCts = new CancellationTokenSource();
+            try
+            {
+                var progress = new Progress<PriceSyncProgress>(p =>
+                    SetStatus($"[第 {p.StockIndex}/{p.StockTotal} 檔 {p.StockId}] [{p.Index}/{p.Total}] 正在下載 {p.Month:yyyy年MM月} 的資料... (連續無資料: {p.ConsecutiveEmpty}/{p.MaxConsecutiveEmpty})", false));
+                var multi = await PriceSync.SyncManyAsync(stockIds, months, progress, _priceCts.Token);
+
+                var withData = multi.Stocks.Where(s => s.Result.RowsFetched > 0).Select(s => s.StockId).ToList();
+                var noData = multi.Stocks.Where(s => s.Result.RowsFetched == 0 && s.Result.LastError == null).Select(s => s.StockId).ToList();
+
+                string summary = $"完成 {multi.Stocks.Count}/{stockIds.Count} 檔，共更新 {multi.RowsWritten} 筆 K 線資料至 SQLite。";
+                if (noData.Count > 0) summary += $" 證交所沒有資料的代號：{string.Join("、", noData)}（請確認為上市股票 / ETF，或本月尚無交易日）。";
+
+                if (multi.StoppedReason != null)
+                {
+                    SetStatus($"同步中斷：{multi.StoppedReason}。已完成的股票都已存入，稍後再按一次即可（已有的資料會被覆寫為相同內容）。{summary}", true);
+                }
+                else if (multi.Cancelled)
+                {
+                    SetStatus($"已停止。{summary}", false);
+                }
+                else
+                {
+                    SetStatus($"全部更新程序結束。{summary}", false);
+                }
             }
             catch (Exception ex)
             {

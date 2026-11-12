@@ -34,9 +34,9 @@
                 </div>
 
                 <div class="form-group">
-                    <label>指定股票代號</label>
+                    <label>指定股票代號（可多檔，以逗號分隔）</label>
                     <div class="search-box-container">
-                        <input type="text" @bind="BatchStockId" placeholder="例如: 2330" class="dark-input" list="stock-id-options" />
+                        <input type="text" @bind="BatchStockId" placeholder="例如: 2330 或 006208,00981A,00991A" class="dark-input" />
                         <button @onclick="SyncFromApi" class="action-btn" disabled="@IsProcessing">⚡ 執行 API 同步</button>
                     </div>
                 </div>
