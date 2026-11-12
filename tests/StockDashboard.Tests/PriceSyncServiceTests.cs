@@ -224,3 +224,14 @@ public class PriceSyncServiceTests : IDisposable
         public void Report(T value) => _action(value);
     }
 }
+
+public class StockIdParserTests
+{
+    [Theory]
+    [InlineData("006208,00981A,00991A", new[] { "006208", "00981A", "00991A" })]
+    [InlineData(" 2330 ，0050、 00981a ;2330", new[] { "2330", "0050", "00981A" })]   // 全形逗號、頓號、空白、分號；大寫；去重
+    [InlineData("", new string[0])]
+    [InlineData(null, new string[0])]
+    [InlineData(" , ,", new string[0])]
+    public void 拆解股票代號(string? input, string[] expected) => Assert.Equal(expected, StockIdParser.Parse(input));
+}
