@@ -121,6 +121,102 @@ public class PriceSyncServiceTests : IDisposable
         Assert.Equal(2, result.RowsWritten);
     }
 
+    // 多檔用：同一個假證交所依代號決定哪些月份有資料
+    private sealed class FakeTwseByStock : ITwseApiClient
+    {
+        public Dictionary<string, HashSet<DateTime>> MonthsWithData { get; } = new();
+        public HashSet<string> FailStocks { get; } = new();
+        public Action<string, DateTime>? OnCall { get; set; }
+        public List<(string StockId, DateTime Month)> Calls { get; } = new();
+
+        public Task<List<StockDailyPriceEntity>> GetMonthlyPricesAsync(string stockId, DateTime month, CancellationToken ct = default)
+        {
+            Calls.Add((stockId, month));
+            OnCall?.Invoke(stockId, month);
+            if (FailStocks.Contains(stockId)) throw new HttpRequestException("證交所回應 HTTP 403 Forbidden");
+            var list = MonthsWithData.TryGetValue(stockId, out var set) && set.Contains(month)
+                ? new List<StockDailyPriceEntity> { new() { StockId = stockId, TradeDate = month.ToString("yyyy-MM-15"), ClosePrice = 100 } }
+                : new List<StockDailyPriceEntity>();
+            return Task.FromResult(list);
+        }
+
+        public Task<List<InstitutionalDailyEntity>> GetInstitutionalTradingAsync(DateTime date, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<List<InstitutionalDailyEntity>> GetForeignHoldingAsync(DateTime date, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<List<StockNameEntity>> GetListedStocksAsync(CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    private async Task<(PriceSyncService Service, FakeTwseByStock Twse, StockPriceRepository Repo)> InitManyAsync()
+    {
+        await DatabaseInitializer.InitializeAsync(_db.Configuration, NullLogger.Instance);
+        var twse = new FakeTwseByStock();
+        var repo = new StockPriceRepository(_db.Configuration);
+        return (new PriceSyncService(twse, repo, 0, () => Today), twse, repo);
+    }
+
+    [Fact]
+    public async Task 多檔_依序同步每一檔_進度帶股票資訊()
+    {
+        var (service, twse, repo) = await InitManyAsync();
+        twse.MonthsWithData["006208"] = new() { M(2026, 11), M(2026, 10) };
+        twse.MonthsWithData["00981A"] = new() { M(2026, 11) };
+
+        var reports = new List<PriceSyncProgress>();
+        var multi = await service.SyncManyAsync(new[] { "006208", "00981A" }, 2, new SyncProgress<PriceSyncProgress>(reports.Add), CancellationToken.None);
+
+        Assert.Equal(new[] { "006208", "006208", "00981A", "00981A" }, twse.Calls.Select(c => c.StockId));
+        Assert.Equal(new[] { "006208", "00981A" }, multi.Stocks.Select(s => s.StockId));
+        Assert.Equal(3, multi.RowsWritten);
+        Assert.Null(multi.StoppedReason);
+        Assert.False(multi.Cancelled);
+        Assert.Contains(reports, r => r.StockId == "00981A" && r.StockIndex == 2 && r.StockTotal == 2);
+        Assert.Equal(2, (await repo.GetMonthLastDatesAsync("006208")).Count);
+    }
+
+    [Fact]
+    public async Task 多檔_某檔沒有資料但沒有錯誤_繼續下一檔()
+    {
+        var (service, twse, _) = await InitManyAsync();
+        twse.MonthsWithData["00991A"] = new() { M(2026, 11) };   // 006208 完全沒資料 (例如代號不存在)
+
+        var multi = await service.SyncManyAsync(new[] { "006208", "00991A" }, 1, null, CancellationToken.None);
+
+        Assert.Equal(2, multi.Stocks.Count);
+        Assert.Equal(0, multi.Stocks[0].Result.RowsFetched);
+        Assert.Equal(1, multi.Stocks[1].Result.RowsWritten);
+        Assert.Null(multi.StoppedReason);
+    }
+
+    [Fact]
+    public async Task 多檔_某檔完全下載失敗_中斷整批_前面的已寫入()
+    {
+        var (service, twse, repo) = await InitManyAsync();
+        twse.MonthsWithData["006208"] = new() { M(2026, 11) };
+        twse.FailStocks.Add("00981A");
+
+        var multi = await service.SyncManyAsync(new[] { "006208", "00981A", "00991A" }, 1, null, CancellationToken.None);
+
+        Assert.Contains("00981A", multi.StoppedReason);
+        Assert.Contains("403", multi.StoppedReason);
+        Assert.Equal(2, multi.Stocks.Count);                              // 00991A 沒有被處理
+        Assert.DoesNotContain(twse.Calls, c => c.StockId == "00991A");
+        Assert.Single(await repo.GetMonthLastDatesAsync("006208"));
+    }
+
+    [Fact]
+    public async Task 多檔_取消_停止請求()
+    {
+        var (service, twse, _) = await InitManyAsync();
+        twse.MonthsWithData["006208"] = new() { M(2026, 11) };
+        twse.MonthsWithData["00981A"] = new() { M(2026, 11) };
+        using var cts = new CancellationTokenSource();
+        twse.OnCall = (stock, _) => { if (stock == "006208") cts.Cancel(); };
+
+        var multi = await service.SyncManyAsync(new[] { "006208", "00981A" }, 1, null, cts.Token);
+
+        Assert.True(multi.Cancelled);
+        Assert.DoesNotContain(twse.Calls, c => c.StockId == "00981A");
+    }
+
     private sealed class SyncProgress<T> : IProgress<T>
     {
         private readonly Action<T> _action;

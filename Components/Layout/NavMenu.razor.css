@@ -94,12 +94,14 @@
     transition: transform 0.25s ease;
 }
 
-/* 收合時：標誌在上、按鈕在下，圖示左右翻轉 (箭頭朝右 = 展開) */
+/* 收合時：標誌隱藏，只留按鈕 (置中)，圖示左右翻轉 (箭頭朝右 = 展開) */
 .sidebar-container.collapsed .sidebar-header {
-    height: auto;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px 0 12px;
+    justify-content: center;
+    padding: 0;
+}
+
+.sidebar-container.collapsed .brand-mark {
+    display: none;
 }
 
 .sidebar-container.collapsed .toggle-btn {
