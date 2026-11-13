@@ -77,6 +77,21 @@
         min-width: 200px;
     }
 
+.search-input-group.adj-group {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.adj-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
 .input-label {
     font-size: 0.85rem;
     color: var(--text-secondary);
