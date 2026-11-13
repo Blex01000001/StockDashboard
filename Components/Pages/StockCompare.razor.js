@@ -1,5 +1,14 @@
 ﻿// StockCompare.razor.js
 
+// 使用者設定的預設股票代號：存在瀏覽器 localStorage (只在這台電腦的這個瀏覽器有效；讀寫失敗時安靜略過)
+export function loadDefaultIds(key) {
+    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+}
+
+export function saveDefaultIds(key, value) {
+    try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+}
+
 export function renderCompareChart(containerId, chartData) {
     const chartDom = document.getElementById(containerId);
     if (!chartDom) return;

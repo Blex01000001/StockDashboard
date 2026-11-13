@@ -14,13 +14,14 @@
 | `Components/AssetVersion.cs` | 靜態檔版本號（MVID）；頁面 JS 模組用 `AssetVersion.Module(path)` 載入 | |
 | `Components/Layout/NavMenu.razor` | 側邊欄：品牌標誌（SVG）、分組標題（資料／分析）、線條 SVG 圖示、底部「本機模式」狀態；連結順序：API 資料更新、K線技術圖表、K線型態掃描、多檔績效比較；可收合（收合時標誌隱藏，只留圖示與切換按鈕） | 新增頁面時加連結（含 SVG 圖示） |
 | `Components/Pages/StockChart.*` | `/stock-chart` 技術圖表：K 線＋均線＋附圖（同型態掃描），寬度隨容器（`ResizeObserver`），顯示筆數可選，可縮放；`?id=&date=` 開啟並標示型態日（型態掃描小卡「技術圖表」連結）；狀態在 Scoped `StockChartState` | 圖表設定改 `.razor.js` |
-| `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率 | 圖表設定改 `.razor.js` |
+| `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率；「更新並比較」先用 `PriceSyncService.SyncManyAsync` 更新輸入代號近三個月日線再比較（更新失敗仍用現有資料比較並提示）；「設為預設」把股票代號存在瀏覽器 localStorage（`stockCompare.defaultIds`，只在這個瀏覽器有效），開頁自動帶入 | 圖表設定改 `.razor.js` |
 | `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`）；「產業別」下拉選了會把該產業全部代號帶入股票清單（`IIndustryRepository`） | 小卡與預覽圖改 `.razor.js` |
 | `Components/Pages/StockUpdate.*` | `/stock-update` 依來源分框（`.source-group`）：證交所（日線逐月、三大法人逐日、股票清單）、FinMind（個股多年三大法人）；卡片標題下列 API 簡短網址 | 同步流程、錯誤訊息 |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Components/Shared/ChartDisplayOptions.razor` | 附圖勾選、指標參數（`IndicatorGroups`）、均線勾選；型態掃描與技術圖表共用，改動後 `OnChanged(指標是否改變)`；`Framed`（技術圖表頁）= 單一設定面板（附圖／均線各一列；MACD、KD、RSI、布林通道的參數直接放在各自的勾選框旁，框成一組、勾選才亮起，輸入框窄、按鈕只寫「預設」，沒有獨立的指標參數區），否則（型態掃描頁）指標參數收折；勾選標記由 `SubChartToggles`／`MovingAverageToggles` 兩種版面共用 | 新增附圖／指標參數 |
 | `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
 | `Services/TwseApiClient.cs` | 證交所 API 呼叫與資料清洗（民國年、千分號）；T86／MI_QFIIS 依欄位名稱取值 | 證交所格式改變時 |
+| `Services/StockIdParser.cs` | 股票代號輸入拆解（逗號、全形逗號、頓號、空白、分號；轉大寫、去重）；`/stock-compare` 使用 | |
 | `Services/PriceSyncService.cs` | 個股日線逐月同步（由本月往前、連續 3 個月無資料中斷、請求間隔 `Twse:RequestDelayMs`、可取消、進度回報），最後一次寫入 `StockDailyPrice`；`SyncManyAsync` 多檔依序同步（`/stock-update` 日線卡片可輸入 `006208,00981A` 這樣的多檔；某檔完全下載失敗即中斷整批） | |
 | `Services/IndustryPriceSyncService.cs` | 依產業別（`StockList` 的「產業別」代碼，例如 24）批次同步日線：每檔由本月往前逐月抓到上市日（最多 480 個月）；可續跑（已完整月份〔最後交易日 ≥ 25 號且早於本月〕不重抓、`PriceSyncLog` 記錄已追溯到上市日）；任何下載錯誤立即停止整批（不當成沒資料）；間隔 `Twse:BatchRequestDelayMs`（預設 3 秒）；每檔抓完即寫入；`maxMonths` 可限制每檔往前幾個月（頁面有「近三個月」按鈕） | |
 | `Services/IndustryPriceSyncRunner.cs` | 上面服務的背景執行者（**Singleton**，`Task.Run`，不綁頁面／連線；關閉分頁也繼續跑，網站程式關掉才中止）；`/stock-update` 訂閱 `Changed` 顯示進度 | |

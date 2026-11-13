@@ -40,8 +40,14 @@
         </div>
 
         <div class="search-action-group">
-            <button @onclick="CompareStocks" class="action-btn">
+            <button @onclick="CompareStocks" class="action-btn" disabled="@IsBusy">
                 <span class="btn-icon">⚡</span> 開始比較
+            </button>
+            <button @onclick="UpdateAndCompare" class="action-btn" disabled="@IsBusy" title="先更新這些股票近三個月的日線 (等同日線批次同步)，再比較">
+                <span class="btn-icon">🔄</span> 更新並比較
+            </button>
+            <button @onclick="SaveDefaultIds" class="action-btn secondary" disabled="@IsBusy" title="把目前輸入的股票代號存成預設，下次開啟頁面時自動帶入 (存在這個瀏覽器)">
+                <span class="btn-icon">💾</span> 設為預設
             </button>
         </div>
     </div>

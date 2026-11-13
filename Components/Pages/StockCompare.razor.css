@@ -127,11 +127,12 @@
 
 /* 按鈕樣式優化 */
 .search-action-group {
-    min-width: 140px;
+    display: flex;
+    gap: 8px;
 }
 
 .action-btn {
-    width: 100%;
+    white-space: nowrap;
     background-color: var(--accent-color);
     color: #ffffff;
     border: none;
@@ -150,6 +151,25 @@
     .action-btn:hover {
         background-color: var(--accent-hover);
     }
+
+    .action-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* 次要按鈕 (設為預設)：透明底、細邊框，不搶主要按鈕 */
+    .action-btn.secondary {
+        background-color: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+        font-weight: 500;
+    }
+
+        .action-btn.secondary:hover {
+            background-color: transparent;
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
 
 /* 警告提示區 */
 .alert-box {
