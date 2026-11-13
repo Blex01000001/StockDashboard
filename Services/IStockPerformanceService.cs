@@ -4,6 +4,6 @@ namespace StockDashboard.Services
 {
     public interface IStockPerformanceService
     {
-        Task<CompareChartResult> GetCompareChartDataAsync(List<string> stockIds, int days, int rangeDay = 660);
+        Task<CompareChartResult> GetCompareChartDataAsync(List<string> stockIds, int days, int rangeDay = 660, bool adjusted = false);
     }
 }

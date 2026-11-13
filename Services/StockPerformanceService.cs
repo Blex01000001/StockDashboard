@@ -1,4 +1,5 @@
 ﻿using StockDashboard.Models;
+using StockDashboard.Models.Entities;
 using StockDashboard.Repositories;
 using StockDashboard.Repositories.Interfaces;
 
@@ -10,16 +11,21 @@ namespace StockDashboard.Services
         private readonly IStockNameRepository _stockNameRepository;
 
         // 建構子注入 Repository
-        public StockPerformanceService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository)
+        private readonly IStockCorporateActionRepository? _actionRepository;
+
+        public StockPerformanceService(IStockPriceRepository priceRepository, IStockNameRepository stockNameRepository,
+            IStockCorporateActionRepository? actionRepository = null)
         {
             _priceRepository = priceRepository;
             _stockNameRepository = stockNameRepository;
+            _actionRepository = actionRepository;
         }
 
         /// <param name="stockIds">要比較的股票代號</param>
         /// <param name="days">報酬區間：往前比較幾個「交易日」(以所有股票聯集後的時間軸計算)</param>
         /// <param name="rangeDay">從資料庫撈取的日曆天數範圍</param>
-        public async Task<CompareChartResult> GetCompareChartDataAsync(List<string> stockIds, int days, int rangeDay = 660)
+        /// <param name="adjusted">true 時先依除權息事件還原收盤價再算報酬率 (公式不變，只換成還原後的價格)</param>
+        public async Task<CompareChartResult> GetCompareChartDataAsync(List<string> stockIds, int days, int rangeDay = 660, bool adjusted = false)
         {
             var result = new CompareChartResult();
 
@@ -30,6 +36,18 @@ namespace StockDashboard.Services
             // 呼叫 Repository 獲取資料
             var rawRows = await _priceRepository.GetMultipleHistoricalPricesAsync(stockIds, startDate, endDate);
             var rawRowsList = rawRows.ToList();
+
+            // 還原：事件要取完整歷史 (含查詢區間之後的除權息)，逐檔套用
+            if (adjusted && _actionRepository != null && rawRowsList.Count > 0)
+            {
+                var adjustedRows = new List<StockDailyPriceEntity>();
+                foreach (var g in rawRowsList.GroupBy(r => r.StockId))
+                {
+                    var actions = await _actionRepository.GetByStockIdAsync(g.Key);
+                    adjustedRows.AddRange(PriceAdjuster.Apply(g, actions));
+                }
+                rawRowsList = adjustedRows;
+            }
 
             if (!rawRowsList.Any()) return result;
 

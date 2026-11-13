@@ -39,6 +39,13 @@
             </div>
         </div>
 
+        <div class="search-input-group adj-group">
+            <label class="adj-toggle" title="依除權息資料還原收盤價再算報酬率；需先到「API 資料更新」同步除權除息，未同步的股票不會還原">
+                <input type="checkbox" @bind="Adjusted" />
+                <span>還原股價</span>
+            </label>
+        </div>
+
         <div class="search-action-group">
             <button @onclick="CompareStocks" class="action-btn" disabled="@IsBusy">
                 <span class="btn-icon">⚡</span> 開始比較

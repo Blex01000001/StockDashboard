@@ -112,4 +112,27 @@ public class StockPerformanceServiceTests
         Assert.Empty(result.Timeline);
         Assert.Empty(result.SeriesData);
     }
+
+    private sealed class FakeActionRepository(params StockCorporateActionEntity[] rows) : IStockCorporateActionRepository
+    {
+        public Task<IEnumerable<StockCorporateActionEntity>> GetByStockIdAsync(string stockId) =>
+            Task.FromResult(rows.Where(r => r.StockId == stockId));
+        public Task<int> UpsertAsync(IEnumerable<StockCorporateActionEntity> r) => throw new NotSupportedException();
+        public Task<(int Stocks, int Events)> GetSummaryAsync() => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task 還原股價時除息前的收盤價乘上係數再算報酬率()
+    {
+        // 100 → 除息日參考價 90（前收 100）：原始價報酬 -10%，還原後 0%
+        var prices = new FakePriceRepository(P("A", "2024-01-02", 100), P("A", "2024-01-03", 90));
+        var actions = new FakeActionRepository(new StockCorporateActionEntity { StockId = "A", ExDate = "2024-01-03", PreClose = 100, RefPrice = 90 });
+        var service = new StockPerformanceService(prices, new FakeNameRepository(new()), actions);
+
+        var raw = await service.GetCompareChartDataAsync(new() { "A" }, days: 1);
+        var adj = await service.GetCompareChartDataAsync(new() { "A" }, days: 1, adjusted: true);
+
+        Assert.Equal(-10, raw.SeriesData[0].Data[1]);
+        Assert.Equal(0, adj.SeriesData[0].Data[1]);
+    }
 }

@@ -30,6 +30,7 @@ namespace StockDashboard.Components.Pages
         // 前端繫結變數
         public string StockIdsInput { get; set; } = FallbackIds;
         public int SelectedDays { get; set; } = 20;
+        public bool Adjusted { get; set; }   // 是否用還原股價算報酬率
         public string Message { get; set; } = string.Empty;
         public bool IsBusy { get; private set; }
         private bool _isLoading = false;
@@ -146,7 +147,7 @@ namespace StockDashboard.Components.Pages
                 }
 
                 // 2. 將核心運算交給 Service，UI 層只負責接收結果
-                var chartData = await CompareService.GetCompareChartDataAsync(stockIds, SelectedDays);
+                var chartData = await CompareService.GetCompareChartDataAsync(stockIds, SelectedDays, adjusted: Adjusted);
 
                 if (chartData == null || !chartData.SeriesData.Any())
                 {
