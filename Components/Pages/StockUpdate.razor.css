@@ -1,18 +1,20 @@
-.update-grid {
+/* 卡片都在子元件 (Components/UpdateSources/) 裡，scoped CSS 必須用 ::deep 才套得到 */
+
+.dashboard-panel ::deep .update-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     margin-top: 20px;
 }
 
-.card-box {
+.dashboard-panel ::deep .card-box {
     background-color: #272c3a;   /* 比面板底色 (--bg-card) 亮一階，讓各來源的小卡與背景分得出來 */
     border: 1px solid #383e50;
     border-radius: 6px;
     padding: 20px;
 }
 
-.card-title {
+.dashboard-panel ::deep .card-title {
     margin-top: 0;
     margin-bottom: 16px;
     font-size: 1rem;
@@ -21,30 +23,30 @@
     padding-left: 8px;
 }
 
-.form-group {
+.dashboard-panel ::deep .form-group {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-bottom: 12px;
 }
 
-    .form-group label {
+    .dashboard-panel ::deep .form-group label {
         font-size: 0.8rem;
         color: var(--text-muted);
     }
 
-.w-100 {
+.dashboard-panel ::deep .w-100 {
     width: 100%;
     box-sizing: border-box;
 }
 
-.description {
+.dashboard-panel ::deep .description {
     font-size: 0.85rem;
     color: var(--text-muted);
     line-height: 1.5;
 }
 
-.code-tag {
+.dashboard-panel ::deep .code-tag {
     background-color: #232733;
     color: #ff79c6;
     padding: 2px 6px;
@@ -52,20 +54,20 @@
     font-family: monospace;
 }
 
-.status-box {
+.dashboard-panel ::deep .status-box {
     margin-top: 15px;
     padding: 12px;
     border-radius: 4px;
     font-size: 0.85rem;
 }
 
-    .status-box.success {
+    .dashboard-panel ::deep .status-box.success {
         background-color: #1e2d24;
         border: 1px solid #26a69a;
         color: #26a69a;
     }
 
-    .status-box.error {
+    .dashboard-panel ::deep .status-box.error {
         background-color: #2d1e22;
         border: 1px solid #ef5350;
         color: #ef5350;
@@ -75,69 +77,69 @@
  * 本頁的輸入框沒有放大鏡圖示，且需撐滿欄寬，因此覆寫 app.css 中 .panel-standard .dark-input 的 padding 與寬度
  * (scoped CSS 會多一個 [b-xxx] 屬性，權重較高，所以這裡的規則會生效)
  */
-.card-box .dark-input {
+.dashboard-panel ::deep .card-box .dark-input {
     width: 100%;
     box-sizing: border-box;
     padding: 10px;
     color-scheme: dark; /* 讓下拉選單、數字輸入框的微調按鈕也使用深色外觀 */
 }
 
-.card-box .search-box-container {
+.dashboard-panel ::deep .card-box .search-box-container {
     margin-bottom: 0;
 }
 
-    .card-box .search-box-container .action-btn {
+    .dashboard-panel ::deep .card-box .search-box-container .action-btn {
         flex-shrink: 0;
         white-space: nowrap;
     }
 
 /* 股票清單卡片：橫跨整列 */
-.card-wide {
+.dashboard-panel ::deep .card-wide {
     grid-column: 1 / -1;
 }
 
-.list-sync-row {
+.dashboard-panel ::deep .list-sync-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
 }
 
-    .list-sync-row .list-summary {
+    .dashboard-panel ::deep .list-sync-row .list-summary {
         margin: 0;
     }
 
-    .list-sync-row .action-btn {
+    .dashboard-panel ::deep .list-sync-row .action-btn {
         padding: 10px 20px;
         flex-shrink: 0;
     }
 
-.list-sync-row.industry-row {
+.dashboard-panel ::deep .list-sync-row.industry-row {
     justify-content: flex-start;   /* 下拉選單與按鈕靠在一起，不要被 space-between 拉開 */
 }
 
-.list-sync-row .btn-group {
+.dashboard-panel ::deep .list-sync-row .btn-group {
     display: flex;
     gap: 8px;
     flex-shrink: 0;
 }
 
 /* 產業別下拉選單：依內容寬度，不撐滿整欄 (會擋視線) */
-.card-box .dark-input.industry-select {
+.dashboard-panel ::deep .card-box .dark-input.industry-select {
     width: auto;
     flex: 0 0 auto;
     min-width: 180px;
     max-width: 240px;
 }
 
-.list-sync-row .btn-pair {
+.dashboard-panel ::deep .list-sync-row .btn-pair {
     display: flex;
     gap: 8px;
     flex-shrink: 0;
 }
 
 /* 輔助按鈕 (開啟 appsettings.json / 資料夾)：比主要的同步按鈕小、色調淡，不搶眼 */
-.list-sync-row .btn-pair .action-btn {
+.dashboard-panel ::deep .list-sync-row .btn-pair .action-btn {
     padding: 5px 10px;
     font-size: 0.75rem;
     font-weight: 400;
@@ -146,7 +148,7 @@
     border: 1px solid var(--border-color);
 }
 
-    .list-sync-row .btn-pair .action-btn:hover {
+    .dashboard-panel ::deep .list-sync-row .btn-pair .action-btn:hover {
         background-color: transparent;
         color: var(--text-main);
         border-color: var(--text-muted);
@@ -154,52 +156,52 @@
 
 /* ── 依資料來源分組的外框 ── */
 /* 停止按鈕：紅色，避免誤按 (覆寫全域 .panel-standard .action-btn 的藍色) */
-.card-box .action-btn.stop-btn {
+.dashboard-panel ::deep .card-box .action-btn.stop-btn {
     background-color: #d32f2f;
 }
 
-    .card-box .action-btn.stop-btn:hover {
+    .dashboard-panel ::deep .card-box .action-btn.stop-btn:hover {
         background-color: #b71c1c;
     }
 
-.source-group {
+.dashboard-panel ::deep .source-group {
     margin-top: 20px;
     padding: 14px 18px 18px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
 }
 
-.source-header {
+.dashboard-panel ::deep .source-header {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
     gap: 12px;
 }
 
-.source-name {
+.dashboard-panel ::deep .source-name {
     font-size: 0.95rem;
     font-weight: 600;
     color: #ffffff;
 }
 
-.source-note {
+.dashboard-panel ::deep .source-note {
     font-size: 0.8rem;
     color: var(--text-muted);
 }
 
-.source-group .update-grid {
+.dashboard-panel ::deep .source-group .update-grid {
     margin-top: 14px;
 }
 
 /* 卡片標題下方的 API 簡短網址 */
-.api-url {
+.dashboard-panel ::deep .api-url {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     margin: -8px 0 4px;
 }
 
-    .api-url code {
+    .dashboard-panel ::deep .api-url code {
         font-size: 0.75rem;
         color: var(--text-muted);
         background-color: #232733;
@@ -208,11 +210,11 @@
         word-break: break-all;
     }
 
-.summary-line {
+.dashboard-panel ::deep .summary-line {
     margin: 4px 0 0;
 }
 
-.full-reload {
+.dashboard-panel ::deep .full-reload {
     display: inline-flex;
     align-items: center;
     gap: 6px;

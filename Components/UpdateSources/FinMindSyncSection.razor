@@ -1,0 +1,118 @@
+@* FinMind：個股多年三大法人、除權除息 *@
+<section class="source-group">
+    <div class="source-header">
+        <span class="source-name">📦 FinMind</span>
+        <span class="source-note">一次一檔、整段期間（三大法人 2012-05-02 起、除權息 2003 年起）；匿名使用，IP 被封鎖時立即停止</span>
+    </div>
+
+    <div class="update-grid">
+        <div class="card-box card-wide">
+            <h3 class="card-title">🏦 三大法人（個股，多年）</h3>
+            <div class="api-url">
+                <code>api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell</code>
+                <code>api.finmindtrade.com/api/v4/data?dataset=TaiwanStockShareholding</code>
+            </div>
+            <p class="description">
+                每檔股票兩個請求（買賣超、外資持股），寫入與證交所相同的 <code class="code-tag">InstitutionalDaily</code>。
+                第一次從 2012-05-02 抓到今天；之後只從上次同步日往前 @StockDashboard.Services.FinMindSyncService.OverlapDays 天開始補。
+            </p>
+
+            <div class="form-group">
+                <label>股票代號（可多檔，以逗號分隔）</label>
+                <div class="search-box-container">
+                    <input type="text" @bind="FinMindStockIds" placeholder="例如: 2330,0050" class="dark-input" disabled="@IsSyncingFinMind" />
+                    @if (IsSyncingFinMind)
+                    {
+                        <button @onclick="StopFinMindSync" class="action-btn stop-btn">⏹ 停止</button>
+                    }
+                    else
+                    {
+                        <button @onclick="SyncFinMind" class="action-btn">🔄 同步三大法人</button>
+                    }
+                </div>
+            </div>
+
+            @* 依產業別：選產業後把該產業全部代號帶入上面的輸入框並開始同步 (每檔 2 個請求，檔數多時可能達 FinMind 匿名額度而自動停止，再按一次會接著補) *@
+            <div class="form-group">
+                <label>或依產業別同步</label>
+                <div class="search-box-container">
+                    <select @bind="FinMindIndustry" class="dark-input industry-select" disabled="@IsSyncingFinMind">
+                        <option value="">請選擇產業別</option>
+                        @foreach (var industry in Industries)
+                        {
+                            <option value="@industry.Code">@industry.Label</option>
+                        }
+                    </select>
+                    <button @onclick="SyncFinMindByIndustry" class="action-btn" disabled="@IsSyncingFinMind">🏭 依產業別同步</button>
+                </div>
+            </div>
+
+            <label class="description full-reload">
+                <input type="checkbox" @bind="FinMindFullReload" disabled="@IsSyncingFinMind" />
+                重新完整下載（忽略同步紀錄，從 2012-05-02 起）
+            </label>
+
+            <p class="description summary-line">已用 FinMind 同步過：<b>@FinMindSyncedCount</b> 檔</p>
+
+            @if (!string.IsNullOrEmpty(FinMindStatusMessage))
+            {
+                <div class="status-box @(FinMindIsError ? "error" : "success")">
+                    @FinMindStatusMessage
+                </div>
+            }
+        </div>
+
+        <div class="card-box card-wide">
+            <h3 class="card-title">✂️ 除權除息（還原股價用）</h3>
+            <div class="api-url">
+                <code>api.finmindtrade.com/api/v4/data?dataset=TaiwanStockDividendResult</code>
+            </div>
+            <p class="description">
+                每檔股票一個請求，取回 2003 年起的除權息前收盤與參考價，存入 <code class="code-tag">StockExRightEvent</code>。
+                目前只存資料，圖表與型態掃描尚未使用。
+            </p>
+
+            <div class="form-group">
+                <label>股票代號（可多檔，以逗號分隔）</label>
+                <div class="search-box-container">
+                    <input type="text" @bind="ActionStockIds" placeholder="例如: 2330,0050" class="dark-input" disabled="@IsSyncingAction" />
+                    @if (IsSyncingAction)
+                    {
+                        <button @onclick="StopActionSync" class="action-btn stop-btn">⏹ 停止</button>
+                    }
+                    else
+                    {
+                        <button @onclick="SyncActions" class="action-btn">🔄 同步除權除息</button>
+                    }
+                </div>
+            </div>
+
+            @* 依產業別：選產業後把該產業全部代號帶入上面的輸入框並開始同步 (每檔 1 個請求) *@
+            <div class="form-group">
+                <label>或依產業別同步</label>
+                <div class="search-box-container">
+                    <select @bind="ActionIndustry" class="dark-input industry-select" disabled="@IsSyncingAction">
+                        <option value="">請選擇產業別</option>
+                        @foreach (var industry in Industries)
+                        {
+                            <option value="@industry.Code">@industry.Label</option>
+                        }
+                    </select>
+                    <button @onclick="SyncActionsByIndustry" class="action-btn" disabled="@IsSyncingAction">🏭 依產業別同步</button>
+                </div>
+            </div>
+
+            @if (ActionSummary is { Events: > 0 })
+            {
+                <p class="description summary-line">已有 <b>@ActionSummary.Value.Stocks</b> 檔、<b>@ActionSummary.Value.Events</b> 筆除權息事件</p>
+            }
+
+            @if (!string.IsNullOrEmpty(ActionStatusMessage))
+            {
+                <div class="status-box @(ActionIsError ? "error" : "success")">
+                    @ActionStatusMessage
+                </div>
+            }
+        </div>
+    </div>
+</section>

@@ -52,7 +52,7 @@ const STATES = [
   ['m_focus', async p => { await p.focus('.dashboard-panel select'); }],
   ['u_init', async p => { await go(p, 'stock-update'); }],
   ['u_error', async p => { const c = p.locator('.card-box').nth(0); await c.locator('input').fill(''); await c.locator('button').click(); await p.waitForTimeout(600); }],
-  ['u_finmind_error', async p => { const c = p.locator('.card-box').nth(3); await c.locator('input[type=text]').fill(''); await c.locator('button').click(); await p.waitForTimeout(600); }],
+  ['u_finmind_error', async p => { const c = p.locator('.card-box', { hasText: '三大法人（個股' }); await c.locator('input[type=text]').fill(''); await c.locator('button').first().click(); await p.waitForTimeout(600); }],
   ['p_init', async p => { await go(p, 'pattern-scan'); }],
   ['p_param', async p => { await p.locator('label.param:has-text("當天實體") input').fill('3'); await p.waitForTimeout(500); }],
   ['p_result', async p => { await p.locator('label.param:has-text("當天實體") input').fill('1'); await p.fill('.stock-list-input', '2330,0050'); await p.click('.scan-btn'); await p.waitForTimeout(2000); }],

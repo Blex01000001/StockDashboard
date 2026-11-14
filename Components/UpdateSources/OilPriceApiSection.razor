@@ -1,0 +1,49 @@
+@* oilpriceapi.com：Brent 原油當日均價 *@
+<section class="source-group">
+    <div class="source-header">
+        <span class="source-name">🛢️ oilpriceapi.com</span>
+        <span class="source-note">Brent 原油；需 API Key（設定 OilPrice:ApiKey）；免費方案每天 50 次</span>
+    </div>
+
+    <div class="update-grid">
+        <div class="card-box card-wide">
+            <h3 class="card-title">🛢️ 原油價格（Brent）</h3>
+            <div class="api-url"><code>api.oilpriceapi.com/v1/prices/past_year?by_code=BRENT_CRUDE_USD</code></div>
+            <p class="description">
+                一次請求取回最近一年的每日價格（當日均價，美元 / 桶），存入 <code class="code-tag">OilPriceDaily</code>，
+                供型態掃描與技術圖表的「原油」附圖使用。來源只提供一年，更早的資料靠每次同步慢慢累積（已存的不會刪）。
+                附圖上每個交易日顯示的是「當天之前」最近一筆價格。
+            </p>
+
+            <div class="list-sync-row">
+                <span class="description list-summary">
+                    @if (OilSummary is { Days: > 0 })
+                    {
+                        <span>已有 <b>@OilSummary.Value.Days</b> 天（@OilSummary.Value.FirstDate ~ @OilSummary.Value.LastDate）</span>
+                    }
+                    else
+                    {
+                        <span>尚未同步</span>
+                    }
+                </span>
+                <button @onclick="SyncOil" class="action-btn" disabled="@IsSyncingOil">🔄 同步原油價格</button>
+            </div>
+
+            @* API Key 要寫在 appsettings.json：這裡直接開啟設定檔或所在資料夾 (開在執行網站的這台電腦) *@
+            <div class="list-sync-row">
+                <span class="description list-summary">API Key 設定檔：<code class="code-tag">@PathOpener.SettingsFilePath</code></span>
+                <span class="btn-pair">
+                    <button @onclick="OpenSettingsFile" class="action-btn">📝 開啟 appsettings.json</button>
+                    <button @onclick="OpenSettingsFolder" class="action-btn">📂 開啟資料夾</button>
+                </span>
+            </div>
+
+            @if (!string.IsNullOrEmpty(OilStatusMessage))
+            {
+                <div class="status-box @(OilIsError ? "error" : "success")">
+                    @OilStatusMessage
+                </div>
+            }
+        </div>
+    </div>
+</section>
