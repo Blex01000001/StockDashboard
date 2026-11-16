@@ -13,7 +13,7 @@
 
 ## 目錄
 
-- `Program.cs`：DI 註冊、啟動流程。`Components/Pages/X.razor(.cs/.css/.js)`：四個頁面 `StockUpdate`（`/stock-update` 資料同步）、`StockChart`（`/stock-chart` 技術圖表）、`PatternScan`（`/pattern-scan` 型態掃描）、`StockCompare`（`/stock-compare` 多檔報酬比較）。`Components/Shared/ChartDisplayOptions.razor`：附圖／均線／指標設定（兩個圖表頁共用）。
+- `Program.cs`：DI 註冊、啟動流程。`Components/Pages/X.razor(.cs/.css/.js)`：四個頁面 `StockUpdate`（`/stock-update` 資料同步，每個來源一個元件在 `Components/UpdateSources/`）、`StockChart`（`/stock-chart` 技術圖表）、`PatternScan`（`/pattern-scan` 型態掃描）、`StockCompare`（`/stock-compare` 多檔報酬比較）。`Components/Shared/ChartDisplayOptions.razor`：附圖／均線／指標設定（兩個圖表頁共用）。
 - `Services/`：`*ApiClient`（外部 API：證交所、FinMind、Yahoo、oilpriceapi）、`*SyncService`（同步寫入）、`PatternScanService`／`StockChartService`／`StockPerformanceService`（計算）、`Patterns/`（K 線型態與技術指標）、`PriceAdjuster`（還原股價）、`*State`（Scoped 畫面狀態）。
 - `Repositories/`：所有 SQL 都在這裡（介面 `Interfaces/`、實作 `Implements/`）；Schema 在 `DatabaseInitializer.cs`。
 - `wwwroot/js/candle-chart.js`：共用繪圖（附圖定義 `SUB_CHARTS`、`buildStackedOption`）；`wwwroot/app.css`：全域樣式。

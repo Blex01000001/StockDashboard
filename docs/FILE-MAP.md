@@ -12,7 +12,9 @@
 | `Components/Pages/StockChart.*` | `/stock-chart` 技術圖表：K 線＋均線＋附圖（同型態掃描），寬度隨容器（`ResizeObserver`），顯示筆數可選，可縮放；`?id=&date=` 開啟並標示型態日（型態掃描小卡「技術圖表」連結）；狀態在 Scoped `StockChartState` | 圖表設定改 `.razor.js` |
 | `Components/Pages/StockCompare.*` | `/stock-compare` 多檔 N 日滾動報酬率；「更新並比較」先用 `PriceSyncService.SyncManyAsync` 更新輸入代號近三個月日線再比較（更新失敗仍用現有資料比較並提示）；「設為預設」把股票代號存在瀏覽器 localStorage（`stockCompare.defaultIds`，只在這個瀏覽器有效），開頁自動帶入 | 圖表設定改 `.razor.js` |
 | `Components/Pages/PatternScan.*` | `/pattern-scan` 型態掃描：控制列（設定／參數／範例預覽）＋分頁小卡；參數輸入框依型態定義自動產生，勾選參數與其 `EnabledBy` 附屬數值自動框成一組（`PatternParameterLayout`）；「產業別」下拉選了會把該產業全部代號帶入股票清單（`IIndustryRepository`） | 小卡與預覽圖改 `.razor.js` |
-| `Components/Pages/StockUpdate.*` | `/stock-update` 依來源分框（`.source-group`）：證交所（日線逐月、三大法人逐日、股票清單）、FinMind（個股多年三大法人）；卡片標題下列 API 簡短網址 | 同步流程、錯誤訊息 |
+| `Components/Pages/StockUpdate.razor(.css)` | `/stock-update` 外殼：只放四個來源元件；**所有卡片樣式都在這個 `.razor.css`，以 `.dashboard-panel ::deep` 開頭**才套得到子元件 | 新增來源時加一個元件 |
+| `Components/UpdateSources/*Section.razor(.cs)` | `/stock-update` 每個來源一個元件（`<section class="source-group">`）：`TwseSyncSection`（日線單檔／多檔、三大法人逐日、股票清單、依產業別批次同步）、`FinMindSyncSection`（個股多年三大法人、除權除息）、`OilPriceApiSection`（Brent 均價、開啟 appsettings.json）、`YahooFinanceSection`（費半、BZ=F）；離開頁面時各自取消進行中的同步 | 同步流程、錯誤訊息 |
+| `Components/UpdateSources/SyncUi.cs` | 上面元件共用：停止確認視窗、產業別清單／代號讀取、同步式進度回報 `SyncUi.Progress<T>` | |
 | `Components/Shared/StockIdDataList.razor` | 股票代號自動完成 `<datalist>` | |
 | `Components/Shared/ChartDisplayOptions.razor` | 附圖勾選、指標參數（`IndicatorGroups`）、均線勾選；型態掃描與技術圖表共用，改動後 `OnChanged(指標是否改變)`；`Framed`（技術圖表頁）= 單一設定面板（附圖／均線各一列；MACD、KD、RSI、布林通道的參數直接放在各自的勾選框旁，框成一組、勾選才亮起，輸入框窄、按鈕只寫「預設」，沒有獨立的指標參數區），否則（型態掃描頁）指標參數收折；勾選標記由 `SubChartToggles`／`MovingAverageToggles` 兩種版面共用 | 新增附圖／指標參數 |
 | `wwwroot/js/candle-chart.js` | 共用繪圖：`SUB_CHARTS`（附圖定義）、`MA_LINES`、`buildStackedOption`（K 線＋附圖堆疊）；頁面 `.razor.js` 以 `await import(... + import.meta.url 的 ?v=)` 載入 | 附圖外觀、新增附圖 |
